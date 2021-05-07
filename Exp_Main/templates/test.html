@@ -1,0 +1,42 @@
+{% extends 'main/base.html' %}
+{% load static %}
+{% block content %}
+    <video width='320' height= '240' controls>
+        <source src="{% static '01_Experimental/02_Experiments/01_Main_Exp/02_Liquid_Exp/02_Condensation/20200204/182339/DSC_0382.MOV' type='video/mov' %}">
+        Your browser does not support the video tag.
+    </video>
+    <a target="_blank" rel="noopener noreferrer" href= "{% static '01_Experimental\02_Experiments\01_Main_Exp\02_Liquid_Exp\01_OCA_35_XL\01_Messdaten\20190424\Probe_PA_03\174530_10mulmitv0,5mulpros.seq' %}">Title of local file</a>
+    <a target="_blank" rel="noopener noreferrer" href= "{% static '01_Experimental/02_Experiments/01_Main_Exp/02_Liquid_Exp/02_Condensation/20200204/182339/DSC_0382.MOV' type='video/mov' %}">Title of local file</a>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" name="run_script">Run script</button>
+    </form>
+{% endblock content %}
+
+{% block extrascripts %}
+  <script type="text/javascript">
+    $(function () {
+
+      // Create book button
+      $(".create-book").each(function () {
+        $(this).modalForm({formURL: $(this).data('id')});
+      });
+
+      // Update book buttons
+      $(".update-book").each(function () {
+        $(this).modalForm({formURL: $(this).data('id')});
+      });
+
+      // Read book buttons
+      $(".read-book").each(function () {
+        $(this).modalForm({formURL: $(this).data('id')});
+      });
+
+      // Delete book buttons
+      $(".delete-book").each(function () {
+        $(this).modalForm({formURL: $(this).data('id')});
+      })
+
+    });
+  </script>
+{% endblock extrascripts %}

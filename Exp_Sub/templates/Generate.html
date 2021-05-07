@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block content %}
+<form method="post">
+    {% csrf_token %}
+    <button type="submit" name="Generate_Names">Generate Names</button>
+    <button type="submit" name="Generate_Entries">Generate entries</button>
+    <button type="submit" name="ConnectFilesToExpMain">Connect files to experiments</button>
+</form>
+{% endblock content %}

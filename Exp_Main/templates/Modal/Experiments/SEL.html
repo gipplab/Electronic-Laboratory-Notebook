@@ -1,0 +1,31 @@
+{% extends "Modal/read_entry.html" %}
+
+  {% block Modal_detailed_content %}
+  <tr>
+    <th>Plot:</th>
+    <th><a href="/Dash/SEL/{{ExpBase.pk}}">Link to plot</a></th>
+  </tr>
+  <tr>
+    <th>Plot compare:</th>
+    <th><a href="/Dash/SEL/compare/{{ExpBase.pk}}">Link to compare plot</a></th>
+  </tr>
+  <tr>
+    <th>Links:</th>
+    <th><form method="post">
+      {% csrf_token %}
+      <button type="submit" name="OpenXLSXPath">XLSX</button>
+      &nbsp
+      <button type="submit" name="OpenMainPath">Data</button>
+    </form></th>
+  </tr>
+  <tr>
+    <th>Sub data:</th>
+    <th>
+      {% for Sub_dat in ExpBase.Sub_Exp.all %}
+        {{Sub_dat.Name}}
+        &nbsp
+      {% endfor %}
+    </th>
+  </tr>
+
+{% endblock Modal_detailed_content %}

@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% load mptt_tags %}
+
+{% block content %}
+{% include "Modal/_modal.html" %}
+<div class="sidenav">
+  <side id="primary_nav_wrap">
+      
+    {% for observation,structure in Groups|tree_info %}
+    {% if structure.new_level %}<ul><li>{% else %}</li><li>{% endif %}
+      <a href={{observation.pk}}>{{ observation.Name }}</a>
+    {% for level in structure.closed_levels %}</li></ul>{% endfor %}
+  {% endfor %}
+  </side>
+</div>
+
+<div class = 'main'>
+
+
+
+{% block groups %}
+{% load render_table from django_tables2 %}
+{% render_table table %}
+{% endblock groups %}
+</div>
+
+{% endblock content %}
+
+
+{% load static %}
+{% block extrascripts %}
+
+  <script src="{% static 'Exp_Main/ExpBase.js' %}"></script>
+
+  <!-- <link href="https://nightly.datatables.net/css/jquery.dataTables.css" rel="stylesheet" type="text/css" />
+  <script src="https://nightly.datatables.net/js/jquery.dataTables.js"></script>
+
+  <link href="https://cdn.datatables.net/rowgroup/1.0.2/css/rowGroup.dataTables.min.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.datatables.net/rowgroup/1.0.2/js/dataTables.rowGroup.min.js"></script>
+  <script src="https://cdn.datatables.net/buttons/1.2.2/js/buttons.html5.js"></script>
+
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.32/pdfmake.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.32/vfs_fonts.js"></script>
+
+  <link href="https://cdn.datatables.net/buttons/1.5.1/css/buttons.dataTables.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.datatables.net/buttons/1.5.1/js/dataTables.buttons.js"></script>
+  <script src="https://cdn.datatables.net/buttons/1.5.1/js/buttons.colVis.min.js"></script>
+  <script type="text/javascript" language="javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
+
+  <script src="https://cdn.datatables.net/buttons/1.5.1/js/buttons.colVis.min.js"></script> -->
+  <script type="text/javascript">
+    $(function () {
+
+      // Create entry button
+      $(".create-entry").each(function () {
+        $(this).modalForm({formURL: $(this).data('id')});
+      });
+
+      // Update entry buttons
+      $(".update-entry").each(function () {
+        $(this).modalForm({formURL: $(this).data('id')});
+      });
+
+      // Read entry buttons
+      $(".read-entry").each(function () {
+        $(this).modalForm({formURL: $(this).data('id')});
+      });
+
+      // Delete entry buttons
+      $(".delete-entry").each(function () {
+        $(this).modalForm({formURL: $(this).data('id')});
+      })
+
+    });
+  </script>
+{% endblock extrascripts %}
+
+
+
+
+

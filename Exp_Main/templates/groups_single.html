@@ -1,0 +1,10 @@
+{% extends 'groups.html' %}
+
+
+{% block groups %}
+<h3>{{sel_obs.Name}}</h3>
+{{sel_obs.parent}}<br>
+{{sel_obs.Description}}
+{% load render_table from django_tables2 %}
+{% render_table table %}
+{% endblock groups %}

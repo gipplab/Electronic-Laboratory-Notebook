@@ -1,0 +1,9 @@
+<button type="button" class="read-entry btn btn-sm btn-primary">
+    <span class="fa fa-hand-o-right" onclick="window.location.href='/Dash/GRP/SFG/{{ record.Name }}'"></span>
+</button>
+<button type="button" class="update-entry btn btn-sm btn-primary" data-id="{% url 'update_entry' group='Exp_Main' model='Group' pk=record.id %}">
+    <span class="fa fa-pencil"></span>
+</button>
+<button type="button" class="update-entry btn btn-sm btn-primary" data-id="{% url 'update_entry' group='Lab_Dash' model='GRP' pk=record.Dash_id %}">
+    <span class="fa fa-paint-brush "></span>
+</button>

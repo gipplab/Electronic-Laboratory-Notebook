@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block content %}
+{% include "Modal/_modal.html" %}
+{% load bootstrap3 %}
+<button type="button" class="update-properties btn btn-sm btn-primary" data-id="{% url 'update_dash' model_name pk_dash %}">
+    <span class="fa fa-pencil"></span>
+</button>
+
+
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+{% load static %}
+{%load plotly_dash%}
+<div class="{% plotly_class name=Name_dash_app %}" style="height: 100%; width: 100%">
+{% plotly_app name=Name_dash_app ratio=1  initial_arguments=dash_context  %}
+</div>
+
+
+{% endblock content %}
+
+{% block extrascripts %}
+  <script type="text/javascript">
+    $(function () {
+      // Update properties buttons
+      $(".update-properties").each(function () {
+        $(this).modalForm({formURL: $(this).data('id')});
+      });
+    });
+  </script>
+{% endblock extrascripts %}

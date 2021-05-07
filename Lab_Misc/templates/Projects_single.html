@@ -1,0 +1,64 @@
+{% extends 'Side_nav.html' %}
+
+
+{% block content_sidenav %}
+<h3>{{sel_obs.Name}}</h3>
+Parent name:
+{{sel_obs.parent}}<br>
+Description:
+{{sel_obs.Description}}
+{% load static %}
+<link rel = "stylesheet" type = "text/css" href = "{% static 'DataTables/datatables.css' %}"/>
+<script src = "{% static 'DataTables/jQuery-3.3.1/jquery-3.3.1.js' %}"></script>
+<script src = "{% static 'DataTables/dataTables.js' %}"></script>
+<script type = "text/javascript">
+$(document).ready( function () {
+    var table = $('#table').DataTable({
+        paging: true,
+        scrollY: 400,
+        select: true,
+        rowGroup: {
+        dataSrc: 'group'
+    }
+
+    });
+    $('a.toggle-vis').on( 'click', function (e) {
+        e.preventDefault();
+ 
+        // Get the column API object
+        var column = table.column( $(this).attr('data-column') );
+ 
+        // Toggle the visibility
+        column.visible( ! column.visible() );
+    } );
+} );
+</script>
+<div>
+    Toggle column: <a class="toggle-vis" data-column="0">Firstname</a> - <a class="toggle-vis" data-column="1">Position</a> - <a class="toggle-vis" data-column="2">Office</a> - <a class="toggle-vis" data-column="3">Age</a> - <a class="toggle-vis" data-column="4">Start date</a>
+</div>
+<table id = "table" class = "table table-bordered">
+    <thead class = "alert-success">
+        <tr>
+            <th>Firstname</th>
+            <th>Lastname</th>
+            <th>Age</th>
+            <th>Email</th>
+            <th>Address</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for tabl in data %}
+        <tr>
+            <td>{{ tabl.id }}</td>
+            <td>{{ tabl.Name  }}</td>
+            <td>{{ tabl.description }}</td>
+            <td>{{ tabl.conclusion }}</td>
+            <td>{{ tabl.issued }}</td>
+        </tr>
+       {% endfor %}
+    </tbody>
+</table>
+
+{% load render_table from django_tables2 %}
+{% render_table table %}
+{% endblock content_sidenav %}

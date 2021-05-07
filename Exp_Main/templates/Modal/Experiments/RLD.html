@@ -1,0 +1,50 @@
+{% load widget_tweaks %}
+{% load static %}
+<div class="modal-header">
+  <h3 class="modal-title">Experiment details</h3>
+  <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+    <span aria-hidden="true">&times;</span>
+  </button>
+</div>
+
+<div class="modal-body">
+
+  <div class="">
+    Name:
+    {{ ExpBase.Name }}
+  </div>
+  <div class="">
+    PDF:
+    <a target="_blank" rel="noopener noreferrer" href= "{% static '01_Experimental/02_Experiments/01_Main_Exp/02_Liquid_Exp/02_Condensation/20200204/182339/DSC_0382.MOV' type='video/mov' %}">Title of local file</a>
+    {{ ExpBase.Link_PDF }}
+  </div>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" name="OpenMainPath">Video</button>
+  </form>
+  <div class="">
+    Date and time:
+    {{ ExpBase.Date_time }}
+  </div>
+  <div class="">
+    First spreading time:
+    {{ ExpBase.t1 }}
+  </div>
+  <div class="">
+    Description:
+    {{ ExpBase.observation.Description_field }}
+  </div>
+  <div class="">
+    Plot:
+    <a href="/Dash/plot/{{ExpBase.pk}}">Link to plot</a>
+  </div>
+  <div class="">
+    test:
+    <a href="/Dash/plot/{{ExpBase.pk}}">Link to plot</a>
+  </div>
+
+</div>
+
+<div class="modal-footer">
+  <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+</div>

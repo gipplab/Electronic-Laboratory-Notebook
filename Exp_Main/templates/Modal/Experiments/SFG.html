@@ -1,0 +1,42 @@
+{% extends "Modal/read_entry.html" %}
+
+  {% block Modal_detailed_content %}
+  <tr>
+    <th>Plot:</th>
+    <th><a href="/Dash/SFG/{{ExpBase.pk}}">Link to plot</a></th>
+  </tr>
+  <tr>
+    <th>Links:</th>
+    <th><form method="post">
+      {% csrf_token %}
+      <button type="submit" name="OpenXLSXPath">XLSX</button>
+      &nbsp
+      <button type="submit" name="OpenDataPath">Data</button>
+    </form></th>
+  </tr>
+  <tr>
+    <th>Link Name:</th>
+    <th>{{ ExpBase.Link }}</th>
+  </tr>
+  <tr>
+    <th>Polarization:</th>
+    <th>{{ ExpBase.get_Polarization_display }}</th>
+  </tr>
+  <tr>
+    <th>Measurement Mode:</th>
+    <th>{{ ExpBase.get_Measurement_Mode_display }}</th>
+  </tr><tr>
+  <th>Test:</th>
+    <th><a href="/Dash/GRP/SFG/"+"grp_sfg_ic_01-2400">Plot</a></th>
+  </tr>
+  <tr>
+    <th>Sub data:</th>
+    <th>
+      {% for Sub_dat in ExpBase.Sub_Exp.all %}
+        {{Sub_dat.Name}}
+        &nbsp
+      {% endfor %}
+    </th>
+  </tr>
+
+{% endblock Modal_detailed_content %}

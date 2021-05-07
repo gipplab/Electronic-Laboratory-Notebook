@@ -1,0 +1,133 @@
+{% extends 'main/base.html' %}
+
+{% block content %}
+
+  {% include "main/_modal.html" %}
+
+  <div class="container mt-3">
+    <div class="row">
+      <div class="col">
+        <p class="text-primary">A jQuery plugin for creating AJAX driven Django forms in Bootstrap modal.</p>
+        <h4>
+          <strong>1. Signup form</strong>
+        </h4>
+        <p>Sign up via Bootstrap modal.</p>
+        <div class="row">
+          <div class="col-12 mb-3">
+            <button class="signup-btn btn btn-primary" type="button" name="button">Sign up</button>
+          </div>
+        </div>
+        <h4>
+          <strong>2. Login form</strong>
+        </h4>
+        <p>Log in via Bootstrap modal. Sign up first.</p>
+        <div class="row">
+          <div class="col-12 mb-3">
+            {% if not user.is_anonymous %}
+              <span>
+                Your are logged in as
+                <strong>{{ user }}</strong>.
+              </span>
+              <a href="{% url 'logout' %}" class="logout-btn btn btn-danger" role="button">Log out</a>
+            {% else %}
+              <button class="login-btn btn btn-primary" type="button" name="button">Log in</button>
+            {% endif %}
+          </div>
+
+        </div>
+        <h4>
+          <strong>3. CRUD actions</strong>
+        </h4>
+        <p>Create, Read, Update and Delete books in Bootstrap modal.</p>
+
+        <div class="row">
+          <div class="col-12 mb-3">
+            <button class="create-book btn btn-primary" type="button" name="button">
+              <span class="fa fa-plus mr-2"></span>Create book</button>
+          </div>
+          <div class="col-12 mb-3">
+            {% if books %}
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th class="text-center" scope="col">#</th>
+                    <th class="text-center" scope="col">Title</th>
+                    <th class="text-center" scope="col">Author</th>
+                    <th class="text-center" scope="col">Type</th>
+                    <th class="text-center" scope="col">Publication date</th>
+                    <th class="text-center" scope="col">Pages</th>
+                    <th class="text-center" scope="col">Price (€)</th>
+                    <th class="text-center" scope="col">Read / Update / Delete</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for book in books %}
+                    <tr>
+                      <th class="text-center" scope="row">{{ forloop.counter }}</th>
+                      <td class="text-center">{{ book.title }}</td>
+                      <td class="text-center">{{ book.author }}</td>
+                      <td class="text-center">{{ book.get_book_type_display }}</td>
+                      <td class="text-center">{{ book.publication_date }}</td>
+                      <td class="text-center">{{ book.pages }}</td>
+                      <td class="text-center">{{ book.price }}</td>
+                      <td class="text-center">
+                        <button type="button" class="read-book btn btn-sm btn-primary" data-id="{% url 'read_book' book.pk %}">
+                          <span class="fa fa-eye"></span>
+                        </button>
+                        <button type="button" class="update-book btn btn-sm btn-primary" data-id="{% url 'update_book' book.pk %}">
+                          <span class="fa fa-pencil"></span>
+                        </button>
+                        <button type="button" class="delete-book btn btn-sm btn-danger" data-id="{% url 'delete_book' book.pk %}">
+                          <span class="fa fa-trash"></span>
+                        </button>
+                        <!--<button type="button" class="delete-book btn btn-sm btn-danger" data-toggle="modal" data-target="#modal" data-id="{% url 'delete_book' book.pk %}"> <span class="fa fa-trash" aria-label="Delete"></span> </button>-->
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% else %}
+              <p class="no-books text-primary">No books added yet.</p>
+            {% endif %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+{% endblock content %}
+
+{% block extrascripts %}
+  <script type="text/javascript">
+    $(function () {
+      // Log in & Sign up buttons
+      $(".login-btn").modalForm({formURL: "{% url 'create_entry' %}"});
+      $(".signup-btn").modalForm({formURL: "{% url 'create_entry' %}"});
+
+      // Create book button
+      $(".create-book").modalForm({formURL: "{% url 'create_entry' %}", modalID: "#create-modal"});
+
+      // Update book buttons
+      $(".update-book").each(function () {
+        $(this).modalForm({formURL: $(this).data('id')});
+      });
+
+      // Read book buttons
+      $(".read-book").each(function () {
+        $(this).modalForm({formURL: $(this).data('id')});
+      });
+
+      // Delete book buttons
+      $(".delete-book").each(function () {
+        $(this).modalForm({formURL: $(this).data('id')});
+      })
+
+      // Hide message
+      $(".alert").fadeTo(2000, 500).slideUp(500, function(){
+        $(".alert").slideUp(500);
+      });
+
+    });
+  </script>
+{% endblock extrascripts %}

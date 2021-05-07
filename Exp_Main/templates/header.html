@@ -1,0 +1,60 @@
+{% load mptt_tags %}
+
+
+<head>
+    {% load static %}
+        <title>Labbook</title>
+        <link rel="shortcut icon" type="image/png" href="{% static 'favicon.ico' %}"/>
+    <!-- Compiled and minified CSS -->
+    <link rel="stylesheet" href="{% static 'assets/css/Nested_dropdown.css' %}">
+    <!-- Compiled and minified JavaScript -->
+    <script src="{% static 'assets/js/jquery-3.2.1.min.js' %}"></script>
+    <!-- <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script> -->
+</head>
+<body>
+<div class="sticky-section">
+    <nav id="primary_nav_wrap">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/Exp/Observations/">Observations</a></li>
+            <li><a href="/Exp/Groups/">Groups</a></li>
+            <li><a href="/Exp/Comparisons/">Comparisons</a></li>
+            <li><a href="/Analysis/OszAnalysis">Analysis</a></li>
+            <li><a href="/Projects/">Projects</a></li>
+            <li>
+                <a href="/Exp/">Experiments</a>
+            {% for mtt_item,structure in ExperimentTypes|tree_info %}
+            {% if structure.new_level %}<ul><li>{% else %}</li><li>{% endif %}
+                {% if not mtt_item.is_leaf_node %}
+                    <a>{{ mtt_item.Name }}</a>
+                {% else %}
+                    <a href="/Exp/{{ mtt_item.Abbrev }}/">{{ mtt_item.Name }}</a>
+                {% endif %}
+            {% for level in structure.closed_levels %}</li></ul>{% endfor %}
+            {% endfor %}
+            </li>
+            <li>
+                <a href="/ExpSub/">Sub Experiments</a>
+            {% for mtt_item,structure in SubExperimentTypes|tree_info %}
+            {% if structure.new_level %}<ul><li>{% else %}</li><li>{% endif %}
+                {% if not mtt_item.is_leaf_node %}
+                    <a>{{ mtt_item.Name }}</a>
+                {% else %}
+                    <a href="/ExpSub/{{ mtt_item.Abbrev }}/">{{ mtt_item.Name }}</a>
+                {% endif %}
+            {% for level in structure.closed_levels %}</li></ul>{% endfor %}
+            {% endfor %}
+            </li>
+
+
+        </ul>
+    </nav>
+</div>
+
+    <script
+        type="text/javascript"
+        src="{% static "django_tables2_column_shifter/js/django_tables2_column_shifter.min.js" %}">
+    </script>
+    <br>
+    
+</body>

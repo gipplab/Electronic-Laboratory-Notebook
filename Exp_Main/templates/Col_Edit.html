@@ -1,0 +1,18 @@
+<button type="button" class="read-entry btn btn-sm btn-primary" data-id="{% url 'read_entry' group='Exp_Main' model=None pk=record.id %}">
+    <span class="fa fa-eye"></span>
+</button>
+<button type="button" class="update-entry btn btn-sm btn-primary" data-id="{% url 'update_entry' group='Exp_Main' model=None pk=record.id %}">
+    <span class="fa fa-pencil"></span>
+</button>
+{% if record.Device.Abbrev == 'GRP' %}
+<button type="button" class="update-entry btn btn-sm btn-primary" data-id="{% url 'update_entry' group='Lab_Dash' model='GRP' pk=record.grp.Group.Dash.id %}">
+    <span class="fa fa-paint-brush "></span>
+</button>
+{% endif %}
+<button type="button" class="create-entry btn btn-sm btn-primary" data-id="{% url 'create_entry' group='Exp_Main' model=None pk=record.id %}">
+    <span class="fa fa-plus"></span>
+</button>
+<button type="button" class="delete-entry btn btn-sm btn-danger" data-id="{% url 'delete_entry' group='Exp_Main' model=None pk=record.id %}">
+    <span class="fa fa-trash"></span>
+</button>
+

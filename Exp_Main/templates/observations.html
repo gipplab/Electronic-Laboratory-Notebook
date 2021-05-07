@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% load mptt_tags %}
+
+{% block content %}
+{% include "Modal/_modal.html" %}
+<div class="sidenav">
+  <side id="primary_nav_wrap">
+      
+    {% for observation,structure in Observations|tree_info %}
+    {% if structure.new_level %}<ul><li>{% else %}</li><li>{% endif %}
+      <a href={{observation.pk}}>{{ observation.Name }}</a>
+    {% for level in structure.closed_levels %}</li></ul>{% endfor %}
+  {% endfor %}
+  </side>
+</div>
+
+<div class = 'main'>
+
+<button type="button" class="create-entry btn btn-sm btn-primary" data-id="{% url 'create_entry' group='Exp_Main' model='Observation' pk=1 %}">
+    <span class="fa fa-plus"> Add Observation</span>
+</button>
+
+{% block observations %}
+{% load render_table from django_tables2 %}
+{% render_table table %}
+{% endblock observations %}
+</div>
+
+{% endblock content %}
+{% block extrascripts %}
+  <script type="text/javascript">
+    $(function () {
+
+      // Create entry button
+      $(".create-entry").each(function () {
+        $(this).modalForm({formURL: $(this).data('id')});
+      });
+
+      // Update entry buttons
+      $(".update-entry").each(function () {
+        $(this).modalForm({formURL: $(this).data('id')});
+      });
+
+      // Read entry buttons
+      $(".read-entry").each(function () {
+        $(this).modalForm({formURL: $(this).data('id')});
+      });
+
+      // Delete entry buttons
+      $(".delete-entry").each(function () {
+        $(this).modalForm({formURL: $(this).data('id')});
+      })
+
+    });
+  </script>
+{% endblock extrascripts %}
+
+

@@ -1,0 +1,186 @@
+/* CSS Document */
+@import url("bootstrap.min.css");
+
+
+#container {
+	margin: 0 auto;
+	margin-bottom: 80;
+}
+
+p {
+	text-align: center;
+}
+
+nav {
+
+	background-color: var(--primary);
+}
+
+nav ul {
+	padding: 0;
+  margin: 0;
+	list-style: none;
+	position: relative;
+	}
+	
+nav ul li {
+	display:inline-block;
+	background-color: var(--primary);
+	}
+
+nav a {
+	display:block;
+	padding:0 10px;	
+	color:#FFF;
+	font-size:20px;
+	line-height: 60px;
+	text-decoration:none;
+}
+
+nav a:hover { 
+	background-color: var(--secondary);
+    color: #FFF;
+}
+
+/* Hide Dropdowns by Default */
+nav ul ul {
+	display: none;
+	position: absolute; 
+	top: 60px; /* the height of the main nav */
+}
+	
+/* Display Dropdowns on Hover */
+nav ul li:hover > ul {
+	display:inherit;
+}
+	
+/* Fisrt Tier Dropdown */
+nav ul ul li {
+	width:250px;
+	float:none;
+	display:list-item;
+	position: relative;
+	
+}
+
+/* Second, Third and more Tiers	*/
+nav ul ul ul li {
+	position: relative;
+	top:-60px; 
+	left:250px;
+	overflow: auto;
+	
+}
+
+body {
+    padding-bottom: 500px; /* Whatever the height of your navbar is; the
+                             default is 50px */
+}
+	
+/* Change this in order to change the Dropdown symbol */
+li > a:after { content:  ' >'; }
+li > a:only-child:after { content: ''; }
+
+  .sticky-section{
+	/*position:sticky;*/
+	position:-webkit-sticky;
+	z-index: 5;
+	top:0px;
+	background-color: var(--primary);
+	margin-bottom:10px;
+	width:100%; 
+	color:white; 
+  }
+
+
+  .sidenav {
+    height: 100%;
+    width: 250px;
+    position: relative;
+	z-index: 4;
+	float: left;
+    top: 0;
+    left: 0;
+    background-color: var(--primary);
+	overflow-x: visible;
+    padding-top: 20px;
+  }
+
+  side {
+
+    background-color: var(--primary);
+}
+
+side ul {
+    padding: 0;
+  margin: 0;
+    list-style: none;
+    position: relative;
+    }
+    
+side ul li {
+    display:inline-block;
+    background-color: var(--primary);
+    }
+
+side a {
+    display:list-item;
+    padding:0 10px; 
+	color:#FFF;
+	width:250px;
+    font-size:20px;
+    line-height: 60px;
+    text-decoration:none;
+}
+
+side a:hover { 
+    background-color: var(--secondary);
+	color: #FFF;
+}
+
+/* Hide Dropdowns by Default */
+side ul ul {
+    display: none;
+	position: absolute;
+}
+    
+/* Display Dropdowns on Hover */
+side ul li:hover > ul {
+    display:inherit;
+}
+
+
+/* Fisrt Tier Dropdown */
+side ul ul li {
+	top:-60px; 
+	left:250px;
+    float:left;
+    display:list-item;
+    position: relative;
+    
+}
+
+/* Second, Third and more Tiers */
+side ul ul ul li {
+    position: relative;
+    top:-60px; 
+    left:250px;
+    overflow: auto;
+    
+}
+
+body {
+    padding-bottom: 500px; /* Whatever the height of your sidebar is; the
+                             default is 50px */
+}
+    
+/* Change this in order to change the Dropdown symbol */
+li > a:after { content:  ' >'; }
+li > a:only-child:after { content: ''; }
+
+.main {
+	position: absolute;
+	top: 80px;
+	margin-left: 270px; /* Same as the width of the sidenav */
+	padding: 0px 10px;
+  }

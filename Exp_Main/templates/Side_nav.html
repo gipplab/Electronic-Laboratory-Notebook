@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% load mptt_tags %}
+
+{% block content %}
+<div class="sidenav">
+  <side id="primary_nav_wrap">
+      
+    {% for mtt_item,structure in MttModel|tree_info %}
+    {% if structure.new_level %}<ul><li>{% else %}</li><li>{% endif %}
+      <a href={{mtt_item.pk}}>{{ mtt_item.Name }}</a>
+    {% for level in structure.closed_levels %}</li></ul>{% endfor %}
+  {% endfor %}
+  </side>
+</div>
+
+<div class = 'main'>
+
+
+
+{% block content_sidenav %}
+{% load render_table from django_tables2 %}
+{% render_table table %}
+{% endblock content_sidenav %}
+</div>
+
+{% endblock content %}
+
+
+
