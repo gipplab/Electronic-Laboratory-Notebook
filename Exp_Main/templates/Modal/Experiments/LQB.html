@@ -1,0 +1,22 @@
+{% extends "Modal/read_entry.html" %}
+
+  {% block Modal_detailed_content %}
+
+  <tr>
+    <th>Links:</th>
+    <th><form method="post">
+      {% csrf_token %}
+      <button type="submit" name="OpenMainPath">Video</button>
+    </form></th>
+  </tr>
+  <tr>
+    <th>Sub data:</th>
+    <th>
+      {% for Sub_dat in ExpBase.Sub_Exp.all %}
+        {{Sub_dat.Name}}
+        &nbsp
+      {% endfor %}
+    </th>
+  </tr>
+
+{% endblock Modal_detailed_content %}
