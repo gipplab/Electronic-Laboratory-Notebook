@@ -13,6 +13,9 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
         if Exp.Abbrev == 'MFL':
             self.add_Gas(file, entry)
             entry.save()
+        if Exp.Abbrev == 'MFR':
+            self.add_Gas(file, entry)
+            entry.save()
         if Exp.Abbrev == 'HME':
             self.add_environment(file, entry)
             entry.save()
@@ -34,7 +37,6 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
         all_Gas = Gas.objects.all()
         No_gas_found = True
         for gas in all_Gas:
-            bla = False
             try:
                 file.index(gas.Name)
                 entry.Gas.add(gas.id)
@@ -52,7 +54,6 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
         env_ids = ['1', '2']
         No_gas_found = True
         for env_name, env_id in zip(env_names, env_ids):
-            bla = False
             try:
                 file.index(env_name)
                 entry.Environments = env_id

@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% load mptt_tags %}
+
+{% block content %}
+
+<form method="post">
+    {% csrf_token %}
+    <button type="submit" name="Run_Analysis">Run script generator</button>
+</form>
+
+{% if Has_Script %}
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" name="Open_Scripts">Open Scripts</button>
+    </form>
+{% endif %}
+
+{% if Has_df %}
+<a href="/Dash/Plan_Gas_OSZ/{{pk}}">Link to plot</a>
+{% endif %}
+
+{% endblock content %}

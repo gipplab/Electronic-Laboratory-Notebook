@@ -22,6 +22,8 @@ urlpatterns = [
     #path("update_samples/", views.update_samples, name="update_samples"),
     path("Projects/", views.projects, name="projects"),
     path('Projects/<str:pk>', views.projects_pk, name='projects_pk'),
+    path("Plan_Gas_OSZ/", views.Plan_Gas_OSZ, name="Plan_Gas_OSZ"),
+    path('Plan_Gas_OSZ/<str:pk>', views.Plan_Gas_OSZ_pk, name='Plan_Gas_OSZ_pk'),
     path('Reports/<str:File_Name>', views.Reports_file, name='Reports_file'),
     path('', views.index, name='index'),
 ]

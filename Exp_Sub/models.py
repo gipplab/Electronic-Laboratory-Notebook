@@ -76,6 +76,12 @@ class MFL(ExpBase):
     def __str__(self):
         return str(self.Name)
 
+class MFR(ExpBase):
+    Gas = models.ManyToManyField(Gas)
+    Link = models.TextField(blank=True, null=True)
+    def __str__(self):
+        return str(self.Name)
+
 class HME(ExpBase):
     """LSP Model to store all experiments done with the LSP
 

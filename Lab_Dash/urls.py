@@ -24,6 +24,7 @@ urlpatterns = [
     path("OszAnalysis/<str:pk>", views.OszAnalysis, name="OszAnalysis"),
     path("update_model/<str:ModelName>/<str:pk>", views.update_model, name="update_model"),
     path("Generic/<str:ModelName>/<str:pk>", views.Generic, name="Generic"),
+    path("Plan_Gas_OSZ/<str:pk>", views.Plan_Osz_graph, name="Plan_Gas_OSZ"),
     path("OCA/<str:pk>", views.OCA_graph, name="OCA_graph"),
     path("SFG/<str:pk>", views.SFG_graph, name="SFG_graph"),
     path("SEL/compare/<str:pk>", views.SEL_compare_graph, name="SEL_compare_graph"),

@@ -5,11 +5,13 @@ from Exp_Main.models import ExpBase, ExpPath
 from Exp_Main.models import OCA as OCA_Main
 from Exp_Main.models import SEL as SEL_Main
 from Exp_Main.models import SFG as SFG_Main
+from Lab_Misc.models import OszScriptGen
 from Analysis.models import Comparison as Comparison_Main
 from Exp_Main.models import Group
 from Analysis.models import OszAnalysisJoin as OszAnalysis_Main
 from Lab_Dash.dash_plot_SEL import Gen_dash
 from Lab_Dash.dash_plot_Generic import Gen_dash as Gen_dash_Generic
+from Lab_Dash.dash_plot_plan_osz import Gen_dash as Gen_dash_plot_plan_osz
 from Lab_Dash.dash_plot_SFG import Gen_dash as Gen_dash_SFG
 from Lab_Dash.dash_plot_OszAnalysis import Gen_dash as Gen_dash_OszAnalysis
 from Lab_Dash.dash_plot_comparison import Gen_dash as Gen_dash_Comparisons
@@ -177,6 +179,16 @@ def GRP_SFG_kin_drive(request, pk):
     path = 'Private/Saved_plots/GRP/SFG/' + pk +'/'
     context['dash_context'] = {'target_id': {'value': entry.pk}, 'path': {'value': path}}
     return render(request, "plot.html", context)
+
+def Plan_Osz_graph(request, pk):
+    entry = OszScriptGen.objects.get(id = pk)
+    context = {'stuff': 'somestuff'}
+    context['model_name'] = 'OszScriptGen'
+    Name_dash_app = 'dash_' + 'OszScriptGen' + '_' + str(pk)
+    context['Name_dash_app'] = Name_dash_app
+    Gen_dash_plot_plan_osz(Name_dash_app)
+    context['dash_context'] = {'target_id': {'value': entry.pk}}
+    return render(request, "plot_plan_osz.html", context)
 
 def OCA_graph(request, pk):
     entry = OCA_Main.objects.get(id = pk)

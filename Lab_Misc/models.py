@@ -1,6 +1,7 @@
 from django.db import models
 from datetime import datetime
 from mptt.models import MPTTModel, TreeForeignKey, TreeManyToManyField
+from Exp_Sub.models import Gas
 
 # Create your models here.
 class ProjectEntry(models.Model):
@@ -10,6 +11,34 @@ class ProjectEntry(models.Model):
     Issued = models.DateTimeField(default=datetime.now, blank=True)
     DueDate = models.DateTimeField(default=datetime(2023, 12, 31, 0, 0, 0), blank=True)
     Fineshed = models.BooleanField('Fineshed:')
+    def __str__(self):
+        return str(self.Name)
+
+class GassesScript(models.Model):
+    Name = models.TextField(db_column='Name:', blank=True, null=True)
+    Name_of_gas = models.ForeignKey(Gas, on_delete=models.CASCADE)
+    Periodicity = models.IntegerField(blank=True, null=True, default=3)
+    StartNumber = models.TextField(blank=True, null=True, default=0)
+    def __str__(self):
+        return str(self.Name)
+
+class OszScriptGen(models.Model):
+    Name = models.TextField(db_column='Name:', blank=True, null=True)
+    Gas = models.ManyToManyField(GassesScript, blank=True)
+    init_drop = models.FloatField(blank=True, null=True, default=3)
+    factor = models.FloatField(blank=True, null=True, default=1.5)
+    delay = models.FloatField(blank=True, null=True, default=30)
+    number_of_cycles = models.IntegerField(blank=True, null=True, default=9)
+    base_flow = models.FloatField(blank=True, null=True, default=6)
+    diff_flow = models.FloatField(blank=True, null=True, default=1)
+    faktor_zeit = models.FloatField(blank=True, null=True, default=1000)
+    scaling_vol = models.FloatField(blank=True, null=True, default=1)
+    add_with_const = models.FloatField(blank=True, null=True, default=0.5)
+    add_with_fakt_zeit = models.FloatField(blank=True, null=True, default=120)
+    add_with_scal_vol = models.FloatField(blank=True, null=True, default=2/3)
+    Link_folder_script = models.TextField(blank=True, null=True)
+    Link_pump_df = models.TextField(blank=True, null=True)
+    Link_gas_df = models.TextField(blank=True, null=True)
     def __str__(self):
         return str(self.Name)
 

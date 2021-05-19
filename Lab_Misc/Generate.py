@@ -486,7 +486,7 @@ class CreateAndUpdate():
 
 
     def Generate_Names(self):
-        Path_to_report = "Lab_Misc/templates/" + self.Report_folder + "/Named_entries_" + datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S") + ".html"
+        Path_to_report = self.Reports_path + self.Report_folder + "/Named_entries_" + datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S") + ".html"
         f = open(Path_to_report,"w+")
         Exp_Path = self.ExpPath_curr.objects.all()
         for Exp in Exp_Path:
@@ -539,7 +539,7 @@ class CreateAndUpdate():
                 if model.objects.all().count()>0:#if there are some entries
                     model_names.append(f.name)
             return model_names
-        Path_to_report = "Lab_Misc/templates/" + self.Report_folder + "/Connected_entries_" + datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S") + ".html"
+        Path_to_report = self.Reports_path + self.Report_folder + "/Connected_entries_" + datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S") + ".html"
         f= open(Path_to_report,"w+")
         Exp_Path = ExpPath_sub.objects.all()
         for Exp in Exp_Path:
@@ -552,7 +552,13 @@ class CreateAndUpdate():
                     time_of_sub = Unconnected_entry.Date_time
                     closest_entries = []
                     for model_name in get_Mains_related_sub():
-                        closest_entries.append(get_closest(model_name))
+                        try:
+                            model = apps.get_model('Exp_Main', model_name)
+                            model.expbase_ptr
+                            model.Sub_Exp
+                            closest_entries.append(get_closest(model_name))
+                        except:
+                            pass
                     lowest_time = datetime.timedelta(minutes=5)
                     closest_entry = None
                     for entry in closest_entries:
