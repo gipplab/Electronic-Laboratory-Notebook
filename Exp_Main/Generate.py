@@ -71,6 +71,17 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
                     closest_entry.Link = path_to_vids
                     closest_entry.save()
                     self.f.write('The path ' + path_to_vids + ' was added to ' + str(closest_entry.Name) + '. <br>\n')
+            elif (str(Exp.Abbrev) == 'RSD'):
+                model = apps.get_model(self.Exp_Category, str(Exp.Abbrev))
+                Exps_noVideo = model.objects.filter(Q(Link__isnull = True) | Q(Link__exact='')).order_by('Date_time')
+                date_time = self.get_DateOfFile(date, sample)
+                closest_entry = self.get_closest_to_dt(Exps_noVideo, date_time)
+                if abs(closest_entry.Date_time-date_time) < datetime.timedelta(minutes=5+closest_entry.Script.delay):
+                    path_to_vids = self.get_FullPath(sample)
+                    path_to_vids = path_to_vids[:get_LastIndex(path_to_vids[:-3], '\\')]
+                    closest_entry.Link = path_to_vids
+                    closest_entry.save()
+                    self.f.write('The path ' + path_to_vids + ' was added to ' + str(closest_entry.Name) + '. <br>\n')
         else:
             SampleName = self.get_SampleName(sample)
             if SampleName == None:

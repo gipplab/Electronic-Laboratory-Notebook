@@ -387,6 +387,9 @@ class CreateAndUpdate():
             self.f.write('<ul>')
         else:
             self.f.write('<li>Search in ' + date + sample + '</li>\n')
+            if Exp.Abbrev == 'RSD':
+                file = None
+                self.manage_Path(Exp, date, file, sample, Group)
         self.f.write('<p>')
         for file in glob.glob("*.*"):
             self.manage_Path(Exp, date, file, sample, Group)

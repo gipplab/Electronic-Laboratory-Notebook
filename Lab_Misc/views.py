@@ -5,11 +5,13 @@ from .tables import ProjectEntry as ProjectEntry_table
 from .tables import Plan_Gas_OSZ as Plan_Gas_OSZ_table
 from .forms import get_Form
 import subprocess
-import time
+import datetime
+from Exp_Main.models import RSD, ExpPath
+from django.shortcuts import get_list_or_404, get_object_or_404
 from django.apps import apps
-from bootstrap_modal_forms.generic import (BSModalUpdateView)
 from .gen_osz_scripts import *
 from Lab_Misc import General
+from Lab_Misc.models import SampleBase
 #import Lab_Misc.update_data as update_data
 # Create your views here.
 
@@ -57,6 +59,7 @@ def Plan_Gas_OSZ_pk(request, pk):
             context['Has_Script'] = False
         else:
             context['Has_Script'] = True
+        context['samples'] = SampleBase.objects.all()
         return context
 
     entry = OszScriptGen.objects.get(id = pk)
@@ -64,11 +67,16 @@ def Plan_Gas_OSZ_pk(request, pk):
         gen_scripts(pk)
         context = gen_context()
         return render(request, 'Plan_Gas_OSZ.html', context)
+    if request.method == 'POST' and 'Gen_entry' in request.POST:
+        sel_pk=request.POST.get('samples_choose')
+        RSD_entry = RSD(Date_time = datetime.datetime.now(), Sample_name = SampleBase.objects.get(pk = sel_pk), Script = entry, Device = ExpPath.objects.get(Abbrev = 'RSD'))
+        RSD_entry.save()
+        print('generated')
     if request.method == 'POST' and 'Open_Scripts' in request.POST:
         Folder_path = os.path.join(General.get_BasePath(), entry.Link_folder_script)
         Folder_path = Folder_path.replace(',', '","')
         subprocess.Popen(r'explorer /select,' + Folder_path)
-
+    form = request.POST
     context = gen_context()
     return render(request, 'Plan_Gas_OSZ.html', context)
 

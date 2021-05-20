@@ -15,8 +15,25 @@
     </form>
 {% endif %}
 
+{% if Has_Script %}
+    <form method="post">
+    </form>
+{% endif %}
+
 {% if Has_df %}
 <a href="/Dash/Plan_Gas_OSZ/{{pk}}">Link to plot</a>
 {% endif %}
+
+<form method="POST">
+    &nbsp
+    <select name="samples_choose">
+    {% for entry in samples %}
+        <option value="{{ entry.id }}">{{ entry.Name }}</option>
+    {% endfor %}
+    </select>
+    {% csrf_token %}
+    <button type="submit" name="Gen_entry">Generate entry</button>
+</form>
+    
 
 {% endblock content %}
