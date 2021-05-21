@@ -39,4 +39,4 @@ urlpatterns = [
     path('read/<str:group>/<str:model>/<str:pk>', Read_entry.as_view(), name='read_entry'),
     path('delete/<str:group>/<str:model>/<str:pk>', Delete_entry.as_view(), name='delete_entry'),
     path("success/", Exp_Main_views.Success_return, name="Success_return"),
-]+ static(settings.MEDIA_URL, document_root = settings.MEDIA_ROOT)
+]#+ static(settings.MEDIA_URL, document_root = settings.MEDIA_ROOT)

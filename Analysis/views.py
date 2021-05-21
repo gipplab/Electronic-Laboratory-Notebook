@@ -4,7 +4,8 @@ import threading
 from Analysis.Osz_Drop import Osz_Drop_Analysis
 from Analysis.models import OszAnalysis, OszBaseParam, OszFitRes, OszAnalysisJoin, OszDerivedRes
 from .Osz_Drop import Osz_Drop_Analysis
-from .tables import Comparison_table, OszAnalysis_table, get_Table
+from .tables import Comparison_table, OszAnalysis_table, get_Table, RSD_CA_Mess_table
+from Exp_Main.models import RSD
 
 # Create your views here.
 def index(request):
@@ -21,6 +22,7 @@ def OszAnalysis_view(request):
     table = OszAnalysis_table(model)
     context = {'table': table}
     return render(request, 'Comparison.html', context)
+
 
 def OszAnalysis_table_view(request, pk):
     model = OszAnalysis.objects.all()

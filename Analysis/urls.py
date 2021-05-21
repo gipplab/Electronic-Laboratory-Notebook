@@ -19,8 +19,8 @@ from . import views
 app_name = 'Analysis'
 
 urlpatterns = [
-    path('', views.index, name='index'),
     #path("Comparisons/", views.Comparisons, name="Comparisons"),
-    path("OszAnalysis/", views.OszAnalysis_view, name="OszAnalysis"),
+    path("OszAnalysis/", views.OszAnalysis, name="OszAnalysis"),
     path("OszAnalysis_table/<str:pk>", views.OszAnalysis_table_view, name="OszAnalysis_table"),
+    path('', views.index, name='index'),
 ]
