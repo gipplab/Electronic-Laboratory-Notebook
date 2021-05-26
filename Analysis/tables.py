@@ -39,8 +39,8 @@ class Comparison_table(ColumnShiftTable):
         template_name = "django_tables2/bootstrap.html"
 
 class RSD_CA_Mess_table(ColumnShiftTable):
-    Link = tables.TemplateColumn(verbose_name= ('Link'),
-                                    template_name='Col_Comparison.html',
+    Links = tables.TemplateColumn(verbose_name= ('Action Links'),
+                                    template_name='Col_RSDAnalysis.html',
                                     orderable=False)
 
     try:

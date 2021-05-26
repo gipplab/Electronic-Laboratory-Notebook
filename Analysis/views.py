@@ -23,6 +23,12 @@ def OszAnalysis_view(request):
     context = {'table': table}
     return render(request, 'Comparison.html', context)
 
+def RSDAnalysis_view(request):
+    model = RSD.objects.all()
+    table = RSD_CA_Mess_table(model)
+    context = {'table': table}
+    return render(request, 'Comparison.html', context)
+
 
 def OszAnalysis_table_view(request, pk):
     model = OszAnalysis.objects.all()

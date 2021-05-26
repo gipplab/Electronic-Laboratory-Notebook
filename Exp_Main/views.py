@@ -5,7 +5,9 @@ from Lab_Misc.General import *
 from .Generate import CreateAndUpdate
 import webbrowser
 from itertools import chain
+import threading
 import subprocess
+from Exp_Main import Sort_Videos
 from django.templatetags.static import static
 from django.shortcuts import redirect
 from django.http import HttpResponse
@@ -55,6 +57,14 @@ def Generate(request):
         print(path)
         webbrowser.open_new(r'' + path)
     if request.method == 'POST' and 'Generate_Entries' in request.POST:
+        try:
+            Sort_Videos.Sort_RSD()
+        except:
+            pass
+        try:
+            Sort_Videos.Sort_CON()
+        except:
+            pass
         Report_Paths = Gen.Generate_Entries()
         for Report_Path in Report_Paths:
             path = os.path.join(cwd, Report_Path)
@@ -264,6 +274,11 @@ class Read_entry(BSModalReadView):
         return queryset
 
     def post(self, request, *args, **kwargs):
+        def start_drop_ana():
+            cwd = os.getcwd()
+            os.chdir('Private\\Sessile.drop.analysis\\')
+            subprocess.call(['python', 'QT_sessile_drop_analysis.py', Link_to_vid])
+            os.chdir(cwd)
         pk = self.kwargs['pk']
         curr_entry = ExpBase.objects.get(pk = pk)
         curr_exp = ExpPath.objects.get(Name = str(curr_entry.Device))
@@ -275,6 +290,13 @@ class Read_entry(BSModalReadView):
                 Folder_path = os.path.join(get_BasePath(), self.curr_entry.Link_Video)
                 Folder_path = Folder_path.replace(',', '","')
                 subprocess.Popen(r'explorer /select,' + Folder_path)
+
+            if request.method == 'POST' and 'Run_RSD_Analysis' in request.POST:
+                Link_to_vid = os.path.join(get_BasePath(), self.curr_entry.Link)
+                self.curr_entry.Link_Data = self.curr_entry.Link.replace('01_Videos', '02_Analysis_Results')
+                self.curr_entry.save()
+                x = threading.Thread(target=start_drop_ana)
+                x.start()
             
             if request.method == 'POST' and 'OpenMainPath' in request.POST:
                 Folder_path = os.path.join(get_BasePath(), self.curr_entry.Link)

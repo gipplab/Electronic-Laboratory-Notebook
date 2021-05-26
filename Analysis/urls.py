@@ -20,7 +20,8 @@ app_name = 'Analysis'
 
 urlpatterns = [
     #path("Comparisons/", views.Comparisons, name="Comparisons"),
-    path("OszAnalysis/", views.OszAnalysis, name="OszAnalysis"),
+    path("OszAnalysis/", views.OszAnalysis_view, name="OszAnalysis_view"),
+    path("RSDAnalysis/", views.RSDAnalysis_view, name="RSDAnalysis_view"),
     path("OszAnalysis_table/<str:pk>", views.OszAnalysis_table_view, name="OszAnalysis_table"),
     path('', views.index, name='index'),
 ]
