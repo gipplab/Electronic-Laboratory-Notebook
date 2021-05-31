@@ -5,11 +5,13 @@ from Exp_Main.models import ExpBase, ExpPath
 from Exp_Main.models import OCA as OCA_Main
 from Exp_Main.models import SEL as SEL_Main
 from Exp_Main.models import SFG as SFG_Main
+from Exp_Main.models import RSD as RSD_Main
 from Lab_Misc.models import OszScriptGen
 from Analysis.models import Comparison as Comparison_Main
 from Exp_Main.models import Group
 from Analysis.models import OszAnalysisJoin as OszAnalysis_Main
 from Lab_Dash.dash_plot_SEL import Gen_dash
+from Lab_Dash.dash_plot_RSD import Gen_dash as Gen_dash_RSD
 from Lab_Dash.dash_plot_Generic import Gen_dash as Gen_dash_Generic
 from Lab_Dash.dash_plot_plan_osz import Gen_dash as Gen_dash_plot_plan_osz
 from Lab_Dash.dash_plot_SFG import Gen_dash as Gen_dash_SFG
@@ -25,6 +27,17 @@ from .forms import OCAForm, get_Form, From_Choice
 from .models import OCA
 from bootstrap_modal_forms.generic import (BSModalUpdateView)
 # Create your views here.
+
+def RSD_Graph(request, pk):
+    entry = RSD_Main.objects.get(id = pk)
+    context = {'stuff': 'somestuff'}
+    context['pk_dash'] = entry.Dash.pk # '-' is theseperator defined in url
+    context['model_name'] = 'RSD'
+    Name_dash_app = 'dash_RSD_' + str(pk)
+    context['Name_dash_app'] = Name_dash_app
+    Gen_dash_RSD(Name_dash_app)#Creates a new app for every pk so the data will not corrupt
+    context['dash_context'] = {'target_id': {'value': pk}}
+    return render(request, "plot.html", context)
 
 def Comparison(request, pk):
     entry = Comparison_Main.objects.get(id = pk)

@@ -2,6 +2,7 @@ from .models import ExpBase as ExpBase_Main
 from .models import ExpPath as ExpPath_Main
 from Lab_Dash.models import SEL as SEL_dash
 from Lab_Dash.models import OCA as OCA_dash
+from Lab_Dash.models import RSD as RSD_dash
 from Lab_Dash.models import SFG as SFG_dash
 from Exp_Main.models import Group as Group_Model
 from Lab_Misc.Generate import CreateAndUpdate as CreateAndUpdate_Misc
@@ -135,6 +136,9 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
         if Exp.Abbrev == 'SEL':
             self.add_SEL_files(file, entry)
             entry.save()
+        if Exp.Abbrev == 'RSD':
+            self.add_RSD_files(file, entry)
+            entry.save()
         if Exp.Abbrev == 'OCA':
             self.add_OCA_files(file, entry)
             entry.save()
@@ -228,6 +232,24 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
                 entry.Link_Data = self.get_FullPath(file_in_Folder)
                 self.f.write(', add ' + file_in_Folder)
         entry_dash = OCA_dash()
+        entry_dash.save()
+        entry.Dash = entry_dash
+        self.f.write(' and add dash.</p>\n')
+
+    def add_RSD_files(self, file, entry):
+        """
+        add_Gas Adds the correct gas to the entry
+
+        Looks in the file name for gases. If a gas is found it is added to the entry
+
+        Parameters
+        ----------
+        file : string
+            filename with possible infomation about the gas used
+        entry : [type]
+            entry to which the file was added
+        """
+        entry_dash = RSD_dash()
         entry_dash.save()
         entry.Dash = entry_dash
         self.f.write(' and add dash.</p>\n')

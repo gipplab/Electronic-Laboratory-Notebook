@@ -1,21 +1,41 @@
-{% load widget_tweaks %}
-{% load static %}
-<div class="modal-header">
-  <h3 class="modal-title">Experiment details</h3>
-  <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-    <span aria-hidden="true">&times;</span>
-  </button>
-</div>
+{% extends "Modal/read_entry.html" %}
 
-<div class="modal-body">
+  {% block Modal_detailed_content %}
+  <tr>
+    <th>Plot:</th>
+    <th><a href="/Dash/RSD/{{ExpBase.pk}}">Link to plot</a></th>
+  </tr>
+  <tr>
+    <th>Links:</th>
+    <th><form method="post">
+      {% csrf_token %}
+      <button type="submit" name="OpenMainPath">Video</button>
+      &nbsp
+      <button type="submit" name="OpenPDFPath">PDF</button>
+      &nbsp
+      <button type="submit" name="OpenDataPath">Data</button>
+    </form></th>
+  </tr>
+  <tr>
+    <th>Analysis:</th>
+    <th><form method="post">
+      <select name="Drop_choose">
+        {% for entry in Drops %}
+            <option value="{{ entry }}">{{ entry }}</option>
+        {% endfor %}
+      </select>
+      {% csrf_token %}
+      <button type="submit" name="Run_RSD_Analysis">Run RSD Analysis</button>
+    </form></th>
+  </tr>
+  <tr>
+    <th>Sub data:</th>
+    <th>
+      {% for Sub_dat in ExpBase.Sub_Exp.all %}
+        <a href="/ExpSub/?Name={{Sub_dat.Name}}">{{Sub_dat.Name}}</a>
+        &nbsp
+      {% endfor %}
+    </th>
+  </tr>
 
-  <form method="post">
-    {% csrf_token %}
-    <button type="submit" name="Run_RSD_Analysis">Run RSD Analysis</button>
-  </form>
-
-</div>
-
-<div class="modal-footer">
-  <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-</div>
+{% endblock Modal_detailed_content %}

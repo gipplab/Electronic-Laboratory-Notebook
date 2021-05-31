@@ -1,9 +1,11 @@
 import glob, os
 import pandas as pd
-from Exp_Main.models import OCA, ExpBase, ExpPath
+from Exp_Main.models import OCA, ExpBase, ExpPath, RSD
 from Analysis.models import OszAnalysis
-from Exp_Sub.models import LSP
+from Exp_Sub.models import LSP, MFR
 from Lab_Misc import General
+import datetime
+import numpy as np
 from django.utils import timezone
 
 cwd = os.getcwd()
@@ -12,13 +14,50 @@ rel_path = General.get_BasePath()
 def Load_from_Model(ModelName, pk):
     if ModelName == 'OCA':
         return Load_OCA(pk)
+    if ModelName == 'RSD':
+        return Load_RSD(pk)
     if ModelName == 'LSP':
         return Load_LSP(pk)
     if ModelName == 'MFL':
         return Load_MFL(pk)
+    if ModelName == 'MFR':
+        return Load_MFR(pk)
     if ModelName == 'HME':
         return Load_HME(pk)
 
+def Load_RSD_subs(pk):
+    Gases = {}
+    mfrs = MFR.objects.filter(rsd = RSD.objects.get(id = pk)).all()
+    for mfr in mfrs:
+        Gases[mfr.Gas.first().Name] = Load_MFR(mfr.id)
+
+    Pump = {}
+    lsps = LSP.objects.filter(rsd = RSD.objects.get(id = pk)).all()
+    for lsp in lsps:
+        Pump[lsp.Name] = Load_LSP(lsp.id)
+
+    return pd.concat(Gases), pd.concat(Pump)
+
+def Load_RSD(pk):
+    cwd = os.getcwd()
+    entry = General.get_in_full_model(pk)
+    os.chdir(os.path.join(General.get_BasePath(),entry.Link_Data))
+    Drops = {}
+    Drops_names = []
+    for file in glob.glob("*.xlsx"):
+        if file[0:4] == 'Drop':
+            Drops[file[:-5]] = pd.read_excel(file)
+            Drops_names.append(file[:-5])
+    os.chdir(cwd)
+    dropss = pd.concat(Drops, keys=Drops_names)
+    dropss['time_loc'] = dropss['abs_time'].dt.tz_localize(timezone.get_current_timezone())
+    return dropss
+
+def Load_sliced_RSD(Main_id):
+    data = Load_RSD(Main_id)
+    entry = General.get_in_full_model(Main_id)
+    DashTab = entry.Dash
+    return Slice_data(data, DashTab)
 
 def Load_MFL(pk):
     entry = General.get_in_full_model_sub(pk)
@@ -26,6 +65,14 @@ def Load_MFL(pk):
     MFL_N2_data['Date_Time'] = pd.to_datetime(MFL_N2_data['Date_Time'], format='%d.%m.%Y %H:%M:%S', errors="coerce")
     MFL_N2_data['time'] = MFL_N2_data['Date_Time'].dt.tz_localize(timezone.get_current_timezone())
     return MFL_N2_data
+
+def Load_MFR(pk):
+    entry = General.get_in_full_model_sub(pk)
+    file = os.path.join( rel_path, entry.Link)
+    data = pd.read_csv(file, sep=' ', error_bad_lines=False)
+    data['date_time'] = pd.to_datetime(data['date'] + '_' + data['time'], format='%Y-%m-%d_%H:%M:%S.%f', errors="coerce")
+    data['time_loc'] = data['date_time'].dt.tz_localize(timezone.get_current_timezone())
+    return data
 
 def Load_csv(entry):
     file = os.path.join( rel_path, entry.Link)
@@ -59,6 +106,9 @@ def Load_sliced_OCA(Main_id):
     data = Load_OCA(Main_id)
     entry = General.get_in_full_model(Main_id)
     DashTab = entry.Dash
+    return Slice_data(data, DashTab)
+
+def Slice_data(data, DashTab):
     if isinstance(DashTab.CA_high_degree, float):
         slice_CA_high = (data['CA_L']<DashTab.CA_high_degree) & (data['CA_R']<DashTab.CA_high_degree)
         data = data[slice_CA_high]
@@ -100,6 +150,14 @@ def Load_LSP(sub_id):
     Syringe_pump = LSP.objects.get(pk = sub_id)
     file = os.path.join( rel_path, Syringe_pump.Link)
     df = pd.read_excel(file, 'Events record')
+    temp_time = pd.to_datetime(df['Current time'])
+    time_diff = Syringe_pump.Date_time.date()-temp_time[0].date()
+    df['date_time'] = temp_time + time_diff
+    index_change_time = np.argmin(temp_time-temp_time[0])
+    if not index_change_time == 0:
+        df['date_time'][index_change_time:] = df['date_time'][index_change_time:] + datetime.timedelta(days=1)
+    #df['date_time'] = temp_time.apply(lambda dt: dt.replace(year=Syringe_pump.Date_time.date().year, month=Syringe_pump.Date_time.date().month, day=Syringe_pump.Date_time.date().day))
+    df['time_loc'] = df['date_time'].dt.tz_localize(timezone.get_current_timezone())
     df['Age_dt'] = pd.to_datetime(df["Event time"], format='%H:%M:%S,%f').dt.time
     df['Age_s'] = [time.hour*60*60+time.minute*60+time.second+time.microsecond/1000000 for time in df['Age_dt']]
     return df

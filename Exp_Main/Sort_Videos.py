@@ -5,6 +5,8 @@ import datetime
 from .models import ExpPath, RSD
 from Lab_Misc import General
 from django.db.models import Q
+import pandas as pd
+import numpy as np
 
 
 def get_closest_to_dt(qs, dt):
@@ -33,10 +35,9 @@ def get_closest_to_dt(qs, dt):
     else:
         return greater or less
 
-cwd = os.getcwd()
 def Sort_CON():
     con_path = ExpPath.objects.get(Abbrev = 'CON').Path
-    os.chdir(os.path.join(General.get_BasePath, con_path))
+    os.chdir(os.path.join(General.get_BasePath(), con_path))
 
     for file in glob.glob("*.mov"):
         record_time = os.path.getmtime(file)
@@ -60,21 +61,27 @@ def Sort_CON():
             os.rename(file, os.path.join(folder_name,file))
             old_record_time = record_time
         os.chdir('..')
+    os.chdir(cwd)
 
 
 def Sort_RSD():
+    old_record_time = datetime.datetime(2015, 1, 1, 12, 12, 12)
     con_path = ExpPath.objects.get(Abbrev = 'RSD').Path
-    os.chdir(os.path.join(General.get_BasePath, con_path))
+    os.chdir(os.path.join(General.get_BasePath(), con_path))
     delay = 30
+    times = [0,0]
+    i = 1
+    time_i = 1
     for file in glob.glob("*.mov"):
         record_time = os.path.getmtime(file)
         record_time = datetime.datetime.fromtimestamp(record_time)
-        if record_time - old_record_time < datetime.timedelta(minutes=26):
+        if (record_time - old_record_time < datetime.timedelta(minutes=26)) & (record_time - old_record_time < datetime.timedelta(minutes=time_i-1)):
             path = os.path.join(date, time_str, drop)
             if not os.path.exists(path):
                 os.makedirs(path)
             os.rename(file, os.path.join(path,file))
             old_record_time = record_time
+            time_i = time_i - 25
             continue
         if record_time - old_record_time < datetime.timedelta(minutes=26+delay+1):
             i+=1
@@ -84,11 +91,18 @@ def Sort_RSD():
                 os.makedirs(path)
             os.rename(file, os.path.join(path,file))
             old_record_time = record_time
+            time_i = times[i]-times[i-1]
             continue
         if record_time - old_record_time > datetime.timedelta(minutes=26+delay):
             Exps_noVideo = RSD.objects.filter(Q(Link__isnull = True) | Q(Link__exact='')).order_by('Date_time')
             closest_entry = get_closest_to_dt(Exps_noVideo, record_time)
             delay = closest_entry.Script.delay
+            link_df = closest_entry.Script.Link_gas_df
+            pum_df = pd.read_pickle(os.path.join(General.get_BasePath(), link_df))
+            olij = pum_df.columns[0][0]
+            times = pum_df[pum_df.columns[0][0]]['abs_time']
+            times = times[1:-2:2]
+            times = np.asarray(times)
             date = str(record_time.strftime('%Y%m%d'))
             i = 1
             time_str = str(record_time.strftime('%H%M%S'))
@@ -98,6 +112,9 @@ def Sort_RSD():
                 os.makedirs(path)
             os.rename(file, os.path.join(path,file))
             old_record_time = record_time
+    os.chdir(cwd)
+
+cwd = os.getcwd()
 '''
 is_not_first = False
 for file in glob.glob("*.mov"):

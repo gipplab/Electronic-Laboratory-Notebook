@@ -2,6 +2,7 @@ from django.db import models
 from datetime import datetime
 from mptt.models import MPTTModel, TreeForeignKey, TreeManyToManyField
 from Lab_Dash.models import OCA as OCA_dash
+from Lab_Dash.models import RSD as RSD_dash
 from Lab_Dash.models import SFG as SFG_dash
 from Lab_Dash.models import SEL as SEL_dash
 from Lab_Dash.models import GRP as GRP_dash
@@ -164,7 +165,7 @@ class RSD(ExpBase):
     Link_Data = models.TextField(blank=True, null=True)
     Link_PDF = models.TextField(blank=True, null=True)
     Link_Osz_join_LSP = models.TextField(blank=True, null=True)
-    Dash = models.ForeignKey(OCA_dash, on_delete=models.CASCADE, blank=True, null=True)
+    Dash = models.ForeignKey(RSD_dash, on_delete=models.CASCADE, blank=True, null=True)
     Sub_Exp = models.ManyToManyField(SubExp_base, blank=True)
     Liquid = models.ForeignKey(Liquid, on_delete=models.CASCADE, blank=True, null=True)
     Script = models.ForeignKey(OszScriptGen, on_delete=models.CASCADE, blank=True, null=True)
@@ -190,7 +191,7 @@ class LPT(ExpBase):
     Link = models.TextField(blank=True, null=True)
     Link_Data = models.TextField(blank=True, null=True)
     Link_PDF = models.TextField(blank=True, null=True)
-    Dash = models.ForeignKey(OCA_dash, on_delete=models.CASCADE, blank=True, null=True)
+    #Dash = models.ForeignKey(OCA_dash, on_delete=models.CASCADE, blank=True, null=True)
     Sub_Exp = models.ManyToManyField(SubExp_base, blank=True)
     Liquid = models.ForeignKey(Liquid, on_delete=models.CASCADE, blank=True, null=True)
 
@@ -332,7 +333,7 @@ class KUR(ExpBase):
     Link = models.TextField(blank=True, null=True)
     Link_Data = models.TextField(blank=True, null=True)
     Link_PDF = models.TextField(blank=True, null=True)
-    Dash = models.ForeignKey(OCA_dash, on_delete=models.CASCADE, blank=True, null=True)
+    #Dash = models.ForeignKey(OCA_dash, on_delete=models.CASCADE, blank=True, null=True)
     Temp_Observation = models.TextField(blank=True, null=True)
     Temp_Hypothesis = models.TextField(blank=True, null=True)
     Temp_Mixing_ratio = models.TextField(blank=True, null=True)

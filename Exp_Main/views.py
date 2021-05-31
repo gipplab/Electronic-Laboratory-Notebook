@@ -1,6 +1,7 @@
 from django.shortcuts import render
 import numpy as np
 import os
+from Lab_Misc import General
 from Lab_Misc.General import *
 from .Generate import CreateAndUpdate
 import webbrowser
@@ -200,7 +201,6 @@ class Update_entry(BSModalUpdateView):
     model = ExpBase
     template_name = 'Modal/update_entry.html'
     form_class = get_Form('Exp_Main', 'OCA')
-
     def get_model_name(self, group_name, model_name, pk):
         if (model_name == 'None') & (group_name == 'Exp_Main'):
             curr_entry = ExpBase.objects.get(pk = pk)
@@ -242,6 +242,19 @@ class Read_entry(BSModalReadView):
     curr_entry = ExpBase.objects.first()
     context_object_name = 'ExpBase'
     model = ExpBase
+
+    def get_context_data(self,*args, **kwargs):
+        context = super(Read_entry, self).get_context_data(*args,**kwargs)
+        pk = self.kwargs['pk']
+        entry = General.get_in_full_model(pk)
+        if entry.Device.Abbrev == 'RSD':
+            Drops = range(1,entry.Script.number_of_cycles+1) 
+            Drop_names = ['All']
+            for Drop in Drops:
+                Drop_names.append('Drop_'+str(Drop))
+            context['Drops'] = Drop_names
+        return context
+
     def get_model_name(self, group_name, model_name, pk):
         if (model_name == 'None') & (group_name == 'Exp_Main'):
             curr_entry = ExpBase.objects.get(pk = pk)
@@ -276,8 +289,8 @@ class Read_entry(BSModalReadView):
     def post(self, request, *args, **kwargs):
         def start_drop_ana():
             cwd = os.getcwd()
-            os.chdir('Private\\Sessile.drop.analysis\\')
-            subprocess.call(['python', 'QT_sessile_drop_analysis.py', Link_to_vid])
+            path = 'Private\\Sessile.drop.analysis\\'
+            subprocess.call(['python', 'Private/Sessile.drop.analysis/QT_sessile_drop_analysis.py', Link_to_vid, chosen_drop, path])
             os.chdir(cwd)
         pk = self.kwargs['pk']
         curr_entry = ExpBase.objects.get(pk = pk)
@@ -292,6 +305,7 @@ class Read_entry(BSModalReadView):
                 subprocess.Popen(r'explorer /select,' + Folder_path)
 
             if request.method == 'POST' and 'Run_RSD_Analysis' in request.POST:
+                chosen_drop=request.POST.get('Drop_choose')
                 Link_to_vid = os.path.join(get_BasePath(), self.curr_entry.Link)
                 self.curr_entry.Link_Data = self.curr_entry.Link.replace('01_Videos', '02_Analysis_Results')
                 self.curr_entry.save()
