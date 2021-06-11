@@ -7,6 +7,7 @@ from Lab_Misc import General
 from django.db.models import Q
 import pandas as pd
 import numpy as np
+from django.utils import timezone
 
 
 def get_closest_to_dt(qs, dt):
@@ -65,53 +66,58 @@ def Sort_CON():
 
 
 def Sort_RSD():
-    old_record_time = datetime.datetime(2015, 1, 1, 12, 12, 12)
     con_path = ExpPath.objects.get(Abbrev = 'RSD').Path
     os.chdir(os.path.join(General.get_BasePath(), con_path))
     delay = 30
     times = [0,0]
     i = 1
-    time_i = 1
+    
+    df = pd.DataFrame()
+    files = []
+    record_times = []
     for file in glob.glob("*.mov"):
+        files.append(file)
         record_time = os.path.getmtime(file)
         record_time = datetime.datetime.fromtimestamp(record_time)
-        if (record_time - old_record_time < datetime.timedelta(minutes=26)) & (record_time - old_record_time < datetime.timedelta(minutes=time_i-1)):
-            path = os.path.join(date, time_str, drop)
-            if not os.path.exists(path):
-                os.makedirs(path)
-            os.rename(file, os.path.join(path,file))
-            old_record_time = record_time
-            time_i = time_i - 25
-            continue
-        if record_time - old_record_time < datetime.timedelta(minutes=26+delay+1):
-            i+=1
-            drop = 'Drop_' + str(i)
-            path = os.path.join(date, time_str, drop)
-            if not os.path.exists(path):
-                os.makedirs(path)
-            os.rename(file, os.path.join(path,file))
-            old_record_time = record_time
-            time_i = times[i]-times[i-1]
-            continue
-        if record_time - old_record_time > datetime.timedelta(minutes=26+delay):
-            Exps_noVideo = RSD.objects.filter(Q(Link__isnull = True) | Q(Link__exact='')).order_by('Date_time')
-            closest_entry = get_closest_to_dt(Exps_noVideo, record_time)
-            delay = closest_entry.Script.delay
-            link_df = closest_entry.Script.Link_gas_df
-            pum_df = pd.read_pickle(os.path.join(General.get_BasePath(), link_df))
-            olij = pum_df.columns[0][0]
-            times = pum_df[pum_df.columns[0][0]]['abs_time']
-            times = times[1:-2:2]
-            times = np.asarray(times)
-            date = str(record_time.strftime('%Y%m%d'))
-            i = 1
-            time_str = str(record_time.strftime('%H%M%S'))
-            drop = 'Drop_' + str(i)
-            path = os.path.join(date, time_str, drop)
-            if not os.path.exists(path):
-                os.makedirs(path)
-            os.rename(file, os.path.join(path,file))
-            old_record_time = record_time
+        record_times.append(record_time)
+    df['files'] = files
+    df['record_times'] = record_times
+    df['record_times'] = df['record_times'].dt.tz_localize(timezone.get_current_timezone())
+
+    while not len(df) == 0:
+        record_time = df.iloc[0]['record_times']
+        Exps_noVideo = RSD.objects.filter(Q(Link__isnull = True) | Q(Link__exact='')).order_by('Date_time')
+        closest_entry = get_closest_to_dt(Exps_noVideo, record_time)
+        delay = closest_entry.Script.delay
+        link_df = closest_entry.Script.Link_gas_df
+        pum_df = pd.read_pickle(os.path.join(General.get_BasePath(), link_df))
+        times = pum_df[pum_df.columns[0][0]]['abs_time']
+        times = times[1:-2:2]
+        times = np.asarray(times)
+        date = str(record_time.strftime('%Y%m%d'))
+        
+        drop_times = []
+        for time in times:
+            drop_times.append(closest_entry.Date_time+datetime.timedelta(minutes = time+delay*0.5))
+        
+        to_drop = []
+        for i in range(len(drop_times)-1):
+            for j, rec_time in enumerate(df['record_times']):
+                if (rec_time > drop_times[i]) & (rec_time < drop_times[i+1]):
+                    time_str = str(record_time.strftime('%H%M%S'))
+                    drop = 'Drop_' + str(i+1)
+                    path = os.path.join(date, time_str, drop)
+                    if not os.path.exists(path):
+                        os.makedirs(path)
+                    os.rename(df.iloc[j]['files'], os.path.join(path,df.iloc[j]['files']))
+                    to_drop.append(j)
+        for drop in to_drop[::-1]:
+            df = df.drop([drop])
+        
+        if not len(df) == 0:
+            df = df.reset_index(drop=True)
+            df = df.drop([0])
+    
     os.chdir(cwd)
 
 cwd = os.getcwd()

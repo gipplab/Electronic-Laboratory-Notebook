@@ -83,6 +83,7 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
                     closest_entry.Link = path_to_vids
                     closest_entry.save()
                     self.f.write('The path ' + path_to_vids + ' was added to ' + str(closest_entry.Name) + '. <br>\n')
+                    self.add_RSD_files(closest_entry)
         else:
             SampleName = self.get_SampleName(sample)
             if SampleName == None:
@@ -135,9 +136,6 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
     def ModelSpecificChanges(self, date, file, Exp, entry, sample=None):
         if Exp.Abbrev == 'SEL':
             self.add_SEL_files(file, entry)
-            entry.save()
-        if Exp.Abbrev == 'RSD':
-            self.add_RSD_files(file, entry)
             entry.save()
         if Exp.Abbrev == 'OCA':
             self.add_OCA_files(file, entry)
@@ -236,7 +234,7 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
         entry.Dash = entry_dash
         self.f.write(' and add dash.</p>\n')
 
-    def add_RSD_files(self, file, entry):
+    def add_RSD_files(self, entry):
         """
         add_Gas Adds the correct gas to the entry
 
@@ -253,6 +251,7 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
         entry_dash.save()
         entry.Dash = entry_dash
         self.f.write(' and add dash.</p>\n')
+        entry.save()
 
     def add_SEL_files(self, file, entry):
         """

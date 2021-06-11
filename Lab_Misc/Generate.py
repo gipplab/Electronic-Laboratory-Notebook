@@ -550,7 +550,7 @@ class CreateAndUpdate():
             f.write('<ul>')
             model = apps.get_model('Exp_Sub', str(Exp.Abbrev))
             if model.objects.all().count()>0:#if there are some entries
-                Unconnected_entries = model.objects.filter(oca__isnull = True, sel__isnull = True)
+                Unconnected_entries = model.objects.filter(oca__isnull = True, sel__isnull = True, rsd__isnull = True)
                 for Unconnected_entry in Unconnected_entries:
                     time_of_sub = Unconnected_entry.Date_time
                     closest_entries = []
