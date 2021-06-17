@@ -3,6 +3,7 @@ import pandas as pd
 from Exp_Main.models import OCA, ExpBase, ExpPath, RSD
 from Analysis.models import OszAnalysis
 from Exp_Sub.models import LSP, MFR
+from dbfread import DBF
 from Lab_Misc import General
 import datetime
 import numpy as np
@@ -81,7 +82,7 @@ def Load_csv(entry):
 
 def Load_HME(pk):
     entry = General.get_in_full_model_sub(pk)
-    Humidity_data = Load_dfb(pk)
+    Humidity_data = Load_dfb(entry)
     Humidity_data['UHRZEIT'] = pd.to_datetime(Humidity_data['DATUM'] + Humidity_data['UHRZEIT'], format='%d.%m.%Y    %H:%M:%S', errors="coerce")
     Humidity_data['time'] = Humidity_data['UHRZEIT'].dt.tz_localize(timezone.get_current_timezone())
     return Humidity_data

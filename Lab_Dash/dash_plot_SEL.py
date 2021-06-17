@@ -340,7 +340,7 @@ def Gen_dash(dash_name):
     global fig
     app = DjangoDash(name=dash_name, id='target_id')
     cwd = os.getcwd()
-    rel_path = General.get_BasePath()
+    rel_path = get_BasePath()
     GenFig = Gen_fig()
     fig = {
                 'data': [{
