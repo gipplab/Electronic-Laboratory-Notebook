@@ -2,4 +2,9 @@
 
 {% block content %}
 Home
+<br>
+<form method="post">
+    {% csrf_token %}
+    <button type="submit" name="Copy_small">Update small data package</button>
+</form>
 {% endblock %}

@@ -20,6 +20,7 @@ import datetime
 from Exp_Main.models import SEL
 from Exp_Sub.models import LSP
 from plotly.subplots import make_subplots
+from Lab_Misc.Load_Data import Load_from_Model
 
 
 
@@ -33,13 +34,7 @@ def Gen_dash(dash_name):
             try:
                 entry = SEL.objects.get(id = target_id)
                 self.entry = entry
-                file = os.path.join( rel_path, entry.Link_XLSX)
-                df = pd.read_excel(file, 'Tabelle1')
-                new_vals = df[df>1]/1000000#correct for wrong format
-                Curr_Dash = self.entry.Dash
-                df.update(new_vals)
-                df["Time (min.)"] = Curr_Dash.Start_datetime_elli + pd.TimedeltaIndex(df["Time (min.)"], unit='m')
-                df["time"] = df["Time (min.)"].dt.tz_convert(timezone.get_current_timezone())
+                df = Load_from_Model('SEL', target_id)
                 self.data = {}
                 self.data.update(Ellipsometry = df)
                 return_str = 'The following data could be loaded: Ellisometry'
@@ -61,78 +56,29 @@ def Gen_dash(dash_name):
                 if Device.Abbrev == 'MFL':
                     Gas = Exp_in_Model.Gas.first()
                     if Gas.Name == 'H2O':
-                        MFL_H2O_data = self.get_sub_csv(Exp_in_Model)
-                        #MFL_H2O_data['Flow (Std.)'] = MFL_H2O_data['Flow (Std.)'][MFL_H2O_data['Flow (Std.)']>600]/10#correct for wrong format
-                        MFL_H2O_data['Date_Time'] = pd.to_datetime(MFL_H2O_data['Date_Time'], format='%d.%m.%Y %H:%M:%S', errors="coerce")
-                        MFL_H2O_data['time'] = MFL_H2O_data['Date_Time'].dt.tz_localize(timezone.get_current_timezone())
+                        MFL_H2O_data = Load_from_Model('MFL', Sub_Exp.id)
                         self.data.update(MFL_H2O_data = MFL_H2O_data)
                         return_str += ', massflow of water stream'
                     if Gas.Name == 'N2':
-                        MFL_N2_data = self.get_sub_csv(Exp_in_Model)
-                        MFL_N2_data['Date_Time'] = pd.to_datetime(MFL_N2_data['Date_Time'], format='%d.%m.%Y %H:%M:%S', errors="coerce")
-                        #MFL_N2_data['Flow (Std.)'] = MFL_N2_data['Flow (Std.)'][MFL_N2_data['Flow (Std.)']>600]/10#correct for wrong format
-                        MFL_N2_data['time'] = MFL_N2_data['Date_Time'].dt.tz_localize(timezone.get_current_timezone())
+                        MFL_N2_data = Load_from_Model('MFL', Sub_Exp.id)
                         self.data.update(MFL_N2_data = MFL_N2_data)
                         return_str += ', massflow of nitrogen stream'
                 if Device.Abbrev == 'HME':
                     if Exp_in_Model.Environments == '1':
-                        Humidity_data = self.get_sub_dbf(Exp_in_Model)
-                        Humidity_data['UHRZEIT'] = pd.to_datetime(Humidity_data['DATUM'] + Humidity_data['UHRZEIT'], format='%d.%m.%Y    %H:%M:%S', errors="coerce")
-                        Humidity_data['time'] = Humidity_data['UHRZEIT'].dt.tz_localize(timezone.get_current_timezone())
+                        Humidity_data = Load_from_Model('HME', Sub_Exp.id)
                         self.data.update(HME_cell = Humidity_data)
                         return_str += ', humidity measurements of the cell'
                         self.has_sub = True
                     if Exp_in_Model.Environments == '2':
-                        Humidity_data = self.get_sub_dbf(Exp_in_Model)
-                        Humidity_data['UHRZEIT'] = pd.to_datetime(Humidity_data['DATUM'] + Humidity_data['UHRZEIT'], format='%d.%m.%Y    %H:%M:%S', errors="coerce")
-                        Humidity_data['time'] = Humidity_data['UHRZEIT'].dt.tz_localize(timezone.get_current_timezone())
+                        Humidity_data = Load_from_Model('HME', Sub_Exp.id)
                         self.data.update(HME_data_room = Humidity_data)
                         return_str += ', humidity measurements of the room'
                         self.has_sub = True
             return return_str
 
-        def get_sub_dbf(self, model):
-            file = os.path.join( rel_path, model.Link)
-            table = DBF(file, load=True)
-            df = pd.DataFrame(iter(table))
-            return df
-
-        def get_sub_csv(self, model):
-            file = os.path.join( rel_path, model.Link)
-            #file_name = file[get_LastIndex(file, '\\')+1:get_LastIndex(file, '.')]
-            df = pd.read_csv(file, sep=';', error_bad_lines=False, decimal = ',', parse_dates=[['Date', 'Time']])#skips bad lines
-            return df
-
-        def slice_data(self, data):
-            DashTab = self.entry.Dash
-            if isinstance(DashTab.CA_high_degree, float):
-                slice_CA_high = (data['CA_L']<DashTab.CA_high_degree) & (data['CA_R']<DashTab.CA_high_degree)
-                data = data[slice_CA_high]
-
-            if isinstance(DashTab.CA_low_degree, float):
-                slice_CA_low = (data['CA_L']>DashTab.CA_low_degree) & (data['CA_R']>DashTab.CA_low_degree)
-                data = data[slice_CA_low]
-
-            if isinstance(DashTab.BD_high_mm, float):
-                slice_BD = (data['BI_left']<DashTab.BD_high_mm) & (data['BI_right']<DashTab.BD_high_mm)
-                data = data[slice_BD]
-
-            if isinstance(DashTab.BD_low_mm, float):
-                slice_BD = (data['BI_left']>DashTab.BD_low_mm) & (data['BI_right']>DashTab.BD_low_mm)
-                data = data[slice_BD]
-
-            if isinstance(DashTab.Time_high_sec, float):
-                slice_time = data['Age']<DashTab.Time_high_sec
-                data = data[slice_time]
-
-            if isinstance(DashTab.Time_low_sec, float):
-                slice_time = data['Age']>DashTab.Time_low_sec
-                data = data[slice_time]
-            return data
-
         def CA_Time(self):
             fig = go.Figure()
-            fig.add_trace(go.Scattergl(x=self.data['time'], y=self.data['Thickness # 3'],
+            fig.add_trace(go.Scattergl(x=self.data['Ellipsometry']['time'], y=self.data['Ellipsometry']['Thickness # 3'],
                         mode='markers',
                         name='CA left')
             )
@@ -193,7 +139,7 @@ def Gen_dash(dash_name):
             while(date<end_date):
                 thicknes = np.mean(self.data['Ellipsometry']['Thickness # 3'][(self.data['Ellipsometry']['time']<date+time_step)&(self.data['Ellipsometry']['time']>date)])
                 thickness.append(thicknes)
-                humidity = np.mean(Humidity_data['CHN1RH'][(Humidity_data['time']<date+time_step)&(Humidity_data['time']>date)])
+                humidity = np.mean(Humidity_data['Humidity'][(Humidity_data['time']<date+time_step)&(Humidity_data['time']>date)])
                 humidities.append(humidity)
                 date = date + time_step
             fig = go.Figure()
@@ -206,19 +152,25 @@ def Gen_dash(dash_name):
             return fig
 
         def CA_CLPos(self):
-            Humidity_data = self.data['HME_cell']
-            Humidity_room = self.data['HME_data_room']
             fig = make_subplots(specs=[[{"secondary_y": True}]])
-            fig.add_trace(go.Scattergl(x=Humidity_data['time'], y=Humidity_data['CHN1RH'],
-                        mode='markers',
-                        name='Humidity cell'),
-                        secondary_y=True,
-            )
-            fig.add_trace(go.Scattergl(x=Humidity_room['time'], y=Humidity_room['CHN1CELS'],
-                        mode='markers',
-                        name='Humidity room'),
-                        secondary_y=True,
-            )
+            try:
+                Humidity_data = self.data['HME_cell']
+                fig.add_trace(go.Scattergl(x=Humidity_data['time'], y=Humidity_data['Humidity'],
+                            mode='markers',
+                            name='Humidity cell'),
+                            secondary_y=True,
+                )
+            except:
+                pass
+            try:
+                Humidity_room = self.data['HME_data_room']
+                fig.add_trace(go.Scattergl(x=Humidity_room['time'], y=Humidity_room['Humidity'],
+                            mode='markers',
+                            name='Humidity room'),
+                            secondary_y=True,
+                )
+            except:
+                pass
             fig.add_trace(go.Scattergl(x=self.data['Ellipsometry']["time"], y=self.data['Ellipsometry']['Thickness # 3'],
                         mode='markers',
                         name='Thickness'),
@@ -237,7 +189,7 @@ def Gen_dash(dash_name):
                 MFL_H2O_data = self.data['MFL_H2O_data']
                 MFL_N2_data = self.data['MFL_N2_data']
                 fig = make_subplots(specs=[[{"secondary_y": True}]])
-                fig.add_trace(go.Scattergl(x=Humidity_data['time'], y=Humidity_data['CHN1RH'],
+                fig.add_trace(go.Scattergl(x=Humidity_data['time'], y=Humidity_data['Humidity'],
                             mode='markers',
                             name='Humidity'),
                             secondary_y=True,

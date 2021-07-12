@@ -25,6 +25,19 @@ def Load_from_Model(ModelName, pk):
         return Load_MFR(pk)
     if ModelName == 'HME':
         return Load_HME(pk)
+    if ModelName == 'SEL':
+        return Load_SEL(pk)
+
+def Load_SEL(pk):
+    entry = General.get_in_full_model(pk)
+    file = os.path.join( rel_path, entry.Link_XLSX)
+    df = pd.read_excel(file, 'Tabelle1')
+    new_vals = df[df>1]/1000000#correct for wrong format
+    Curr_Dash = entry.Dash
+    df.update(new_vals)
+    df["Time (min.)"] = Curr_Dash.Start_datetime_elli + pd.TimedeltaIndex(df["Time (min.)"], unit='m')
+    df["time"] = df["Time (min.)"].dt.tz_convert(timezone.get_current_timezone())
+    return df
 
 def Load_RSD_subs(pk):
     Gases = {}
@@ -85,6 +98,16 @@ def Load_HME(pk):
     Humidity_data = Load_dfb(entry)
     Humidity_data['UHRZEIT'] = pd.to_datetime(Humidity_data['DATUM'] + Humidity_data['UHRZEIT'], format='%d.%m.%Y    %H:%M:%S', errors="coerce")
     Humidity_data['time'] = Humidity_data['UHRZEIT'].dt.tz_localize(timezone.get_current_timezone())
+    try:
+        col_RH = [x for x in Humidity_data.columns.values if "CHN1" in x]
+        Humidity_data['Humidity'] = Humidity_data[col_RH]
+    except:
+        pass
+    try:
+        col_temp = [x for x in Humidity_data.columns.values if "CHN2" in x]
+        Humidity_data['Temperature'] = Humidity_data[col_temp]
+    except:
+        pass
     return Humidity_data
 
 def Load_dfb(entry):

@@ -4,6 +4,7 @@ from .models import Project, ProjectEntry, OszScriptGen
 from .tables import ProjectEntry as ProjectEntry_table
 from .tables import Plan_Gas_OSZ as Plan_Gas_OSZ_table
 from .forms import get_Form
+import threading
 import subprocess
 import datetime
 from Exp_Main.models import RSD, ExpPath
@@ -16,6 +17,11 @@ from Lab_Misc.models import SampleBase
 # Create your views here.
 
 def index(request):
+    def copy_all_data_smaller_100MB():
+        os.system('robocopy ..\..\\02_Experiments C:\\Users\schubotz\IPFDD\\02_Experiments /S /MAX:100000000')
+    if request.method == 'POST' and 'Copy_small' in request.POST:
+        x = threading.Thread(target=copy_all_data_smaller_100MB)
+        x.start()
     return render(request = request, template_name='home.html')
 
 # def update_samples(request):

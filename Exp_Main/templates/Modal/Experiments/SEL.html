@@ -22,7 +22,7 @@
     <th>Sub data:</th>
     <th>
       {% for Sub_dat in ExpBase.Sub_Exp.all %}
-        {{Sub_dat.Name}}
+        <a href="/ExpSub/?Name={{Sub_dat.Name}}">{{Sub_dat.Name}}</a>
         &nbsp
       {% endfor %}
     </th>

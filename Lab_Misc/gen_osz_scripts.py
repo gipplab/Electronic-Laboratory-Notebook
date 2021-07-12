@@ -12,7 +12,7 @@ def gen_scripts(pk):
             with open(path_to_scripts + "Steuerung.txt", 'w') as file:
                 file.write('Time to pass 	unit	comport		flowrate\n0	sec	Water	0\n0	sec	Ethanol	0\n0	sec	EtOH-H2O	0\n0	sec	Nitrogen	0\n')
         def flowcontrol_gas(time, cycle, liquid, fin = False):
-            Max_flow = {'Water' : str(90), 'Ethanol' : str(100), 'Nitrogen' : str(100)}
+            Max_flow = {'Water' : str(100), 'Ethanol' : str(100), 'Nitrogen' : str(100)}
             if fin:
                 write_flow_to_gas(liquid, time/60, str(0))
                 file.write(str(time)+ '	sec	' + liquid + '	' + str(0) + '\n')
