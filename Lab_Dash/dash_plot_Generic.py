@@ -42,9 +42,7 @@ def Gen_dash(dash_name):
                 self.data.update({self.entry.Name : Load_Data.Load_from_Model(ModelName, target_id)})
                 return_str = 'The following data could be loaded: ' + self.entry.Name
                 try:
-                    for SubExperiment in self.entry.Sub_Exp.all():
-                        self.data.update({SubExperiment.Name : Load_Data.Load_from_Model(SubExperiment.Device.Abbrev, SubExperiment.id)})
-                        return_str += ', ' + SubExperiment.Name
+                    self.data.update(Load_Data.get_subs_in_dic(target_id))
                 except:
                     pass
                 return True, return_str

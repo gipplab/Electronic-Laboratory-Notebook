@@ -6,6 +6,7 @@ from Exp_Sub.models import LSP, MFR
 from dbfread import DBF
 from Lab_Misc import General
 import datetime
+from django.apps import apps
 import numpy as np
 from django.utils import timezone
 
@@ -37,16 +38,46 @@ def Load_SEL(pk):
     df.update(new_vals)
     df["Time (min.)"] = Curr_Dash.Start_datetime_elli + pd.TimedeltaIndex(df["Time (min.)"], unit='m')
     df["time"] = df["Time (min.)"].dt.tz_convert(timezone.get_current_timezone())
+    df['time_loc'] = df["time"]
     return df
+
+def get_subs_in_dic(pk):
+    main_entry = General.get_in_full_model(pk)
+    Sub_Exps = main_entry.Sub_Exp.all()
+    data = {}
+    for Sub_Exp in Sub_Exps:
+        Sub_Exp = General.get_in_full_model_sub(Sub_Exp.pk)
+        data_sub = Load_from_Model(Sub_Exp.Device.Abbrev, Sub_Exp.id)
+        try:
+            Sub_Exp.Gas.first().Name
+            data[Sub_Exp.Name + '_' + Sub_Exp.Gas.first().Name] = data_sub
+        except:
+            data[Sub_Exp.Name] = data_sub
+    return data
+
+def get_subs_by_model(pk, sub_model):
+    # sub_model = 'mfr'
+    main_entry = General.get_in_full_model(pk)
+    main_model = str.lower(main_entry.Device.Abbrev)
+    model = apps.get_model('Exp_Sub', sub_model)
+    data = {}
+    mfrs = model.objects.filter(**{main_model: ExpBase.objects.get(id = pk)}).all()
+    for mfr in mfrs:
+        try:
+            mfr.Gas.first().Name
+            data[mfr.Name + '_' + mfr.Gas.first().Name] = Load_from_Model(mfr.Device.Abbrev, mfr.id)
+        except:
+            data[mfr.Name] = Load_from_Model(mfr.Device.Abbrev, mfr.id)
+    return data
 
 def Load_RSD_subs(pk):
     Gases = {}
-    mfrs = MFR.objects.filter(rsd = RSD.objects.get(id = pk)).all()
+    mfrs = MFR.objects.filter(rsd = ExpBase.objects.get(id = pk)).all()
     for mfr in mfrs:
         Gases[mfr.Gas.first().Name] = Load_MFR(mfr.id)
 
     Pump = {}
-    lsps = LSP.objects.filter(rsd = RSD.objects.get(id = pk)).all()
+    lsps = LSP.objects.filter(rsd = ExpBase.objects.get(id = pk)).all()
     for lsp in lsps:
         Pump[lsp.Name] = Load_LSP(lsp.id)
 

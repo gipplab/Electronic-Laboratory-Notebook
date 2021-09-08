@@ -20,7 +20,7 @@ import datetime
 from Exp_Main.models import SEL
 from Exp_Sub.models import LSP
 from plotly.subplots import make_subplots
-from Lab_Misc.Load_Data import Load_from_Model
+from Lab_Misc import Load_Data
 
 
 
@@ -34,12 +34,11 @@ def Gen_dash(dash_name):
             try:
                 entry = SEL.objects.get(id = target_id)
                 self.entry = entry
-                df = Load_from_Model('SEL', target_id)
+                df = Load_Data.Load_from_Model('SEL', target_id)
                 self.data = {}
                 self.data.update(Ellipsometry = df)
                 return_str = 'The following data could be loaded: Ellisometry'
-                return_str_sub = self.get_subs()
-                return_str += return_str_sub
+                self.data.update(Load_Data.get_subs_in_dic(target_id))
                 os.chdir(cwd)
                 return True, return_str
             except:
@@ -53,24 +52,28 @@ def Gen_dash(dash_name):
                 Device = Sub_Exp.Device
                 model = apps.get_model('Exp_Sub', str(Device.Abbrev))
                 Exp_in_Model = model.objects.get(id = Sub_Exp.id)
+                if Device.Abbrev == 'MFR':
+                    MFR_data = Load_Data.Load_from_Model('MFR', Sub_Exp.id)
+                    self.data.update(MFR_H2O_data = MFR_data)
+                    return_str += ', massflow RS232 of water stream'
                 if Device.Abbrev == 'MFL':
                     Gas = Exp_in_Model.Gas.first()
                     if Gas.Name == 'H2O':
-                        MFL_H2O_data = Load_from_Model('MFL', Sub_Exp.id)
+                        MFL_H2O_data = Load_Data.Load_from_Model('MFL', Sub_Exp.id)
                         self.data.update(MFL_H2O_data = MFL_H2O_data)
                         return_str += ', massflow of water stream'
                     if Gas.Name == 'N2':
-                        MFL_N2_data = Load_from_Model('MFL', Sub_Exp.id)
+                        MFL_N2_data = Load_Data.Load_from_Model('MFL', Sub_Exp.id)
                         self.data.update(MFL_N2_data = MFL_N2_data)
                         return_str += ', massflow of nitrogen stream'
                 if Device.Abbrev == 'HME':
                     if Exp_in_Model.Environments == '1':
-                        Humidity_data = Load_from_Model('HME', Sub_Exp.id)
+                        Humidity_data = Load_Data.Load_from_Model('HME', Sub_Exp.id)
                         self.data.update(HME_cell = Humidity_data)
                         return_str += ', humidity measurements of the cell'
                         self.has_sub = True
                     if Exp_in_Model.Environments == '2':
-                        Humidity_data = Load_from_Model('HME', Sub_Exp.id)
+                        Humidity_data = Load_Data.Load_from_Model('HME', Sub_Exp.id)
                         self.data.update(HME_data_room = Humidity_data)
                         return_str += ', humidity measurements of the room'
                         self.has_sub = True
@@ -90,7 +93,7 @@ def Gen_dash(dash_name):
                 for y1 in self.select_y1:
                     Exp_type = y1[:y1.index('-')]
                     col = y1[y1.index('-')+1:]
-                    fig.add_trace(go.Scattergl(x=self.data[Exp_type]['time'], y=self.data[Exp_type][col],
+                    fig.add_trace(go.Scattergl(x=self.data[Exp_type]['time_loc'], y=self.data[Exp_type][col],
                                 mode='markers',
                                 name=y1),
                                 secondary_y=False,
@@ -101,7 +104,7 @@ def Gen_dash(dash_name):
                 try:
                     Exp_type = y2[:y2.index('-')]
                     col = y2[y2.index('-')+1:]
-                    fig.add_trace(go.Scattergl(x=self.data[Exp_type]['time'], y=self.data[Exp_type][col],
+                    fig.add_trace(go.Scattergl(x=self.data[Exp_type]['time_loc'], y=self.data[Exp_type][col],
                                 mode='markers',
                                 name=y2),
                                 secondary_y=True,
@@ -217,7 +220,7 @@ def Gen_dash(dash_name):
 
         def Humidity_all(self):
             if self.has_sub:
-                Humidity_data = self.data['HME_data']
+                Humidity_data = self.data['HME_data_room']
                 fig = go.Figure()
                 for col in Humidity_data.columns:
                     if col == 'time':
