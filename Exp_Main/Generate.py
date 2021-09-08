@@ -130,6 +130,8 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
         if str(Exp.Abbrev) == 'SFG':
             if file[-11:] == '_3500.0.txt':
                 return super(CreateAndUpdate, self).is_ValidFile(file, Exp)
+            elif file[-9:] == '_data.txt':
+                return super(CreateAndUpdate, self).is_ValidFile(file, Exp)
             elif Group != None:
                 if file.find('3500.0') != -1:
                     return super(CreateAndUpdate, self).is_ValidFile(file, Exp)
