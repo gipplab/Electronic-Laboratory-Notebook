@@ -1,6 +1,7 @@
 from Exp_Sub.models import ExpBase
 from Exp_Sub.models import ExpPath as ExpPath_sub
 from Exp_Main.models import ExpBase as Main_ExpBase
+from Exp_Main.models import GRP
 from Lab_Dash.models import GRP as GRP_dash
 from Exp_Main.models import Group as Group_Model
 import pytz
@@ -469,6 +470,10 @@ class CreateAndUpdate():
                     group_entry = Group_Model()
                     group_entry.Description = Group
                     group_entry.save()
+                    SampleName = self.get_SampleName(sample)
+                    expbase_grp = GRP(Device = self.ExpPath_curr.objects.get(Abbrev='GRP'),
+                                Sample_name = SampleBase.objects.get(Name=SampleName), Group = group_entry)
+                    expbase_grp.save()
                     self.ManageEntriesForFiles(date, Exp, sample, group_entry)
                     return group_entry
             elif SubGroup[0:3] == 'GRP':

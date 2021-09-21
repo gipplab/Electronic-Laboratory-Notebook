@@ -211,7 +211,7 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
         entry.XPos_mm = XPos
         YPos = get_FloatAfterTrigger(file, 'y')
         entry.YPos_mm = YPos
-        entry.Measurement_Mode = '2'
+        entry.Measurement_Mode = '1'
         entry_dash = SFG_dash()
         entry_dash.save()
         entry.Dash = entry_dash
@@ -383,6 +383,9 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
                     Name_str += str(number)
                     item.Name = Name_str
                     item.save()
+                    expbase_grp = item.grp_set.first()
+                    expbase_grp.Date_time = ExpBase_first.Date_time
+                    expbase_grp.save()
                     f.write('<li>Named group with id = ' + str(item.id) + ' ' + item.Name + '.</li>\n')
                     try:#try to find the dash model and name it
                         dash_entry = item.Dash

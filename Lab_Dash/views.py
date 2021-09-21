@@ -31,6 +31,7 @@ from bootstrap_modal_forms.generic import (BSModalUpdateView)
 def RSD_Graph(request, pk):
     entry = RSD_Main.objects.get(id = pk)
     context = {'stuff': 'somestuff'}
+    context['Experiment_Name'] = entry.Name
     context['pk_dash'] = entry.Dash.pk # '-' is theseperator defined in url
     context['model_name'] = 'RSD'
     Name_dash_app = 'dash_RSD_' + str(pk)
@@ -42,6 +43,7 @@ def RSD_Graph(request, pk):
 def Comparison(request, pk):
     entry = Comparison_Main.objects.get(id = pk)
     context = {'stuff': 'somestuff'}
+    context['Experiment_Name'] = entry.Name
     all_dash_entry = list(entry.Dash.Entry.all().values_list('Name', flat=True))
     all_dash_entry.insert(0, 'All')
     label_to_number = {label: i for i, label in enumerate(all_dash_entry, 0)}
@@ -66,6 +68,7 @@ def Comparison(request, pk):
 def OszAnalysis(request, pk):
     entry = OszAnalysis_Main.objects.get(id = pk)
     context = {'stuff': 'somestuff'}
+    context['Experiment_Name'] = entry.Name
     all_dash_entry = list(entry.Dash.Entry.all().values_list('Name', flat=True))
     all_dash_entry.insert(0, 'All')
     label_to_number = {label: i for i, label in enumerate(all_dash_entry, 0)}
@@ -120,6 +123,7 @@ def GRP_SFG(request, pk):
 def Gen_SFG_cycle(request, pk):
     entry = Group.objects.get(id = pk)
     context = {'stuff': 'somestuff'}
+    context['Experiment_Name'] = entry.grp_set.first().Name
     curr_model = apps.get_model('Lab_Dash', entry.Dash.Typ)
     if curr_model.objects.filter(Group_id = entry.Dash.pk).count() == 0:
         entry_dash = entry.Dash
@@ -139,6 +143,7 @@ def Gen_SFG_cycle(request, pk):
 def Gen_SFG_abrastern(request, pk):
     entry = Group.objects.get(id = pk)
     context = {'stuff': 'somestuff'}
+    context['Experiment_Name'] = entry.grp_set.first().Name
     curr_model = apps.get_model('Lab_Dash', entry.Dash.Typ)
     if curr_model.objects.filter(Group_id = entry.Dash.pk).count() == 0:
         entry_dash = entry.Dash
@@ -158,6 +163,7 @@ def Gen_SFG_abrastern(request, pk):
 def Gen_SFG_kin_3D(request, pk):
     entry = Group.objects.get(id = pk)
     context = {'stuff': 'somestuff'}
+    context['Experiment_Name'] = entry.grp_set.first().Name
     curr_model = apps.get_model('Lab_Dash', entry.Dash.Typ)
     if curr_model.objects.filter(Group_id = entry.Dash.pk).count() == 0:
         entry_dash = entry.Dash
@@ -177,6 +183,7 @@ def Gen_SFG_kin_3D(request, pk):
 def GRP_SFG_kin_drive(request, pk):
     entry = Group.objects.get(id = pk)
     context = {'stuff': 'somestuff'}
+    context['Experiment_Name'] = entry.grp_set.first().Name
     curr_model = apps.get_model('Lab_Dash', entry.Dash.Typ)
     if curr_model.objects.filter(Group_id = entry.Dash.pk).count() == 0:
         entry_dash = entry.Dash
@@ -196,6 +203,7 @@ def GRP_SFG_kin_drive(request, pk):
 def Plan_Osz_graph(request, pk):
     entry = OszScriptGen.objects.get(id = pk)
     context = {'stuff': 'somestuff'}
+    context['Experiment_Name'] = entry.Name
     context['model_name'] = 'OszScriptGen'
     Name_dash_app = 'dash_' + 'OszScriptGen' + '_' + str(pk)
     context['Name_dash_app'] = Name_dash_app
@@ -220,6 +228,7 @@ def Generic(request, ModelName, pk):
     entry = model.objects.get(id = pk)
     context = {'stuff': 'somestuff'}
     context['model_name'] = ModelName
+    context['Experiment_Name'] = entry.Name
     Name_dash_app = 'dash_' + ModelName + '_' + str(pk)
     context['Name_dash_app'] = Name_dash_app
     Gen_dash_Generic(Name_dash_app)#Creates a new app for every pk so the data will not corrupt
@@ -231,6 +240,7 @@ def SFG_graph(request, pk):
     context = {'stuff': 'somestuff'}
     context['pk_dash'] = entry.Dash.pk # '-' is theseperator defined in url
     context['model_name'] = 'SFG'
+    context['Experiment_Name'] = entry.Name
     Name_dash_app = 'dash_SFG_' + str(pk)
     context['Name_dash_app'] = Name_dash_app
     Gen_dash_SFG(Name_dash_app)#Creates a new app for every pk so the data will not corrupt
@@ -242,6 +252,7 @@ def SEL_graph(request, pk):
     context = {'stuff': 'somestuff'}
     context['pk_dash'] = entry.Dash.pk # '-' is theseperator defined in url
     context['model_name'] = 'SEL'
+    context['Experiment_Name'] = entry.Name
     Name_dash_app = 'dash_SEL_' + str(pk)
     context['Name_dash_app'] = Name_dash_app
     Gen_dash(Name_dash_app)#Creates a new app for every pk so the data will not corrupt
@@ -253,6 +264,7 @@ def SEL_compare_graph(request, pk):
     context = {'stuff': 'somestuff'}
     context['pk_dash'] = entry.Dash.pk # '-' is theseperator defined in url
     context['model_name'] = 'SEL'
+    context['Experiment_Name'] = entry.Name
     Name_dash_app = 'dash_SEL_compare_' + str(pk)
     context['Name_dash_app'] = Name_dash_app
     Gen_dash_compare(Name_dash_app)#Creates a new app for every pk so the data will not corrupt
