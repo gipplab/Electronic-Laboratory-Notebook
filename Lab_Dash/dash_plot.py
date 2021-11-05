@@ -27,10 +27,11 @@ class Gen_fig():
     def __init__(self, target_id):
         entry = OCA.objects.get(id = target_id)
         self.entry = entry
-        file = os.path.join( rel_path, entry.Link_Data)
-        data = np.genfromtxt((conv(x) for x in open(file)), delimiter='	', skip_header=10, names=['Run_No', 'Age', 'CA_M', 'CA_L', 'CA_R', 'CM', 'BD', 'Vol', 'Mag', 'BI_left', 'BI_right'])
-        data['Age'] = data['Age']/1000
-        self.data = self.slice_data(data)
+        try:
+            self.data = Load_Data.Load_sliced_OCA(target_id)
+        except:
+            print('slice failed')
+            self.data = Load_Data.Load_from_Model('OCA', target_id)
         os.chdir(cwd)
 
     def has_sub(self):
@@ -298,9 +299,9 @@ class Gen_fig():
                 droptimes = time_pump[zero_slice]
                 time_points = droptimes[4::4]
             time_points = np.insert(time_points, 0, 0, axis=0)
-            diff_last_drop = time_points[-1]-self.data['Age'][-1]
+            diff_last_drop = time_points[-1]-self.data['Age'].iloc[-1]
             if abs(diff_last_drop) > 180:
-                time_points = np.append(time_points, self.data['Age'][-1])
+                time_points = np.append(time_points, self.data['Age'].iloc[-1])
             for i in range(len(time_points)-1):
                 i += 1
                 if i>15:
