@@ -292,6 +292,10 @@ class Read_entry(BSModalReadView):
             path = 'Private\\Sessile.drop.analysis\\'
             subprocess.call(['python', 'Private/Sessile.drop.analysis/QT_sessile_drop_analysis.py', Link_to_vid, chosen_drop, path])
             os.chdir(cwd)
+        def start_compress_vid():
+            cwd = os.getcwd()
+            subprocess.call(['python', 'Private/Sessile.drop.analysis/video_compression.py', Link_to_vid, chosen_drop, compression_level])
+            os.chdir(cwd)
         pk = self.kwargs['pk']
         curr_entry = ExpBase.objects.get(pk = pk)
         curr_exp = ExpPath.objects.get(Name = str(curr_entry.Device))
@@ -303,6 +307,13 @@ class Read_entry(BSModalReadView):
                 Folder_path = os.path.join(get_BasePath(), self.curr_entry.Link_Video)
                 Folder_path = Folder_path.replace(',', '","')
                 subprocess.Popen(r'explorer /select,' + Folder_path)
+
+            if request.method == 'POST' and 'Run_compress_vid' in request.POST:
+                chosen_drop=request.POST.get('Drop_choose')
+                Link_to_vid = os.path.join(get_BasePath(), self.curr_entry.Link)
+                compression_level = '1'
+                x = threading.Thread(target=start_compress_vid)
+                x.start()
 
             if request.method == 'POST' and 'Run_RSD_Analysis' in request.POST:
                 chosen_drop=request.POST.get('Drop_choose')

@@ -33,6 +33,18 @@
     </form></th>
   </tr>
   <tr>
+    <th>Compression:</th>
+    <th><form method="post">
+      <select name="Drop_choose">
+        {% for entry in Drops %}
+            <option value="{{ entry }}">{{ entry }}</option>
+        {% endfor %}
+      </select>
+      {% csrf_token %}
+      <button type="submit" name="Run_compress_vid">Run video compression</button>
+    </form></th>
+  </tr>
+  <tr>
     <th>Sub data:</th>
     <th>
       {% for Sub_dat in ExpBase.Sub_Exp.all %}
