@@ -81,7 +81,12 @@ def Load_RSD_subs(pk):
     for lsp in lsps:
         Pump[lsp.Name] = Load_LSP(lsp.id)
 
-    return pd.concat(Gases), pd.concat(Pump)
+    if len(Gases)>0:
+        Gases = pd.concat(Gases)
+    if len(Pump)>0:
+        Pump = pd.concat(Pump)
+
+    return Gases, Pump
 
 def Load_RSD(pk):
     cwd = os.getcwd()
@@ -139,6 +144,7 @@ def Load_HME(pk):
         Humidity_data['Temperature'] = Humidity_data[col_temp]
     except:
         pass
+    Humidity_data['time_loc'] = Humidity_data['time']
     return Humidity_data
 
 def Load_dfb(entry):

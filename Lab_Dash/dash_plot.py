@@ -218,12 +218,12 @@ class Gen_fig():
                 time_dif = 10
                 slice_time = (self.data['Age'] > time_points[i-1]) & (self.data['Age'] < time_points[i])
                 Time = self.data['Age'][slice_time]
-                Dif_time = Time[0:-time_dif] - Time[time_dif:]
+                Dif_time = Time - Time.shift(periods=time_dif)
                 CL_L = self.data['BI_left'][slice_time]
-                CLS_L = CL_L[time_dif:] - CL_L[0:-time_dif]
+                CLS_L = CL_L - CL_L.shift(periods=time_dif)
                 CLS_L = CLS_L/Dif_time
                 CL_R = self.data['BI_right'][slice_time]
-                CLS_R = CL_R[0:-time_dif] - CL_R[time_dif:]
+                CLS_R = CL_R - CL_R.shift(periods=time_dif)
                 CLS_R = CLS_R/Dif_time
 
                 fig.add_trace(go.Scatter(x=CL_L, y=CLS_L[time_dif:],
