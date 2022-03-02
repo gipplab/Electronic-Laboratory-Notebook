@@ -7,12 +7,12 @@ install Docker and run
 go to
     http://127.0.0.1:8000/
 
-![Experiments](Readme_img\Experiments.png)
+![Experiments](https://github.com/ag-gipp/Electronic-Laboratory-Notebook/blob/master/Readme_img/Experiments.png)
 
 To see all the main experiments go to Experiments.
 For details of the experiments select the experiment in the dropdown.
 
-![Details of entry](Readme_img\Details.png)
+![Details of entry](https://github.com/ag-gipp/Electronic-Laboratory-Notebook/blob/master/Readme_img/Details.png)
 
 I you want to see details on a single entry click on the eye.
 In the popup windows further details can be displayed or links to the according plots are shown.
