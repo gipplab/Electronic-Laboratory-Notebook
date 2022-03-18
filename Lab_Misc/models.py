@@ -36,6 +36,8 @@ class OszScriptGen(models.Model):
     add_with_const = models.FloatField(blank=True, null=True, default=0.5)
     add_with_fakt_zeit = models.FloatField(blank=True, null=True, default=120)
     add_with_scal_vol = models.FloatField(blank=True, null=True, default=2/3)
+    max_time = models.FloatField(blank=True, null=True, default=500)
+    max_time_pls_increase = models.FloatField(blank=True, null=True, default=0)
     Link_folder_script = models.TextField(blank=True, null=True)
     Link_pump_df = models.TextField(blank=True, null=True)
     Link_gas_df = models.TextField(blank=True, null=True)

@@ -247,12 +247,15 @@ class Read_entry(BSModalReadView):
         context = super(Read_entry, self).get_context_data(*args,**kwargs)
         pk = self.kwargs['pk']
         entry = General.get_in_full_model(pk)
-        if entry.Device.Abbrev == 'RSD':
-            Drops = range(1,entry.Script.number_of_cycles+1) 
-            Drop_names = ['All']
-            for Drop in Drops:
-                Drop_names.append('Drop_'+str(Drop))
-            context['Drops'] = Drop_names
+        try:
+            if entry.Device.Abbrev == 'RSD':
+                Drops = range(1,entry.Script.number_of_cycles+1)
+                Drop_names = ['All']
+                for Drop in Drops:
+                    Drop_names.append('Drop_'+str(Drop))
+                context['Drops'] = Drop_names
+        except:
+            context['Drops'] = ['only']
         return context
 
     def get_model_name(self, group_name, model_name, pk):

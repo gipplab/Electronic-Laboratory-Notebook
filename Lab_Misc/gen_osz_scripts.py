@@ -41,7 +41,7 @@ def gen_scripts(pk):
                 gas_flow[liquid] = pd.DataFrame(columns=['time','flowrate'])
                 gas_flow[liquid].loc[0] = [0, 0]
             return gas_flow
-        
+
         gas_flow = gen_gas_flow()
 
         init_gas()
@@ -68,7 +68,7 @@ def gen_scripts(pk):
         return pd.concat(gas_flow, keys=Gas_controll['Liquid'], axis = 1)
 
     def gen_pump_script():
-        def init_liquid():
+        def init_liquid(inout):
             with open(path_to_scripts + "Pumpe_" + inout + ".mth", 'w') as file:
                 file.write('[MTHFile]\n')
                 file.write('Version=1.0\n')
@@ -106,13 +106,7 @@ def gen_scripts(pk):
                 file.write('IsCustom=0\n')
                 file.write('[Steps]\n')
                 file.write('StepCount='+str(number_of_steps)+'\n')
-        def step(step_nr, start_flow, end_flow, duration):
-            nonlocal pump_out_df, pump_in_df
-            pump_df_item = pd.DataFrame([[0,start_flow],[duration,end_flow]], columns=['time','flowrate'])
-            if inout == 'in':
-                pump_in_df = pump_in_df.append(pump_df_item)
-            if inout == 'out':
-                pump_out_df = pump_out_df.append(pump_df_item)
+        def step(step_nr, start_flow, end_flow, duration, inout):
             duration = conv_time(duration, 'min') 
             with open(path_to_scripts +"Pumpe_" + inout + ".mth", 'a') as file:
                 file.write('[Step_' + str(step_nr) + ']\n')
@@ -141,116 +135,179 @@ def gen_scripts(pk):
 
         def out_full_drop(time_flow):
             return -add_with_const - add_scaling_flow(time_flow)
-
-        def fnc_none_break():
-            try:
-                None_break.index(j)
-                step(j, 0, 0, delay)
-            except:
-                pass
-
-        def fnc_pump_in():
-            try:
-                pump_in.index(j)
-                time = init_drop*(factor**int(j/4))
-                time_flow = conv_time(time, 'min')
-                
-                start_flow = base_flow
-                end_flow = base_flow 
-                if inout == 'out':
-                    start_flow = 0
-                    end_flow = 0
-                try:
-                    on_cycle['Ethanol'].index(int(j/4))
-                    start_flow = base_flow + diff_flow
-                    end_flow = in_full_drop(time_flow) + base_flow 
-                    if inout == 'out':
-                        start_flow = -add_with_const - start_flow + base_flow
-                        end_flow = out_full_drop(time_flow) - end_flow + base_flow
-                except:
-                    pass
-                step(j, start_flow, end_flow, time)
-            except:
-                pass
-
-        def fnc_Full_break():
-            try:
-                Full_break.index(j)
-                time = 5/60
-                time_flow = conv_time(init_drop*(factor**int(j/4)), 'min')
-                start_flow = 0
-                end_flow = 0
-                try:
-                    on_cycle['Ethanol'].index(int(j/4))
-                    start_flow = diff_flow + scaling_flow(time_flow)
-                    end_flow = diff_flow + scaling_flow(time_flow)
-                    if inout == 'out':
-                        start_flow = out_full_drop(time_flow) - start_flow
-                        end_flow = out_full_drop(time_flow) - end_flow
-                except:
-                    pass
-                step(j, start_flow, end_flow, time)
-            except:
-                pass
-
-        def fnc_pump_out():
-            try:
-                pump_out.index(j)
-                time = init_drop*(factor**int(j/4))
-                time_flow = conv_time(time, 'min')
-                start_flow = -base_flow
-                end_flow = -base_flow 
-                if inout == 'in':
-                    start_flow = 0
-                    end_flow = 0
-                try:
-                    on_cycle['Ethanol'].index(int(j/4))
-                    start_flow = diff_flow + scaling_flow(time_flow)
-                    end_flow = diff_flow
-                    if inout == 'out':
-                        start_flow = out_full_drop(time_flow) - start_flow - base_flow
-                        end_flow = -add_with_const - end_flow - base_flow
-                except:
-                    pass
-                step(j, start_flow, end_flow, time)
-            except:
-                pass
-
-        number_of_steps = number_of_cycles*4
-        pump_in_df = pd.DataFrame()
-        pump_out_df = pd.DataFrame()
-        None_break = list(range(0, number_of_steps+1, 4))#no drop break
-        pump_in = list(range(1, number_of_steps, 4))#dispense
-        Full_break = list(range(2, number_of_steps, 4))#full drop break
-        pump_out = list(range(3, number_of_steps, 4))#rev dispense
-        inout = 'in'
-        init_liquid()
-        for j in range(0, number_of_steps):
-            fnc_none_break()
-            fnc_pump_in()
-            fnc_Full_break()
-            fnc_pump_out()
-        j+=1
-        fnc_none_break()
-        inout = 'out'
-        init_liquid()
-        for j in range(0, number_of_steps):
-            fnc_none_break()
-            fnc_pump_in()
-            fnc_Full_break()
-            fnc_pump_out()
-        j+=1
-        fnc_none_break()
-
-        pump_in_df = post_precessing_df(pump_in_df)
-        pump_out_df = post_precessing_df(pump_out_df)
         
-        cycle_times_id = list(range(0, number_of_steps*2+1, 8))
-        cycle_times_ = pump_in_df['abs_time'].iloc[cycle_times_id]
+        def gen_init_osz():
+            def fnc_none_break(cycle):
+                nonlocal pump_out_df, pump_in_df
+                pump_df_item = pd.DataFrame([[0, 0, 'none breake', cycle], [delay, 0, 'none breake', cycle]], 
+                                            columns=['time','flowrate', 'state', 'cycle_number'])
+                pump_in_df = pump_in_df.append(pump_df_item)
+                pump_out_df = pump_out_df.append(pump_df_item)    
+
+            def fnc_pump_in(cycle):
+                nonlocal pump_out_df, pump_in_df
+                time = init_drop*(factor**(cycle))
+                pump_df_item_in = pd.DataFrame([[0, base_flow, 'in', cycle], [time, base_flow, 'in', cycle]], 
+                                            columns=['time','flowrate', 'state', 'cycle_number'])
+                pump_in_df = pump_in_df.append(pump_df_item_in)
+                pump_df_item_out = pd.DataFrame([[0, 0, 'in', cycle], [time, 0, 'in', cycle]], 
+                                                columns=['time','flowrate', 'state', 'cycle_number'])
+                pump_out_df = pump_out_df.append(pump_df_item_out) 
+
+
+            def fnc_Full_break(cycle):
+                nonlocal pump_out_df, pump_in_df
+                time = 5/60
+                pump_df_item = pd.DataFrame([[0, 0, 'full breake', cycle], [time, 0, 'full breake', cycle]], 
+                                            columns=['time','flowrate', 'state', 'cycle_number'])
+                pump_in_df = pump_in_df.append(pump_df_item)
+                pump_out_df = pump_out_df.append(pump_df_item) 
+
+
+            def fnc_pump_out(cycle):
+                nonlocal pump_out_df, pump_in_df
+                time = init_drop*(factor**(cycle))
+                pump_df_item_in = pd.DataFrame([[0, 0, 'out', cycle], [time, 0, 'out', cycle]], 
+                                            columns=['time','flowrate', 'state', 'cycle_number'])
+                pump_in_df = pump_in_df.append(pump_df_item_in)
+                pump_df_item_out = pd.DataFrame([[0, -base_flow, 'out', cycle], [time, -base_flow, 'out', cycle]], 
+                                                columns=['time','flowrate', 'state', 'cycle_number'])
+                pump_out_df = pump_out_df.append(pump_df_item_out) 
+
+            pump_in_df = pd.DataFrame()
+            pump_out_df = pd.DataFrame()
+            for cycle in range(number_of_cycles):
+                fnc_none_break(cycle)
+                fnc_pump_in(cycle)
+                fnc_Full_break(cycle)
+                fnc_pump_out(cycle)
+            fnc_none_break(cycle)
+            pump_in_df = pump_in_df.reset_index(drop= True)
+            pump_out_df = pump_out_df.reset_index(drop= True)
+            pump_in_df['flowrate_out'] = pump_out_df['flowrate']
+            pump_in_df = pump_in_df.reindex(columns=['time', 'state' , 'cycle_number', 'flowrate', 'flowrate_out'])
+            pump_in_df = pump_in_df.rename(columns={"flowrate": "flowrate_in"})
+            return pump_in_df
+
+        def speed_up_osz():
+            nonlocal pump_df
+            for index in pump_df[(pump_df['time']>max_time)&(pump_df['state']=='in')].index:
+                org_time = pump_df.loc[index,'time']
+                pump_df.loc[index,'time'] = max_time
+                end_flow = base_flow+base_flow*max_time_pls_increase*(org_time-max_time)
+                time = (org_time-max_time)*(base_flow+base_flow)/(base_flow+end_flow)
+                pump_df_item_in = pd.DataFrame([[0, 'in', pump_df.loc[index,'cycle_number'], base_flow, 0], [time, 'in', pump_df.loc[index,'cycle_number'], end_flow, 0]], 
+                                            columns=['time', 'state', 'cycle_number', 'flowrate_in', 'flowrate_out']
+                                            , index=[index+0.1,index+0.2])
+                pump_df = pump_df.append(pump_df_item_in, ignore_index=False)
+
+            for index in pump_df[(pump_df['time']>max_time)&(pump_df['state']=='out')].index:
+                org_time = pump_df.loc[index,'time']
+                pump_df.loc[index,'time'] = max_time
+                start_flow = -base_flow-base_flow*max_time_pls_increase*(org_time-max_time)
+                time = (org_time-max_time)*(base_flow+base_flow)/(base_flow-start_flow)
+                pump_df_item_in = pd.DataFrame([[0, 'out', pump_df.loc[index,'cycle_number'], 0, start_flow], [time, 'out', pump_df.loc[index,'cycle_number'], 0, -base_flow]], 
+                                            columns=['time', 'state', 'cycle_number', 'flowrate_in', 'flowrate_out']
+                                            , index=[index+0.1-2,index+0.2-2])
+                pump_df = pump_df.append(pump_df_item_in, ignore_index=False)
+
+            pump_df = pump_df.sort_index().reset_index(drop=True)
+
+        def ethanol_compensation():
+            def pump_in(cycle):
+                nonlocal pump_df
+                indexs = pump_df[(pump_df['cycle_number']==cycle)&(pump_df['state']=='in')].index
+                time = pump_df.loc[indexs[1], 'time']
+                time_flow = conv_time(time, 'min')
+                prev_time = 0
+                for i_indexs in list(np.arange(1,len(indexs),2)):
+                    if i_indexs == 1:
+                        time = pump_df.loc[indexs[1], 'time']
+                    else:
+                        corr_pseudo_time = (pump_df.loc[indexs[i_indexs], 'flowrate_in']+pump_df.loc[indexs[i_indexs-1], 'flowrate_in'])/(base_flow*2)
+                        time = prev_time+pump_df.loc[indexs[i_indexs], 'time']*corr_pseudo_time #time would have been needed with baseflow
+                    time_flow = conv_time(time, 'min')
+                    org_start_base = pump_df.loc[indexs[i_indexs-1], 'flowrate_in']
+                    org_end_base = pump_df.loc[indexs[i_indexs], 'flowrate_in']
+                    start_flow = org_start_base + in_full_drop(conv_time(prev_time, 'min'))
+                    end_flow = org_end_base + in_full_drop(time_flow)
+                    pump_df.loc[indexs[i_indexs-1], 'flowrate_in'] = start_flow
+                    pump_df.loc[indexs[i_indexs], 'flowrate_in'] = end_flow
+
+                    pump_df.loc[indexs[i_indexs-1], 'flowrate_out'] = -add_with_const - start_flow + org_start_base-add_scaling_flow(conv_time(prev_time, 'min'))
+                    pump_df.loc[indexs[i_indexs], 'flowrate_out'] = out_full_drop(time_flow) - end_flow + org_end_base
+                    prev_time = time
+
+            def full_break(cycle):
+                nonlocal pump_df
+                for index in pump_df[(pump_df['cycle_number']==cycle)&(pump_df['state']=='full breake')].index:
+                    time_flow = conv_time(init_drop*(factor**int(cycle)), 'min')
+                    pump_df.loc[index, 'flowrate_in']=diff_flow + scaling_flow(time_flow)
+                    pump_df.loc[index, 'flowrate_out']=out_full_drop(time_flow)-(diff_flow + scaling_flow(time_flow))
+
+            def pump_out(cycle):
+                nonlocal pump_df
+                indexs = pump_df[(pump_df['cycle_number']==cycle)&(pump_df['state']=='out')].index
+                time = pump_df.loc[indexs[len(indexs)-1], 'time']
+                time_flow = conv_time(time, 'min')
+                prev_time = 0
+                for i_indexs in reversed(list(np.arange(1,len(indexs),2))):
+                    if i_indexs == len(indexs)-1:
+                        time = pump_df.loc[indexs[len(indexs)-1], 'time']
+                    else:
+                        corr_pseudo_time = (pump_df.loc[indexs[i_indexs], 'flowrate_out']+pump_df.loc[indexs[i_indexs-1], 'flowrate_out'])/(-base_flow*2)
+                        time = prev_time+pump_df.loc[indexs[i_indexs], 'time']*corr_pseudo_time #time would have been needed with baseflow
+                    time_flow = conv_time(time, 'min')
+                    org_start_base = pump_df.loc[indexs[i_indexs-1], 'flowrate_out']
+                    org_end_base = pump_df.loc[indexs[i_indexs], 'flowrate_out']
+                    start_flow = diff_flow + scaling_flow(time_flow)
+                    end_flow = diff_flow + in_full_drop(conv_time(prev_time, 'min'))
+                    pump_df.loc[indexs[i_indexs-1], 'flowrate_in'] = start_flow
+                    pump_df.loc[indexs[i_indexs], 'flowrate_in'] = end_flow
+
+                    pump_df.loc[indexs[i_indexs-1], 'flowrate_out'] = out_full_drop(time_flow) - start_flow + org_start_base
+                    pump_df.loc[indexs[i_indexs], 'flowrate_out'] = -add_with_const - end_flow + org_end_base - add_scaling_flow(conv_time(prev_time, 'min'))
+                    prev_time = time
+
+            for cycle in on_cycle['Ethanol']:
+                pump_in(cycle)
+                full_break(cycle)
+                pump_out(cycle)
+
+        def gen_pump_files(flowrate):
+            inout = flowrate[flowrate.find('_')+1:]
+            init_liquid(inout)
+            j= 0
+            total_vol = 0
+            total_duration = 0
+            for index in list(np.arange(1,len(pump_df),2)):
+                duration = pump_df.loc[index]['time']
+                start_flow = pump_df.loc[index-1][flowrate]
+                end_flow = pump_df.loc[index-1][flowrate]
+                step(j, start_flow, end_flow, duration, inout)
+                total_vol += (start_flow+end_flow)/2*duration
+                total_duration += duration
+                j+=1
+            print('Total volume in ml:')
+            print(total_vol/1000)
+            print('Total duration in h:')
+            print(total_duration/60)
+
+        pump_df = gen_init_osz()
+
+        speed_up_osz()
+
+        ethanol_compensation()
+
+        pump_df = post_precessing_df(pump_df)
+
+        number_of_steps = int(len(pump_df)/2)
+
+        gen_pump_files('flowrate_in')
+        gen_pump_files('flowrate_out')
         cycle_times = [0.01]
-        for i in range(len(cycle_times_)-1):
-            cycle_times.append(cycle_times_.iloc[i+1]-cycle_times_.iloc[i])
-        pump_df = pd.concat([pump_in_df, pump_out_df], keys=['In', 'Out'], axis = 1)
+        for cycle in range(number_of_cycles):
+            cycle_times.append(pump_df.loc[(pump_df['state']=='out')&(pump_df['cycle_number']==cycle)].iloc[-1]['abs_time'])
         return pump_df, cycle_times
 
     def gen_cam_script():
@@ -332,6 +389,8 @@ def gen_scripts(pk):
     factor = entry.factor
     delay = entry.delay
     number_of_cycles = entry.number_of_cycles
+    max_time = entry.max_time
+    max_time_pls_increase = entry.max_time_pls_increase
 
     liquids = []
     Periodicity = []
@@ -357,6 +416,12 @@ def gen_scripts(pk):
 
 
     pump_df, cycle_times = gen_pump_script()
+    cycle_times_ = cycle_times
+    cycle_times__ = [0.01]
+    for i in range(len(cycle_times_)-1):
+        cycle_times__.append(cycle_times_[i+1]-cycle_times_[i])
+    cycle_times = cycle_times__
+
     gas_flow = gen_gas_script()
 
     gen_cam_script()

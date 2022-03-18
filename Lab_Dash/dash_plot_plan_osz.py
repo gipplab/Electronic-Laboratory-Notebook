@@ -39,9 +39,17 @@ def Gen_dash(dash_name):
 
         def Pump(self):
             fig = go.Figure()
-            fig.add_trace(go.Scattergl(x=self.pump_df['In']['abs_time'], y=self.pump_df['In']['flowrate']+ self.pump_df['Out']['flowrate'],
+            fig.add_trace(go.Scattergl(x=self.pump_df['abs_time'], y=self.pump_df['flowrate_in']+ self.pump_df['flowrate_out'],
                         mode='markers + lines',
-                        name='CA left')
+                        name='In + Out')
+            )
+            fig.add_trace(go.Scattergl(x=self.pump_df['abs_time'], y=self.pump_df['flowrate_in'],
+                        mode='markers + lines',
+                        name='In')
+            )
+            fig.add_trace(go.Scattergl(x=self.pump_df['abs_time'], y= self.pump_df['flowrate_out'],
+                        mode='markers + lines',
+                        name='Out')
             )
             fig.update_layout(  xaxis_title='Time [min]',
                                 yaxis_title='Flowrate pump [muL/s]')
@@ -62,7 +70,7 @@ def Gen_dash(dash_name):
 
         def Pump_Gas(self):
             fig = make_subplots(specs=[[{"secondary_y": True}]])
-            fig.add_trace(go.Scattergl(x=self.pump_df['In']['abs_time'], y=self.pump_df['In']['flowrate']+ self.pump_df['Out']['flowrate'],
+            fig.add_trace(go.Scattergl(x=self.pump_df['abs_time'], y=self.pump_df['flowrate_in']+ self.pump_df['flowrate_out'],
                         mode='lines+markers',
                         name='Pump'),
                         secondary_y=False,
