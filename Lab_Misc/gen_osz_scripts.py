@@ -283,7 +283,7 @@ def gen_scripts(pk):
             for index in list(np.arange(1,len(pump_df),2)):
                 duration = pump_df.loc[index]['time']
                 start_flow = pump_df.loc[index-1][flowrate]
-                end_flow = pump_df.loc[index-1][flowrate]
+                end_flow = pump_df.loc[index][flowrate]
                 step(j, start_flow, end_flow, duration, inout)
                 total_vol += (start_flow+end_flow)/2*duration
                 total_duration += duration
