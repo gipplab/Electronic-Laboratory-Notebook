@@ -30,7 +30,10 @@ def get_closest_to_dt(qs, dt):
     """
     greater = qs.filter(Date_time__gte=dt).order_by("Date_time").first()
     less = qs.filter(Date_time__lte=dt).order_by("-Date_time").first()
-
+    try:
+        dt=dt.tz_convert(less.Date_time.tzinfo)
+    except:
+        dt=dt.tz_convert(greater.Date_time.tzinfo)
     if greater and less:
         return greater if abs(greater.Date_time - dt) < abs(less.Date_time - dt) else less
     else:
