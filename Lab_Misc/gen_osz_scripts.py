@@ -317,7 +317,7 @@ def gen_scripts(pk):
                 file.write('after '+str(int(delay*60*1000))+'\n')
                 if cycle_time-delay > 25:
                     cycle_rest_time = cycle_time-delay
-                    while cycle_rest_time > 25:
+                    while cycle_rest_time > 25+10/60:
                         file.write('dcc do LiveViewWnd_StartRecord\n')
                         file.write('after '+str(int((25)*60*1000))+'\n')
                         file.write('dcc do LiveViewWnd_StopRecord\n')
