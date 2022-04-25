@@ -13,8 +13,8 @@ dash-renderer==1.7.0
 dash-html-components==1.1.0
 dash-core-components==1.11.0
 plotly==4.9.0
-numpy==1.18.3
-pandas==1.2.2
+numpy
+pandas
 daphne==2.5.0
 redis==3.5.3
 django-redis==4.12.1
@@ -28,3 +28,5 @@ jupyter
 ipython
 django-extensions
 scipy
+Werkzeug==2.0.0
+openpyxl

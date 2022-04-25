@@ -156,12 +156,12 @@ def Load_dfb(entry):
 def Load_OCA(Main_id):
     entry = OCA.objects.get(id = Main_id)
     file = os.path.join( rel_path, entry.Link_Data)
-    tmp_dt = pd.read_table(file, sep='	', decimal = ',', skiprows = 10)
+    tmp_dt = pd.read_table(file, sep='	', decimal = ',', skiprows = 10, encoding= 'unicode_escape')
     if len(tmp_dt.columns) == 13:
         names = ['Run_No', 'Age', 'CA_M', 'CA_L', 'CA_R', 'CM', 'BD', 'Vol', 'Mag', 'a', 'b', 'c', 'd']
     else:
         names = ['Run_No', 'Age', 'CA_M', 'CA_L', 'CA_R', 'CM', 'BD', 'Vol', 'Mag', 'BI_left', 'BI_right', 'Height']
-    data = pd.read_table(file, sep='	', decimal = ',', names = names, skiprows = 10)
+    data = pd.read_table(file, sep='	', decimal = ',', names = names, skiprows = 10, encoding= 'unicode_escape')
     data['Age'] = data['Age']/1000
     slice_CA_high = (data['CA_L']<1800) & (data['CA_R']<1800)
     data = data[slice_CA_high]

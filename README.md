@@ -48,3 +48,5 @@ To tell the program where the files of this model are stored navigate in the adm
 
 
 If you use a windows system it can be beneficial to run django without docker, since only with windows it is possible to open local files directly from the browser.
+If installed natively you can create a environment variable 'Experimental' and set it to your data directory.
+In case you want to use a customized Labbook version you can create a environment variable 'DJANGO_SETTINGS_MODULE' to set the ralativ path to your customized 'manage.py'.
