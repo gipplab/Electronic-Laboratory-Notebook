@@ -1,5 +1,6 @@
 # Introduction to the Labbook!
 Here we give an introduction how to use the lab book. For more details on the concept see our paper at https://arxiv.org/abs/2205.01058
+
 install Docker and run
 
     docker-compose up
