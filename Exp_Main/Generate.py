@@ -2,6 +2,7 @@ from .models import ExpBase as ExpBase_Main
 from .models import ExpPath as ExpPath_Main
 from Lab_Dash.models import SEL as SEL_dash
 from Lab_Dash.models import OCA as OCA_dash
+from Lab_Dash.models import LMP as LMP_dash
 from Lab_Dash.models import RSD as RSD_dash
 from Lab_Dash.models import SFG as SFG_dash
 from Exp_Main.models import Group as Group_Model
@@ -89,6 +90,15 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
                     self.TotalErrors += 1
                     self.f.write('<p class="text-danger">Error!<br>')
                     self.f.write('Someting did not work.</p>\n')
+            elif (str(Exp.Abbrev) == 'LMP'):
+                model = apps.get_model(self.Exp_Category, str(Exp.Abbrev))
+                Exps_all = model.objects.all().order_by('Date_time')
+                date_time = self.get_DateOfFile(date, sample)
+                closest_entry = self.get_closest_to_dt(Exps_all, date_time)
+                if abs(closest_entry.Date_time-date_time) > datetime.timedelta(seconds=1):
+                    file = sample
+                    sample = 'Allg'
+                    self.Add_EntryToDB(date, file, Exp, sample, Group)
         else:
             SampleName = self.get_SampleName(sample)
             if SampleName == None:
@@ -149,6 +159,9 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
             entry.save()
         if Exp.Abbrev == 'SFG':
             self.add_SFG_files(file, entry)
+            entry.save()
+        if Exp.Abbrev == 'LMP':
+            self.add_LMP_files(file, entry)
             entry.save()
 
     def add_SFG_files(self, file, entry):
@@ -240,6 +253,33 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
         entry_dash.save()
         entry.Dash = entry_dash
         self.f.write(' and add dash.</p>\n')
+
+    def add_LMP_files(self, file, entry):
+        """
+        add_Gas Adds the correct gas to the entry
+
+        Looks in the file name for gases. If a gas is found it is added to the entry
+
+        Parameters
+        ----------
+        file : string
+            filename with possible infomation about the gas used
+        entry : [type]
+            entry to which the file was added
+        """
+        index_link = (len(file)+1)*(-1)
+        link = self.get_FullPath(file)[:index_link]
+        entry.Link = link
+        self.f.write('<p>Added the file ' + file + ' to ' + str(entry.Name))
+        for file_in_Folder in glob.glob("*.*"):
+            if (file_in_Folder[0:6] == file[0:6]) & (file_in_Folder[file_in_Folder.find('.'):]=='.txt'):
+                entry.Link_Data = self.get_FullPath(file_in_Folder)
+                self.f.write(', add ' + file_in_Folder)
+        entry_dash = LMP_dash()
+        entry_dash.save()
+        entry.Dash = entry_dash
+        self.f.write(' and add dash.</p>\n')
+        entry.Comment = file[6:-1]
 
     def add_RSD_files(self, entry):
         """

@@ -6,6 +6,7 @@ from Lab_Dash.models import RSD as RSD_dash
 from Lab_Dash.models import SFG as SFG_dash
 from Lab_Dash.models import SEL as SEL_dash
 from Lab_Dash.models import GRP as GRP_dash
+from Lab_Dash.models import LMP as LMP_dash
 from Lab_Dash.models import Comparison as Comparison_dash
 from Lab_Misc.models import SampleBase, OszScriptGen
 from Lab_Misc.models import ProjectEntry as Project
@@ -150,6 +151,25 @@ class OCA(ExpBase):
     Temp_Volume = models.TextField(blank=True, null=True)
     Temp_Buzz_word = models.TextField(blank=True, null=True)
     Temp_Bath_time = models.TextField(blank=True, null=True)
+    def __str__(self):
+        return str(self.Name)
+
+class LMP(ExpBase):
+    """LMP Model to store all experiments done with the LMP
+
+    Parameters
+    ----------
+    models : [type]
+        [description]
+    """
+    Link = models.TextField(blank=True, null=True)
+    Link_Data = models.TextField(blank=True, null=True)
+    Link_PDF = models.TextField(blank=True, null=True)
+    Link_Osz_join_LSP = models.TextField(blank=True, null=True)
+    Chem_ETOH = models.FloatField(blank=True, null=True)
+    Chem_H2O = models.FloatField(blank=True, null=True)
+    Dash = models.ForeignKey(LMP_dash, on_delete=models.CASCADE, blank=True, null=True)
+    Sub_Exp = models.ManyToManyField(SubExp_base, blank=True)
     def __str__(self):
         return str(self.Name)
 

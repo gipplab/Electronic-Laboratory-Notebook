@@ -30,3 +30,4 @@ django-extensions
 scipy
 Werkzeug==2.0.0
 openpyxl
+datatable

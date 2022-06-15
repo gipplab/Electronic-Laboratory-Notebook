@@ -10,6 +10,10 @@ from django.apps import apps
 import numpy as np
 from django.utils import timezone
 
+from datatable import (dt, fread, f, by, ifelse, update, sort,
+                       count, min, max, mean, sum, rowsum)
+import numpy as np
+
 cwd = os.getcwd()
 rel_path = General.get_BasePath()
 
@@ -28,6 +32,39 @@ def Load_from_Model(ModelName, pk):
         return Load_HME(pk)
     if ModelName == 'SEL':
         return Load_SEL(pk)
+
+def Load_LMP_cosolvent(pk, file_name):
+    entry = General.get_in_full_model(pk)
+    file = os.path.join( rel_path, entry.Link)
+    file = os.path.join(file, file_name)
+
+    data_raw = fread(file)
+    data_raw.names={'C0' : 'id_atom'}
+    rename = {}
+    for old_name, new_name in zip(data_raw.names[1:8], data_raw[8,3:].to_list()):
+        rename[old_name] = new_name[0]
+
+    data_raw.names=rename
+    data_raw['times']=0
+    cond = ifelse(f.type == 'TIMESTEP', f.times + 1,#set to one if timestep
+                f.type == 'ITEM:', f.times + 2,#not used
+                None)
+
+    data_raw['case'] = data_raw[:, cond]
+    data_raw['case'] = data_raw[:, dt.shift(f.case, n=1)]#shift to info row
+    data_raw['time'] = ifelse(f.case == 1, f.id_atom, None)
+    tine = data_raw['time'].to_pandas()
+    data_raw['time'] = tine.ffill()#pull down times
+    del data_raw[:, ['C8', 'C9', 'times', 'case']] 
+    data_raw['type']=data_raw[:, dt.as_type(f.type, int)]#convert type
+    data_raw['is_val'] = ifelse(f.type < 4, True, False)
+    data = data_raw[(f.is_val==1), :]
+    del data[:, ['is_val']]
+    data[:,:] = dt.float32
+    data['type']=data[:, dt.as_type(f.type, int)]
+    data['time']=data[:, dt.as_type(f.time, int)]
+    return data
+
 
 def Load_SEL(pk):
     entry = General.get_in_full_model(pk)

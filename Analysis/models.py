@@ -59,6 +59,18 @@ class OszAnalysis(models.Model):
     def __str__(self):
         return str(self.Name)
 
+class LMPCosolventAnalysis(models.Model):
+    Name = models.TextField(unique=True)
+    Anz_H2O = models.FloatField(blank=True, null=True)
+    Anz_EtOH = models.FloatField(blank=True, null=True)
+    Height = models.FloatField(blank=True, null=True)
+    Link_Hist_Mono = models.TextField(blank=True, null=True)
+    Link_Hist_H2O = models.TextField(blank=True, null=True)    
+    Link_Hist_EtOH = models.TextField(blank=True, null=True)
+    Exp = models.ForeignKey(ExpBase, on_delete=models.CASCADE, blank=True, null=True)
+    def __str__(self):
+        return str(self.Name)
+
 class OszAnalysisJoin(models.Model):
     """SEL Saves all dash properties of the SEL measurements
 
