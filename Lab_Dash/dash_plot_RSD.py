@@ -102,14 +102,17 @@ def Gen_dash(dash_name):
                         name='CA right'),
                         secondary_y=False,
             )
-            for gas in list(self.Gas.index.unique(level=0)):
-                x_val = self.Gas.loc[gas]['time_loc']
-                y_val = self.Gas.loc[gas]['ccm']
-                fig.add_trace(go.Scattergl(x=x_val, y=y_val,
-                            mode='markers',
-                            name=gas),
-                            secondary_y=True,
-                )
+            try:
+                for gas in list(self.Gas.index.unique(level=0)):
+                    x_val = self.Gas.loc[gas]['time_loc']
+                    y_val = self.Gas.loc[gas]['ccm']
+                    fig.add_trace(go.Scattergl(x=x_val, y=y_val,
+                                mode='markers',
+                                name=gas),
+                                secondary_y=True,
+                    )
+            except:
+                print('No gas found!')
 
             for pump in list(self.Pump.index.unique(level=0)):
                 x_val = self.Pump.loc[pump]['time_loc']

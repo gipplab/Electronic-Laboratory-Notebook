@@ -81,15 +81,18 @@ def Sort_RSD():
     df = pd.DataFrame()
     files = []
     record_times = []
-    for file in glob.glob("*.mov"):
-        files.append(file)
-        record_time = os.path.getmtime(file)
-        record_time = datetime.datetime.fromtimestamp(record_time)
-        record_time = record_time - datetime.timedelta(minutes=0) # in case of systematic shift
-        record_times.append(record_time)
+    for ending in ExpPath.objects.get(Abbrev = 'RSD').File_ending.all().values_list('Ending', flat = True):
+        for file in glob.glob('*.'+ending):
+            files.append(file)
+            record_time = os.path.getmtime(file)
+            record_time = datetime.datetime.fromtimestamp(record_time)
+            record_time = record_time - datetime.timedelta(minutes=120) # in case of systematic shift
+            record_times.append(record_time)
     df['files'] = files
     df['record_times'] = record_times
     df['record_times'] = df['record_times'].dt.tz_localize(timezone.get_current_timezone())
+    df=df.sort_values(by ='record_times')
+    df = df.reset_index(drop=True)
 
     while not len(df) == 0:
         record_time = df.iloc[0]['record_times']

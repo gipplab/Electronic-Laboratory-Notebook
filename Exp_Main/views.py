@@ -292,8 +292,8 @@ class Read_entry(BSModalReadView):
     def post(self, request, *args, **kwargs):
         def start_drop_ana():
             cwd = os.getcwd()
-            path = 'Private\\Sessile.drop.analysis\\'
-            subprocess.call(['python', 'Private/Sessile.drop.analysis/QT_sessile_drop_analysis.py', Link_to_vid, chosen_drop, path])
+            path = 'Private/Sessile.drop.analysis/'
+            subprocess.call(['python3', 'Private/Sessile.drop.analysis/QT_sessile_drop_analysis.py', Link_to_vid, chosen_drop, path, Link_to_datacard])
             os.chdir(cwd)
         def start_compress_vid():
             cwd = os.getcwd()
@@ -320,16 +320,26 @@ class Read_entry(BSModalReadView):
 
             if request.method == 'POST' and 'Run_RSD_Analysis' in request.POST:
                 chosen_drop=request.POST.get('Drop_choose')
-                Link_to_vid = os.path.join(get_BasePath(), self.curr_entry.Link)
+                Link_to_vid = os.path.join(get_BasePath(), self.curr_entry.Link)#
+                try:
+                    Link_to_datacard = os.path.join(get_BasePath(), self.curr_entry.Link_Data)
+                except:
+                    Link_to_datacard = 'None'
                 self.curr_entry.Link_Data = self.curr_entry.Link.replace('01_Videos', '02_Analysis_Results')
                 self.curr_entry.save()
                 x = threading.Thread(target=start_drop_ana)
                 x.start()
             
             if request.method == 'POST' and 'OpenMainPath' in request.POST:
+                cwd = os.getcwd()
                 Folder_path = os.path.join(get_BasePath(), self.curr_entry.Link)
                 Folder_path = Folder_path.replace(',', '","')
-                subprocess.Popen(r'explorer /select,' + Folder_path)
+                if General.is_linux():
+                    os.chdir(Folder_path)
+                    os.system('xdg-open .')
+                    os.chdir(cwd)
+                else:
+                    subprocess.Popen(r'explorer /select,' + Folder_path)
 
             if request.method == 'POST' and 'OpenPDFPath' in request.POST:
                 Folder_path = os.path.join(get_BasePath(), self.curr_entry.Link_PDF)

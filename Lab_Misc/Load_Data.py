@@ -32,6 +32,10 @@ def Load_from_Model(ModelName, pk):
         return Load_HME(pk)
     if ModelName == 'SEL':
         return Load_SEL(pk)
+    if ModelName == 'TCM':
+        return Load_TCM(pk)
+    if ModelName == 'HIA':
+        return Load_HIA(pk)
 
 def Load_LMP_cosolvent(pk, file_name):
     entry = General.get_in_full_model(pk)
@@ -76,6 +80,21 @@ def Load_SEL(pk):
     df["Time (min.)"] = Curr_Dash.Start_datetime_elli + pd.TimedeltaIndex(df["Time (min.)"], unit='m')
     df["time"] = df["Time (min.)"].dt.tz_convert(timezone.get_current_timezone())
     df['time_loc'] = df["time"]
+    return df
+
+def Load_TCM(pk):
+    entry = General.get_in_full_model_sub(pk)
+    file = os.path.join( rel_path, entry.Link)
+    df = pd.read_excel(file)   
+    df["time_loc"] = df["time"].dt.tz_localize(timezone.get_current_timezone()) 
+    return df
+
+def Load_HIA(pk):
+    entry = General.get_in_full_model_sub(pk)
+    file = os.path.join( rel_path, entry.Link)
+    df = pd.read_csv(file, sep=';', error_bad_lines=False, decimal = '.')  
+    df["time"] = pd.to_datetime(df['Time:'], errors='coerce')
+    df["time_loc"] = df["time"].dt.tz_localize(timezone.get_current_timezone()) 
     return df
 
 def get_subs_in_dic(pk):

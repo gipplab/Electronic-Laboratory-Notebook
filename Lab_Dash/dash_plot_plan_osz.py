@@ -30,7 +30,11 @@ def Gen_dash(dash_name):
                 self.entry = entry
                 self.pump_df = pd.read_pickle(os.path.join(General.get_BasePath(), entry.Link_pump_df))
                 self.gas_df = pd.read_pickle(os.path.join(General.get_BasePath(), entry.Link_gas_df))
-                return_str = 'Data loaded!'
+                try:
+                    self.temp_df = pd.read_pickle(os.path.join(General.get_BasePath(), entry.Link_temperatures_df))
+                    return_str = 'Data loaded!'
+                except:
+                    return_str = 'Data loaded, no temperature found!'
 
                 os.chdir(cwd)
                 return True, return_str
@@ -53,6 +57,36 @@ def Gen_dash(dash_name):
             )
             fig.update_layout(  xaxis_title='Time [min]',
                                 yaxis_title='Flowrate pump [muL/s]')
+            return fig
+            
+        def Temp(self):
+            fig = make_subplots(specs=[[{"secondary_y": True}]])
+            fig.add_trace(go.Scattergl(x=self.pump_df['abs_time'], y=self.pump_df['flowrate_in']+ self.pump_df['flowrate_out'],
+                        mode='markers + lines',
+                        name='In + Out',),
+                        secondary_y=False,
+            )
+            abs_times = [0]
+            for item in self.temp_df['duration [min]']:
+                curr_time = abs_times[-1]+item
+                abs_times.append(curr_time)                
+                abs_times.append(curr_time)
+            abs_times = abs_times[:-1]
+            temps=[]
+            for i in range((int(len(abs_times)/2))):
+                temps.append(self.temp_df.iloc[i]['temperature [°C]'])
+                temps.append(self.temp_df.iloc[i]['temperature [°C]'])
+
+
+            fig.add_trace(go.Scattergl(x=abs_times, y=temps,
+                        mode='markers + lines',
+                        name='Temperature',),
+                        secondary_y=True,
+            )
+            
+            fig.update_xaxes(title_text='Time [min]')
+            fig.update_yaxes(title_text='Flowrate pump [muL/s]', secondary_y=False)
+            fig.update_yaxes(title_text='Temperature[°C]', secondary_y=True)
             return fig
 
         def Gas(self):
@@ -110,6 +144,7 @@ def Gen_dash(dash_name):
     app.layout = html.Div(children=[
         html.Div([dcc.Dropdown(id='my-dropdown1',
                                                             options=[{'label': 'Pump:', 'value': 'Pump'},
+                                                                        {'label': 'Temp:', 'value': 'Temp'},
                                                                         {'label': 'Gas:', 'value': 'Gas'},
                                                                         {'label': 'Pump_Gas:', 'value': 'Pump_Gas'},
                                                                     ],
@@ -143,6 +178,8 @@ def Gen_dash(dash_name):
         global fig
         if Graph_select == 'Pump':
             fig = GenFig.Pump()
+        elif Graph_select == 'Temp':
+            fig = GenFig.Temp()
         elif Graph_select == 'Gas':
             fig = GenFig.Gas()
         elif Graph_select == 'Pump_Gas':

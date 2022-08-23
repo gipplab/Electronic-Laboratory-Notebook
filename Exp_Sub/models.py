@@ -96,3 +96,29 @@ class HME(ExpBase):
     def __str__(self):
         return str(self.Name)
 
+class HIA(ExpBase):
+    """LSP Model to store all experiments done with the LSP
+
+    Parameters
+    ----------
+    models : [type]
+        [description]
+    """
+    Link = models.TextField(blank=True, null=True)
+    PossibleEnvironments = [('1', 'Cell'), ('2', 'Room')]
+    Environments = models.CharField(max_length=1, choices=PossibleEnvironments, default='1')
+    def __str__(self):
+        return str(self.Name)
+
+class TCM(ExpBase):
+    """LSP Model to store all experiments done with the LSP
+
+    Parameters
+    ----------
+    models : [type]
+        [description]
+    """
+    Link = models.TextField(blank=True, null=True)
+    def __str__(self):
+        return str(self.Name)
+

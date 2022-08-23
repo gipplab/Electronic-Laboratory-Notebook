@@ -6,6 +6,7 @@ from Analysis.models import LMPCosolventAnalysis
 from Exp_Main.models import ExpBase
 import os 
 from Lab_Misc import Load_Data
+from Exp_Main.models import LMP
 
 def ana_lmp_cosolvent(pk):
     data = Load_Data.Load_LMP_cosolvent(pk, 'polymer_cosolvent.out')
@@ -14,7 +15,7 @@ def ana_lmp_cosolvent(pk):
     anz_part = []
     dfs = {}
     for i in [1,2,3]:
-        points = data[(f.type == i, f.time == times[-1, :]), f.z]
+        points = data[((f.type == i )& (f.time == times[-1, :])), f.z]
         if i == 1:
             height = points.mean().to_list()[0][0]*2
         counts, bins, bars = plt.hist(points, 200)
@@ -31,7 +32,8 @@ def ana_lmp_cosolvent(pk):
     dfs[1].to_csv(directory+'/Hist_Mono.csv')
     dfs[2].to_csv(directory+'/Hist_H2O.csv')
     dfs[3].to_csv(directory+'/Hist_EtOH.csv')
-
+    item = LMP.objects.get(id = pk) 
+    item.lmpcosolventanalysis_set.all().delete()
     entry = LMPCosolventAnalysis(Name = 'LCA_' +base_exp.Name, Anz_H2O = anz_part[2], Anz_EtOH = anz_part[1], 
                                  Height = height, Link_Hist_Mono = directory+'/Hist_Mono.csv', 
                                  Link_Hist_H2O = directory+'/Hist_H2O.csv', Link_Hist_EtOH = directory+'/Hist_EtOH.csv',

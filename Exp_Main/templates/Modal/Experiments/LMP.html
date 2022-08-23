@@ -6,5 +6,27 @@
     <th><a href="/Dash/LMP/{{ExpBase.pk}}">Link to plot</a></th>
   </tr>
 
+  <tr>
+    <th># Ethanol:</th>
+    <th>{{ExpBase.lmpcosolventanalysis_set.first.Anz_EtOH}}</th>
+  </tr>
+
+  <tr>
+    <th># Water:</th>
+    <th>{{ExpBase.lmpcosolventanalysis_set.first.Anz_H2O}}</th>
+  </tr>
+
+  <tr>
+    <th>Height brush:</th>
+    <th>{{ExpBase.lmpcosolventanalysis_set.first.Height}}</th>
+  </tr>
+  <tr>
+    <th>Links:</th>
+    <th><form method="post">
+      {% csrf_token %}
+      <button type="submit" name="OpenMainPath">Open folder</button>
+    </form></th>
+  </tr>
+
 
 {% endblock Modal_detailed_content %}

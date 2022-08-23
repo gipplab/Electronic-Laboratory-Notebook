@@ -38,9 +38,11 @@ class OszScriptGen(models.Model):
     add_with_scal_vol = models.FloatField(blank=True, null=True, default=2/3)
     max_time = models.FloatField(blank=True, null=True, default=500)
     max_time_pls_increase = models.FloatField(blank=True, null=True, default=0)
+    Temperatures = models.TextField(blank=True, null=True)
     Link_folder_script = models.TextField(blank=True, null=True)
     Link_pump_df = models.TextField(blank=True, null=True)
     Link_gas_df = models.TextField(blank=True, null=True)
+    Link_temperatures_df = models.TextField(blank=True, null=True)
     def __str__(self):
         return str(self.Name)
 
@@ -126,6 +128,29 @@ class SampleBrushPNiPAAmSi(SampleBase):
     Thickness_PGMA_nm = models.FloatField(blank=True, null=True)
     Thickness_PNiPAAm_nm = models.FloatField(blank=True, null=True)
     Number_on_back = models.IntegerField(blank=True, null=True)
+    Polymer = models.ManyToManyField(Polymer, blank=True)
+    def __str__(self):
+        return str(self.Name)
+
+class SampleHydrogelPNiPAAm(SampleBase):
+    """SampleBrushPNiPAAmSi Model to store all samples that are a PNiPAAm brush and grafted to silica
+
+    Parameters
+    ----------
+    SampleBase : Model
+        :py:meth:`SampleBase`
+
+    Returns
+    -------
+    str
+        Name of sample
+    """    
+    Parent = models.TextField(blank=True, null=True)
+    Birth = models.DateTimeField(default=datetime(1900, 1, 1, 0, 0, 0), blank=True)
+    Death = models.DateTimeField(default=datetime(1900, 1, 1, 0, 0, 0), blank=True)
+    Length_cm = models.FloatField(blank=True, null=True)
+    Width_cm = models.FloatField(blank=True, null=True)
+    Thickness_PNiPAAm_nm = models.FloatField(blank=True, null=True)
     Polymer = models.ManyToManyField(Polymer, blank=True)
     def __str__(self):
         return str(self.Name)

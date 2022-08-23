@@ -34,6 +34,12 @@ def get_DatesInFolder():
             pass
     return all_dates
 
+def is_linux():
+    if os.name == 'posix':
+        return True
+    else:
+        return False
+
 def is_AppendableTime(file_name):
     try:
         is_date = datetime.datetime.strptime(file_name[0:6], '%H%M%S')

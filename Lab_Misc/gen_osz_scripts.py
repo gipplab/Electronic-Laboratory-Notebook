@@ -269,10 +269,11 @@ def gen_scripts(pk):
                     pump_df.loc[indexs[i_indexs], 'flowrate_out'] = -add_with_const - end_flow + org_end_base - add_scaling_flow(conv_time(prev_time, 'min'))
                     prev_time = time
 
-            for cycle in on_cycle['Ethanol']:
-                pump_in(cycle)
-                full_break(cycle)
-                pump_out(cycle)
+            if 'Ethanol' in on_cycle:
+                for cycle in on_cycle['Ethanol']:
+                    pump_in(cycle)
+                    full_break(cycle)
+                    pump_out(cycle)
 
         def gen_pump_files(flowrate):
             inout = flowrate[flowrate.find('_')+1:]
@@ -375,10 +376,28 @@ def gen_scripts(pk):
             ints.append(int(string))
         return ints
 
+    def gen_temperatures():
+        temp_a = Temperatures.split(';')
+        Temp_correct = False
+        try:
+            for temp in temp_a:    
+                float(temp)
+            if len(temp_a) != len(cycle_times)-1:
+                raise Exception('Wrong number of Temperatures')
+            Temp_correct = True
+        except:
+            print('Temperature invailid')
+            return []
+        if Temp_correct:
+            data = {'temperature [°C]':temp_a, 'duration [min]':cycle_times[1:]}
+            df = pd.DataFrame(data)
+            df.to_csv(path_to_scripts+'temperatures.txt', index=None, sep=' ', mode='w')
+            return df
+
     entry = OszScriptGen.objects.get(id = pk)
 
-    path_to_scripts = os.path.join('Private\\01_Scripts\Osz_gas_scripts', entry.Name)+'\\'
-    path_to_df = os.path.join('Private\\02_Dataframes\Osz_Gas', entry.Name)+'\\'
+    path_to_scripts = os.path.join('Private/01_Scripts/Osz_gas_scripts', entry.Name)+'/'
+    path_to_df = os.path.join('Private/02_Dataframes/Osz_Gas', entry.Name)+'/'
     if not os.path.exists(path_to_scripts):
         os.makedirs(path_to_scripts)
     if not os.path.exists(path_to_df):
@@ -413,6 +432,7 @@ def gen_scripts(pk):
     add_with_const = entry.add_with_const
     add_with_fakt_zeit = entry.add_with_fakt_zeit
     add_with_scal_vol = entry.add_with_scal_vol
+    Temperatures = entry.Temperatures
 
 
     pump_df, cycle_times = gen_pump_script()
@@ -425,6 +445,7 @@ def gen_scripts(pk):
     gas_flow = gen_gas_script()
 
     gen_cam_script()
+    temps = gen_temperatures()
 
     path_to_df
     pump_df.to_pickle(path_to_df + "pump_df.pkl")
@@ -432,4 +453,7 @@ def gen_scripts(pk):
     entry.Link_folder_script = os.path.join(cwd[cwd.find(General.BaseFolderName):], path_to_scripts)
     entry.Link_pump_df = os.path.join(cwd[cwd.find(General.BaseFolderName):], path_to_df, "pump_df.pkl")
     entry.Link_gas_df = os.path.join(cwd[cwd.find(General.BaseFolderName):], path_to_df, "gas_flow_df.pkl")
+    if len(temps)>0:
+        temps.to_pickle(path_to_df + "temps_df.pkl")
+        entry.Link_temperatures_df = os.path.join(cwd[cwd.find(General.BaseFolderName):], path_to_df, "temps_df.pkl")
     entry.save()
