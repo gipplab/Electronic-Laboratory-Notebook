@@ -70,6 +70,7 @@ class RSD(models.Model):
     Time_high_sec = models.FloatField(blank=True, null=True)
     Time_low_sec = models.FloatField(blank=True, null=True)
     Time_diff_pump = models.FloatField(blank=True, null=True)
+    Residual = models.FloatField(blank=True, null=True)
     def __str__(self):
         return str(self.Name)
     def save(self, *args, **kwargs):#saves '' as none

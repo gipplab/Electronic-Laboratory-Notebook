@@ -54,8 +54,20 @@ def Gen_dash(dash_name):
                                 yaxis_title='Conact angle [°]')
             return fig
 
+        def slice_residual(self):
+            self.data['CA_L'] = self.data['CA_L'][self.data['res_left']>0.00001]
+            self.data['CA_R'] = self.data['CA_R'][self.data['res_right']>0.00001]
+            DashTab = self.entry.Dash
+            if isinstance(DashTab.Residual, float):
+                self.data['CA_L'] = self.data['CA_L'][self.data['res_left']<DashTab.Residual]
+                self.data['CA_R'] = self.data['CA_R'][self.data['res_right']<DashTab.Residual]
+
         def CA_CLPos(self):
             fig = go.Figure()
+            try:
+                self.slice_residual()
+            except:
+                print('No residual found!')
             for i, drop in enumerate(list(self.data.index.unique(level=0))):
                 dominant_gas_name = ''
                 if len(self.Gas)>0:

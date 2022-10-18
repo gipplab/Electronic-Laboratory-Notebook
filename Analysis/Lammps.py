@@ -12,12 +12,17 @@ def ana_lmp_cosolvent(pk):
     data = Load_Data.Load_LMP_cosolvent(pk, 'polymer_cosolvent.out')
     times = dt.unique(data['time']).sort('time')
 
+    base_exp = ExpBase.objects.get(id = pk)
     anz_part = []
     dfs = {}
     for i in [1,2,3]:
         points = data[((f.type == i )& (f.time == times[-1, :])), f.z]
         if i == 1:
             height = points.mean().to_list()[0][0]*2
+            if len(base_exp.Type.filter(id = 21)) == 1:
+                data2 = data[(f.type == 1),:]
+                data2 = data2[:, mean(f.z), by(f.time)]
+                height = data2[:, mean(f.z)][0].to_list()[0][0]*2
         counts, bins, bars = plt.hist(points, 200)
         len_points = points.nrows
         data_dic = {'counts':counts, 'bins':bins[:-1]}
@@ -25,7 +30,6 @@ def ana_lmp_cosolvent(pk):
         anz_part.append(len_points)
         dfs[i] = df
 
-    base_exp = ExpBase.objects.get(id = pk)
     directory = 'Private/02_Dataframes/LMP_Cosolvent_Analysis/'+'LCA_' +base_exp.Name
     if not os.path.exists(directory):
         os.makedirs(directory)
