@@ -22,6 +22,7 @@ app_name = 'Lab_Dash'
 urlpatterns = [
     path("Comparisons/<str:pk>", views.Comparison, name="Comparisons"),
     path("OszAnalysis/<str:pk>", views.OszAnalysis, name="OszAnalysis"),
+    path("DafAnalysis/<str:pk>", views.DafAnalysis, name="DafAnalysis"),
     path("update_model/<str:ModelName>/<str:pk>", views.update_model, name="update_model"),
     path("Generic/<str:ModelName>/<str:pk>", views.Generic, name="Generic"),
     path("Plan_Gas_OSZ/<str:pk>", views.Plan_Osz_graph, name="Plan_Gas_OSZ"),
@@ -33,5 +34,6 @@ urlpatterns = [
     path("SEL/<str:pk>", views.SEL_graph, name="SEL_graph"),
     path("MFL/<str:pk>", views.MFL_graph, name="MFL_graph"),
     path("GRP/<str:model>/<str:pk>", views.GRP_graph, name="GRP_graph"),
+    path("DAF/<str:pk>", views.DAF_graph, name="DAF_graph"),
 
 ]

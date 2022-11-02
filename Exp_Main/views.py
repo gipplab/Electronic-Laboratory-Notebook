@@ -66,6 +66,10 @@ def Generate(request):
             Sort_Videos.Sort_CON()
         except:
             pass
+        try:
+            Sort_Videos.Sort_DAF()
+        except:
+            pass
         Report_Paths = Gen.Generate_Entries()
         for Report_Path in Report_Paths:
             path = os.path.join(cwd, Report_Path)
@@ -299,6 +303,14 @@ class Read_entry(BSModalReadView):
             cwd = os.getcwd()
             subprocess.call(['python', 'Private/Sessile.drop.analysis/video_compression.py', Link_to_vid, chosen_drop, compression_level])
             os.chdir(cwd)
+        def start_daf_ana():
+            cwd = os.getcwd()
+            subprocess.call(['python', 'Private/DAFI_Analysis/DafAnalysis.py', str(Main_id)])
+            os.chdir(cwd)
+        def start_daf_ana_all():
+            cwd = os.getcwd()
+            subprocess.call(['python', 'Private/DAFI_Analysis/DafAnalysis.py'])
+            os.chdir(cwd)
         pk = self.kwargs['pk']
         curr_entry = ExpBase.objects.get(pk = pk)
         curr_exp = ExpPath.objects.get(Name = str(curr_entry.Device))
@@ -329,6 +341,15 @@ class Read_entry(BSModalReadView):
                 self.curr_entry.save()
                 x = threading.Thread(target=start_drop_ana)
                 x.start()
+
+            if request.method == 'POST' and 'Run_DAF_Analysis' in request.POST:
+                Main_id = self.curr_entry.id
+                x = threading.Thread(target=start_daf_ana)
+                x.start()
+
+            if request.method == 'POST' and 'Run_DAF_Analysis_all' in request.POST:
+                x = threading.Thread(target=start_daf_ana_all)
+                x.start()
             
             if request.method == 'POST' and 'OpenMainPath' in request.POST:
                 cwd = os.getcwd()
@@ -355,9 +376,14 @@ class Read_entry(BSModalReadView):
                 Folder_path = os.path.join(get_BasePath(), self.curr_entry.Link_XLSX)
                 Folder_path = Folder_path.replace(',', '","')
                 subprocess.Popen(r'explorer /select,' + Folder_path)
+            
+            if request.method == 'POST' and 'OpenResultPath' in request.POST:
+                Folder_path = os.path.join(get_BasePath(), self.curr_entry.Link_Result)
+                Folder_path = Folder_path.replace(',', '","')
+                subprocess.Popen(r'explorer /select,' + Folder_path)
         else:
             if request.method == 'POST' and 'OpenVideoPath' in request.POST:
-                Folder_path = os.path.join(self.curr_entry.Link)
+                Folder_path = os.path.join(self.curr_entry.Link_Video)
                 Folder_path = Folder_path.replace(',', '","')
                 #subprocess.call(Folder_path)
                 return HttpResponseRedirect('/Data/'+Folder_path)
@@ -388,6 +414,12 @@ class Read_entry(BSModalReadView):
 
             if request.method == 'POST' and 'OpenXLSXPath' in request.POST:
                 Folder_path = os.path.join(self.curr_entry.Link)
+                Folder_path = Folder_path.replace(',', '","')
+                #subprocess.call(Folder_path)
+                return HttpResponseRedirect('/Data/'+Folder_path)
+
+            if request.method == 'POST' and 'OpenResultPath' in request.POST:
+                Folder_path = os.path.join(self.curr_entry.Link_Result)
                 Folder_path = Folder_path.replace(',', '","')
                 #subprocess.call(Folder_path)
                 return HttpResponseRedirect('/Data/'+Folder_path)

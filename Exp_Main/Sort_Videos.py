@@ -2,11 +2,12 @@ import glob, os
 import stat
 import time
 import datetime
-from .models import ExpPath, RSD
+from .models import ExpPath, RSD, DAF
 from Lab_Misc import General
 from django.db.models import Q
 import pandas as pd
 import numpy as np
+import cv2
 from django.utils import timezone
 
 
@@ -38,6 +39,30 @@ def get_closest_to_dt(qs, dt):
         return greater if abs(greater.Date_time - dt) < abs(less.Date_time - dt) else less
     else:
         return greater or less
+
+def get_video_length(filepath):
+    """
+    Gets duration of given video file
+
+    Parameters
+    ----------
+    filepath : string
+        path to video file
+
+    Returns
+    -------
+    float
+        duration of video in seconds
+    """
+    video = cv2.VideoCapture(filepath)
+    fps = video.get(cv2.CAP_PROP_FPS)
+    frame_count = video.get(cv2.CAP_PROP_FRAME_COUNT)
+    video.release()
+    try:
+        duration = frame_count/fps
+    except:
+        duration = 0
+    return duration
 
 def Sort_CON():
     con_path = ExpPath.objects.get(Abbrev = 'CON').Path
@@ -128,6 +153,97 @@ def Sort_RSD():
             df = df.reset_index(drop=True)
             df = df.drop([0])
     
+    os.chdir(cwd)
+
+def Sort_DAF():
+    con_path = os.path.join(General.get_BasePath(), ExpPath.objects.get(Abbrev = 'DAF').Path)
+    search_path = "Unsorted_Videos"
+    os.chdir(os.path.join(con_path, search_path))
+
+    for sample in glob.glob("*/"):
+        os.chdir(sample)
+        curr_path = os.getcwd()
+        columns = ['files', 'old_paths', 'record_times', 'vid_lengths']
+        df = pd.DataFrame([["default", "default", datetime.datetime(2015, 1, 1, 12, 12, 12), 0]], columns=columns)
+        exp_times = []
+
+        for ending in ExpPath.objects.get(Abbrev = 'DAF').File_ending.all().values_list('Ending', flat = True): # list all files and times
+            for file in glob.glob('*.'+ending):
+                old_path = os.path.join(curr_path, file)
+                record_time = os.path.getmtime(file)
+                record_time = datetime.datetime.fromtimestamp(record_time) # convert to datetime format
+                vid_length = get_video_length(old_path)
+                newrow = pd.DataFrame([[file, old_path, record_time, vid_length]], columns=columns)
+                df = pd.concat([df, newrow], ignore_index=True)
+
+        df['record_times'] = df['record_times'].dt.tz_localize(timezone.get_current_timezone())
+        df=df.sort_values(by ='record_times')
+        df = df.reset_index(drop=True)
+
+        for i in range(1, len(df['files'])):
+            if (df['record_times'][i] - df['record_times'][i-1]) > (datetime.timedelta(seconds=df['vid_lengths'][i-1]) + datetime.timedelta(seconds=10)): # more than 10 s between videos -> different measurements
+                vid_no = 1
+                exp_times.append(record_time)
+                record_timestamp = str(df['record_times'][i].strftime('%H%M%S'))
+                date = str(df['record_times'][i].strftime('%Y%m%d'))
+                date_path = os.path.join(con_path, date)
+                if not os.path.exists(date_path):
+                    os.makedirs(date_path)
+                sample_path = os.path.join(date_path, sample)
+                if not os.path.exists(sample_path):
+                    os.makedirs(sample_path)
+            else: # videos belong to same measurement
+                vid_no += 1
+            new_file = record_timestamp + '_' + df['files'][i].replace('.'+ending, '_'+str(vid_no)+'.'+ending)
+            new_path = os.path.join(sample_path, new_file)
+            os.rename(df['old_paths'][i], new_path)
+
+        try: # sort videos of 2nd camera (in extra folder)
+            os.chdir('2nd_Camera')
+            curr_path_2nd = os.getcwd()
+            exp_times = np.asarray(exp_times)
+            df = pd.DataFrame([["default", "default", datetime.datetime(2015, 1, 1, 12, 12, 12), 0]], columns=columns)
+
+            for ending in ExpPath.objects.get(Abbrev = 'DAF').File_ending.all().values_list('Ending', flat = True): # list all files and times
+                for file in glob.glob('*.'+ending):
+                    old_path = os.path.join(curr_path_2nd, file)
+                    record_time = os.path.getmtime(file)
+                    record_time = datetime.datetime.fromtimestamp(record_time) + datetime.timedelta(hours=1) # internal time of second camera is 1 hour earlier
+                    # TODO: get absolute time from camera (if other cameras are used)
+                    vid_length = get_video_length(old_path)
+                    newrow = pd.DataFrame([[file, old_path, record_time, vid_length]], columns=columns)
+                    df = pd.concat([df, newrow], ignore_index=True)
+
+            df['record_times'] = df['record_times'].dt.tz_localize(timezone.get_current_timezone())
+            df=df.sort_values(by ='record_times')
+            df = df.reset_index(drop=True)
+
+            for i in range(1, len(df['files'])):
+                if (df['record_times'][i] - df['record_times'][i-1]) > (datetime.timedelta(seconds=df['vid_lengths'][i-1]) + datetime.timedelta(seconds=10)): # more than 10 s between videos -> different measurements
+                    vid_no = 1
+                    idx = (np.abs(exp_times - record_time)).argmin()
+                    record_timestamp = str(exp_times[idx].strftime('%H%M%S'))
+                    date = str(record_time.strftime('%Y%m%d'))
+                    date_path = os.path.join(con_path, date)
+                    sample_path = os.path.join(date_path, sample)
+                else: # videos belong to same measurement
+                    vid_no += 1
+                new_file = record_timestamp + '_' + df['files'][i].replace('.'+ending, '_P_'+str(vid_no)+'.'+ending)
+                new_path = os.path.join(sample_path, new_file)
+                os.rename(df['old_paths'][i], new_path)
+
+            os.chdir('..')
+            if len(os.listdir(curr_path_2nd)) == 0: # delete directory of 2nd camera if all files have been moved to parent directory
+                os.rmdir(curr_path_2nd)
+            else:
+                print(curr_path_2nd, 'cannot be deleted, because there are files left in the directory.')
+        except:
+            pass
+        os.chdir(os.path.join(con_path, search_path))
+        if len(os.listdir(curr_path)) == 0: # delete directory of sample if all files have been moved to parent directory
+            os.rmdir(curr_path)
+        else:
+            print(curr_path, 'cannot be deleted, because there are files left in the directory.')
     os.chdir(cwd)
 
 cwd = os.getcwd()

@@ -96,6 +96,32 @@ class SEL(models.Model):
               self.Name = None
          super(SEL, self).save(*args, **kwargs)
 
+class DAF(models.Model):
+    """DAF Saves all dash properties of the DAF measurements
+
+    Parameters
+    ----------
+    models : [type]
+        [description]
+    """ 
+    Name = models.TextField(unique=True, blank=True, null=True)
+    CA_high_degree = models.FloatField(blank=True, null=True)
+    CA_low_degree = models.FloatField(blank=True, null=True)
+    BD_high_mm = models.FloatField(blank=True, null=True)
+    BD_low_mm = models.FloatField(blank=True, null=True)
+    Width_high_mm = models.FloatField(blank=True, null=True)
+    Width_low_mm = models.FloatField(blank=True, null=True)
+    Force_high_muN = models.FloatField(blank=True, null=True)
+    Force_low_muN = models.FloatField(blank=True, null=True)
+    Time_high_sec = models.FloatField(blank=True, null=True)
+    Time_low_sec = models.FloatField(blank=True, null=True)
+    def __str__(self):
+        return str(self.Name)
+    def save(self, *args, **kwargs):#saves '' as none
+        if not self.Name:
+            self.Name = None
+        super(DAF, self).save(*args, **kwargs)
+
 class ComparisonEntry(models.Model):
     """SEL Saves all dash properties of the SEL measurements
 
@@ -167,6 +193,31 @@ class OszAnalysisEntry(models.Model):
          if not self.Name:
               self.Name = None
          super(OszAnalysisEntry, self).save(*args, **kwargs)
+
+class DafAnalysisEntry(models.Model):
+    """SEL Saves all dash properties of the SEL measurements
+
+    Parameters
+    ----------
+    models : [type]
+        [description]
+    """    
+    Name = models.TextField(blank=True, null=True)
+    Label = models.TextField(blank=True, null=True)
+    DafAnalysisID = models.IntegerField(blank=True, null=True)#Foreign key not possible because of circular import
+    X_high = models.FloatField(blank=True, null=True)
+    X_low = models.FloatField(blank=True, null=True)
+    Y_high = models.FloatField(blank=True, null=True)
+    Y_low = models.FloatField(blank=True, null=True)
+    X_shift = models.FloatField(blank=True, null=True)
+    Y_shift = models.FloatField(blank=True, null=True)
+    def __str__(self):
+        return str(self.Name)
+    def save(self, *args, **kwargs):#saves '' as none
+         if not self.Name:
+              self.Name = None
+         super(DafAnalysisEntry, self).save(*args, **kwargs)
+
 class OszAnalysis(models.Model):
     """SEL Saves all dash properties of the SEL measurements
 
@@ -190,6 +241,30 @@ class OszAnalysis(models.Model):
          if not self.Name:
               self.Name = None
          super(OszAnalysis, self).save(*args, **kwargs)
+
+class DafAnalysis(models.Model):
+    """SEL Saves all dash properties of the SEL measurements
+
+    Parameters
+    ----------
+    models : [type]
+        [description]
+    """    
+    Name = models.TextField(blank=True, null=True)
+    Title = models.TextField(blank=True, null=True)
+    Entry = models.ManyToManyField(DafAnalysisEntry, blank=True)
+    X_shift = models.FloatField(blank=True, null=True)
+    Y_shift = models.FloatField(blank=True, null=True)
+    X_high = models.FloatField(blank=True, null=True)
+    X_low = models.FloatField(blank=True, null=True)
+    Y_high = models.FloatField(blank=True, null=True)
+    Y_low = models.FloatField(blank=True, null=True)
+    def __str__(self):
+        return str(self.Name)
+    def save(self, *args, **kwargs):#saves '' as none
+         if not self.Name:
+              self.Name = None
+         super(DafAnalysis, self).save(*args, **kwargs)
 
 class SFG(models.Model):
     """SEL Saves all dash properties of the SEL measurements

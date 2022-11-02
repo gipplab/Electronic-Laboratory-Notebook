@@ -1,0 +1,38 @@
+{% extends "Modal/read_entry.html" %}
+
+  {% block Modal_detailed_content %}
+  <tr>
+    <th>Plot:</th>
+    <th><a href="/Dash/DAF/{{ExpBase.pk}}">Link to plot</a></th>
+  </tr>
+  <!-- <tr>
+    <th>Analysis Result:</th>
+    <th><a href="/Analysis/DafAnalysis_table/{{ExpBase.dafanalysis_set.first.id}}">Link Analysis Result</a></th>
+  </tr> -->
+  <tr>
+    <th>Links:</th>
+    <th><form method="post">
+      {% csrf_token %}
+      <button type="submit" name="OpenVideoPath">Video</button>
+      &nbsp
+      <button type="submit" name="OpenDataPath">Data</button>
+      &nbsp
+      <button type="submit" name="OpenResultPath">Result</button>
+    </form></th>
+  </tr>
+  <tr>
+    <th>Analysis:</th>
+    <th><form method="post">
+      <!-- <select name="Drop_choose">
+        {% for entry in Drops %}
+            <option value="{{ entry }}">{{ entry }}</option>
+        {% endfor %}
+      </select> -->
+      {% csrf_token %}
+      <button type="submit" name="Run_DAF_Analysis">Run DAFI Analysis</button>
+      &nbsp
+      <button type="submit" name="Run_DAF_Analysis_all">Run DAFI Analysis for all entries</button>
+    </form></th>
+  </tr>
+
+{% endblock Modal_detailed_content %}

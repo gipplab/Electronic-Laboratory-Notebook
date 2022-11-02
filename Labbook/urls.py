@@ -18,7 +18,7 @@ from django.urls import path, include
 from Exp_Main import views as Exp_Main_views
 from Exp_Main.views import Create_new_entry, Update_entry, Read_entry, Delete_entry, Samples_table_view
 from Lab_Dash import dash_plot_SEL, dash_plot_SEL_compare, dash_plot_SFG
-from Lab_Dash import dash_plot
+from Lab_Dash import dash_plot, dash_plot_DAF
 from Lab_Dash.views import Update_dash
 
 from django.conf import settings

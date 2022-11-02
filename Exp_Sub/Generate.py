@@ -2,6 +2,7 @@ from .models import ExpBase as ExpBase_Sub
 from .models import ExpPath as ExpPath_Sub
 from .models import Gas
 from Lab_Misc.Generate import CreateAndUpdate as CreateAndUpdate_Misc
+import glob, os
 
 class CreateAndUpdate(CreateAndUpdate_Misc):
     ExpBase_curr = ExpBase_Sub
@@ -18,6 +19,9 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
             entry.save()
         if Exp.Abbrev == 'HME':
             self.add_environment(file, entry)
+            entry.save()
+        if Exp.Abbrev == 'CAP':
+            self.add_CAP_files(file, entry)
             entry.save()
         self.f.write('The file  ' + file + ' created the entry with the id ' + str(entry.id) + ' <br>\n')
 
@@ -65,3 +69,30 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
         if No_gas_found:
             self.TotalWarnings += 1
             self.f.write('<em class="text-warning">No environment was found!</em> <br>\n')
+
+    def add_CAP_files(self, file, entry):
+        entry.Link = self.get_FullPath(file)
+        entry.Link_Video = self.get_FullPath(file)  
+        self.f.write('<p>Added the file ' + file)
+        for file_in_Folder in glob.glob("*.*"): # add path of data file
+            if (file_in_Folder[0:6] == file[0:6]) and (file_in_Folder[-4:] == '.csv'):
+                entry.Link_Data = self.get_FullPath(file_in_Folder)
+                self.f.write(', add ' + file_in_Folder + '. ')
+
+        # try to add additional experiment details from file name
+        try:
+            ind_end = file.find('fps')
+            ind_start = ind_end - (file[:ind_end][::-1]).find('_')
+            entry.FPS = float(file[ind_start:ind_end])
+        except:
+            pass
+        try:
+            ind_start = file.find('_K') + 2
+            ind_end = ind_start + (file[ind_start:]).find('_')
+            try:
+                entry.Capillary = int(file[ind_start:ind_end])
+            except:
+                entry.Capillary = int(file[ind_start:ind_end-1])
+        except:
+            pass
+        

@@ -341,6 +341,7 @@ def gen_scripts(pk):
             on_cycle_i = []
             for start_number in Gas_controll.iloc[i]['Start_number']:
                 on_cycle_i = on_cycle_i + list(range(start_number, number_of_cycles, Gas_controll.iloc[i]['Periodicity']))
+                #on_cycle_i = on_cycle_i + list(range(start_number, number_of_cycles+1, Gas_controll.iloc[i]['Periodicity']))
             off_cycle_i = []
             for off_number in range(Gas_controll.iloc[i]['Periodicity']):
                 try:

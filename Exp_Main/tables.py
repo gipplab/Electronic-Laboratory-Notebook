@@ -1,5 +1,5 @@
 import django_tables2 as tables
-from .models import OCA, CON, SEM, RLD, NEL, DIP, KUR, LQB, HEV, NAF, SFG, HED, ExpBase, Observation, Group
+from .models import OCA, CON, SEM, RLD, NEL, DIP, KUR, LQB, HEV, NAF, SFG, HED, DAF, ExpBase, Observation, Group
 from Analysis.models import Comparison
 from django_tables2_column_shifter.tables import ColumnShiftTable
 from django.apps import apps

@@ -7,6 +7,7 @@ from Lab_Dash.models import SFG as SFG_dash
 from Lab_Dash.models import SEL as SEL_dash
 from Lab_Dash.models import GRP as GRP_dash
 from Lab_Dash.models import LMP as LMP_dash
+from Lab_Dash.models import DAF as DAF_dash
 from Lab_Dash.models import Comparison as Comparison_dash
 from Lab_Misc.models import SampleBase, OszScriptGen
 from Lab_Misc.models import ProjectEntry as Project
@@ -504,5 +505,33 @@ class SEL(ExpBase):
     Temp_Volume = models.TextField(blank=True, null=True)
     Temp_Buzz_word = models.TextField(blank=True, null=True)
     Temp_Bath_time = models.TextField(blank=True, null=True)
+    def __str__(self):
+        return str(self.Name)
+
+class DAF(ExpBase):
+    """DAF Model to store all experiments done with the DAFI
+
+    Parameters
+    ----------
+    models : [type]
+        [description]
+    """
+    Dash = models.ForeignKey(DAF_dash, on_delete=models.CASCADE, blank=True, null=True)
+    Sub_Exp = models.ManyToManyField(SubExp_base, blank=True)
+    Liquid = models.TextField(blank=True, null=True)
+    Drop_Volume_muL = models.FloatField(blank=True, null=True)
+    Rotations_per_min = models.FloatField(blank=True, null=True)
+    Trajectory_Radius_mm = models.FloatField(blank=True, null=True)
+    Velocity_mu_m_per_s = models.FloatField(blank=True, null=True)
+    Height_Glass_Plate_mm = models.FloatField(blank=True, null=True)
+    Capillary = models.IntegerField(blank=True, null=True)
+    Link = models.TextField(blank=True, null=True)
+    Link_Data = models.TextField(blank=True, null=True)
+    Link_Data_2nd_Camera = models.TextField(blank=True, null=True)
+    Link_Additional_Data_CAL = models.TextField(blank=True, null=True)
+    Link_Additional_Data_CAR = models.TextField(blank=True, null=True)
+    Link_Video = models.TextField(blank=True, null=True)
+    Link_Video_2nd_Camera = models.TextField(blank=True, null=True)
+    Link_Result = models.TextField(blank=True, null=True)
     def __str__(self):
         return str(self.Name)

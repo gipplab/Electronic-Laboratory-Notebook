@@ -1,7 +1,8 @@
 from django.db import models
 from Lab_Dash.models import Comparison as Comparison_dash
 from Lab_Dash.models import OszAnalysis as OszAnalysis_dash
-from Exp_Main.models import ExpBase
+from Lab_Dash.models import DafAnalysis as DafAnalysis_dash
+from Exp_Main.models import ExpBase, DAF
 
 # Create your models here.
 class Comparison(models.Model):
@@ -30,6 +31,7 @@ class OszBaseParam(models.Model):
     Max_CA = models.FloatField(blank=True, null=True)
     Min_CA = models.FloatField(blank=True, null=True)
     Min_AdvCA = models.FloatField(blank=True, null=True)
+
 class OszFitRes(models.Model):
     Drop_Nr = models.IntegerField(blank=True, null=True)
     LoR = [('Left', 'Left'), ('Right', 'Right')]
@@ -88,3 +90,13 @@ class OszAnalysisJoin(models.Model):
          if not self.Name:
               self.Name = None
          super(OszAnalysisJoin, self).save(*args, **kwargs)
+
+class DafAnalysis(models.Model):
+    Name = models.TextField(unique=True, blank=True, null=True)
+    Experiments = models.ManyToManyField(DAF, blank=True)
+    def __str__(self):
+        return str(self.Name)
+    def save(self, *args, **kwargs):#saves '' as none
+         if not self.Name:
+              self.Name = None
+         super(DafAnalysis, self).save(*args, **kwargs)

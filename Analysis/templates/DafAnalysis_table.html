@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% load mptt_tags %}
+
+{% block content %}
+{% include "Modal/_modal.html" %}
+
+{% load render_table from django_tables2 %}
+
+<form method="post">
+  {% csrf_token %}
+  <button type="submit" name="Analyse_daf">Run Analysis of DAFI</button>
+</form>
+
+{% endblock content %}
+{% block extrascripts %}
+  <script type="text/javascript">
+    $(function () {
+
+      // Create entry button
+      $(".create-entry").each(function () {
+        $(this).modalForm({formURL: $(this).data('id')});
+      });
+
+      // Update entry buttons
+      $(".update-entry").each(function () {
+        $(this).modalForm({formURL: $(this).data('id')});
+      });
+
+      // Read entry buttons
+      $(".read-entry").each(function () {
+        $(this).modalForm({formURL: $(this).data('id')});
+      });
+
+      // Delete entry buttons
+      $(".delete-entry").each(function () {
+        $(this).modalForm({formURL: $(this).data('id')});
+      })
+
+    });
+  </script>
+{% endblock extrascripts %}
+
+

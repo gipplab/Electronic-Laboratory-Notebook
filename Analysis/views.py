@@ -3,9 +3,10 @@ import os
 import threading
 from Analysis.Osz_Drop import Osz_Drop_Analysis
 from Analysis.models import OszAnalysis, OszBaseParam, OszFitRes, OszAnalysisJoin, OszDerivedRes
-from .Osz_Drop import Osz_Drop_Analysis
+from Analysis.models import DafAnalysis
 from .tables import Comparison_table, OszAnalysis_table, get_Table, RSD_CA_Mess_table
-from Exp_Main.models import RSD
+from .tables import DafAnalysis_table
+from Exp_Main.models import RSD, DAF
 
 # Create your views here.
 def index(request):
@@ -29,6 +30,11 @@ def RSDAnalysis_view(request):
     context = {'table': table}
     return render(request, 'Comparison.html', context)
 
+def DafAnalysis_view(request):
+    model = DafAnalysis.objects.all()
+    table = DafAnalysis_table(model)
+    context = {'table': table}
+    return render(request, 'Comparison.html', context)
 
 def OszAnalysis_table_view(request, pk):
     model = OszAnalysis.objects.all()
@@ -46,3 +52,12 @@ def OszAnalysis_table_view(request, pk):
     if request.method == 'POST' and 'Analyse_osz' in request.POST:
         Osz_Drop_Analysis(OszAnalysis.objects.get(id = pk).Exp.id)
     return render(request, 'OszAnalysis_table.html', context)
+
+def DafAnalysis_table_view(request, pk):
+    model = DafAnalysis.objects.all()
+    table = DafAnalysis_table(model)
+    context = {'stuff': table}
+    if request.method == 'POST' and 'Analyse_daf' in request.POST:
+        # Daf_Analysis(DafAnalysis.objects.get(id = pk).Exp.id)
+        pass
+    return render(request, 'DafAnalysis_table.html', context)

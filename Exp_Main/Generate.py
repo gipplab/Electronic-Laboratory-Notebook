@@ -1,10 +1,11 @@
-from .models import ExpBase as ExpBase_Main
+from .models import ExpBase as ExpBase_Main, Liquid
 from .models import ExpPath as ExpPath_Main
 from Lab_Dash.models import SEL as SEL_dash
 from Lab_Dash.models import OCA as OCA_dash
 from Lab_Dash.models import LMP as LMP_dash
 from Lab_Dash.models import RSD as RSD_dash
 from Lab_Dash.models import SFG as SFG_dash
+from Lab_Dash.models import DAF as DAF_dash
 from Exp_Main.models import Group as Group_Model
 from Lab_Misc.Generate import CreateAndUpdate as CreateAndUpdate_Misc
 import pytz
@@ -14,6 +15,7 @@ from django.apps import apps
 import datetime
 import glob, os
 from django.utils import timezone
+import numpy as np
 
 
 class CreateAndUpdate(CreateAndUpdate_Misc):
@@ -111,9 +113,13 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
                     self.Add_EntryToDB(date, file, Exp, sample, Group)
                 path_to_file = self.get_FullPath(file)
                 if model.objects.filter(Link = path_to_file).count() == 0:#if path is not found in model
+                    if str(Exp.Abbrev) == 'DAF':
+                        if (model.objects.filter(Link_Data = path_to_file).count() != 0) or (model.objects.filter(Link_Data_2nd_Camera = path_to_file).count() != 0) or (model.objects.filter(Link_Additional_Data_CAL = path_to_file).count() != 0) or (model.objects.filter(Link_Additional_Data_CAR = path_to_file).count() != 0) or (model.objects.filter(Link_Video = path_to_file).count() != 0) or (model.objects.filter(Link_Video_2nd_Camera = path_to_file).count() != 0):
+                            # (file[len(file)-file[::-1].find(".")-3:len(file)-file[::-1].find(".")-1] == '_2')
+                            return
                     if self.is_ValidFile(file, Exp, Group):
                         latest_Exp = self.get_LatestExp(Exp)
-                        if self.is_OlderLatestEXP(file, Exp, date):
+                        if self.is_OlderLatestEXP(file, Exp, date):#if experiment is newer than existing experiments
                             self.Add_EntryToDB(date, file, Exp, sample, Group)
                         else:
                             if self.Success_AddExistingPath(date, file, Exp):
@@ -147,6 +153,11 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
                     return super(CreateAndUpdate, self).is_ValidFile(file, Exp)
             else:
                 return False
+        elif str(Exp.Abbrev) == 'DAF':
+            if (file[-6:-4] == '_2') or (file[-6:-4] == '_P'):
+                return False
+            else:
+                return super(CreateAndUpdate, self).is_ValidFile(file, Exp)
         else:
             return super(CreateAndUpdate, self).is_ValidFile(file, Exp)
 
@@ -163,7 +174,10 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
         if Exp.Abbrev == 'LMP':
             self.add_LMP_files(file, entry)
             entry.save()
-
+        if Exp.Abbrev == 'DAF':
+            self.add_DAF_files(file, entry)
+            entry.save()
+        
     def add_SFG_files(self, file, entry):
         """
         add_Gas Adds the correct gas to the entry
@@ -321,6 +335,102 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
         entry_dash = SEL_dash(Start_datetime_elli = entry.Date_time)
         entry_dash.save()
         entry.Dash = entry_dash
+    
+    def add_DAF_files(self, file, entry):
+        """
+        Looks in the file name for additional information and adds them to the entry
+        Looks for additional files with similar beginning of file name and adds them to the entry
+
+        Parameters
+        ----------
+        file : string
+            filename with possible infomation about the gas used
+        entry : [type]
+            entry to which the file was added
+        """
+        entry.Link = self.get_FullPath(file)
+        entry.Link_Video = self.get_FullPath(file)  
+        self.f.write('<p>Added the file ' + file + ' to ' + str(entry.Name))
+        for file_in_Folder in glob.glob("*.*"): # add paths of other files corresponding to experiment
+            if file_in_Folder[0:6] == file[0:6]:
+                valid_file = True
+                ind = len(file_in_Folder) - file_in_Folder[::-1].find(".") - 1
+                if file_in_Folder[ind:] == '.xlsx': # data file
+                    if file_in_Folder[ind-7:] == '_Result.xlsx':
+                        entry.Link_Result = self.get_FullPath(file_in_Folder)
+                    elif file_in_Folder[ind-2:] == '_P.xlsx':
+                        entry.Link_Data_2nd_Camera = self.get_FullPath(file_in_Folder)
+                    elif file_in_Folder[ind-4:ind] == '_CAL':
+                        entry.Link_Additional_Data_CAL = self.get_FullPath(file_in_Folder)
+                    elif file_in_Folder[ind-4:ind] == '_CAR':
+                        entry.Link_Additional_Data_CAR = self.get_FullPath(file_in_Folder)
+                    elif file_in_Folder[ind-2] != '_':
+                        entry.Link_Data = self.get_FullPath(file_in_Folder)
+                    else:
+                        valid_file = False
+                elif (file_in_Folder[ind:] == '.MOV') or (file_in_Folder[ind:] == '.MP4'): # additional video file
+                    if (file_in_Folder[ind-2:ind] == '_P') or (file_in_Folder[ind-4:ind] == '_P_1'):
+                        entry.Link_Video_2nd_Camera = self.get_FullPath(file_in_Folder)
+                    else:
+                        valid_file = False
+                if valid_file:
+                    self.f.write(', add ' + file_in_Folder)
+
+        # try to add additional experiment details from file name
+        try:
+            ind_end = file.find('muL')
+            ind_start = ind_end - (file[:ind_end][::-1]).find('_')
+            entry.Drop_Volume_muL = float(file[ind_start:ind_end])
+            ind_end = ind_start - 1
+            ind_start = ind_end - (file[:ind_end][::-1]).find('_')
+            entry.Liquid = file[ind_start:ind_end]
+        except:
+            pass
+        try:
+            ind_end = file.find('UPM')
+            ind_start = ind_end - (file[:ind_end][::-1]).find('_')
+            entry.Rotations_per_min = float(file[ind_start:ind_end])
+        except:
+            pass
+        try:
+            ind_end = file.find('mm')
+            ind_start = ind_end - (file[:ind_end][::-1]).find('_')
+            entry.Trajectory_Radius_mm = float(file[ind_start:ind_end])
+        except:
+            pass
+        try:
+            entry.Velocity_mu_m_per_s = round(2*np.pi*entry.Trajectory_Radius_mm*1000 * entry.Rotations_per_min/60, 2)
+        except:
+            pass
+        try:
+            ind_start = len(file) - file[::-1].find("H_")
+            try:
+                ind_end = ind_start + (file[ind_start:]).find('_')
+                entry.Height_Glass_Plate_mm = float(file[ind_start:ind_end])/200
+            except:
+                ind_end = ind_start + (file[ind_start:]).find('.')
+                entry.Height_Glass_Plate_mm = float(file[ind_start:ind_end])/200
+        except:
+            pass
+        try:
+            ind_start = file.find('_K') + 2
+            try:
+                ind_end = ind_start + (file[ind_start:]).find('_')
+                entry.Capillary = int(file[ind_start:ind_end])
+            except:
+                ind_end = ind_start + (file[ind_start:]).find('.')
+                entry.Capillary = int(file[ind_start:ind_end])
+        except:
+            pass
+        if "Ofen" in file:
+            entry.Comment = "sample heated in vacuum oven"
+        if "EtOH" in file:
+            entry.Comment = "sample prewetted with ethanol"
+        
+        entry_dash = DAF_dash()
+        entry_dash.save()
+        entry.Dash = entry_dash
+        self.f.write(' and add dash.</p>\n')
 
     def Generate_Names(self):
         Path_to_report = self.Reports_path + self.Report_folder + "/Named_entries_" + datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S") + ".html"

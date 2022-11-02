@@ -24,6 +24,7 @@ class Gas(models.Model):
     Description = models.TextField(blank=True, null=True)
     def __str__(self):
         return str(self.Name)
+
 class ExpPath(MPTTModel):
     Abbrev = models.CharField(max_length=3, unique=True)
     Name = models.TextField(unique=True)
@@ -122,3 +123,30 @@ class TCM(ExpBase):
     def __str__(self):
         return str(self.Name)
 
+class CAP(ExpBase):
+    """CAP Model to store all experiments in order to determine
+    the spring constant of the capillary used in DAFI experiments
+
+    Parameters
+    ----------
+    models : [type]
+        [description]
+    """
+    Capillary = models.IntegerField(blank=True, null=True)
+    Link = models.TextField(blank=True, null=True)
+    Link_Data = models.TextField(blank=True, null=True)
+    FPS = models.FloatField(blank=True, null=True)
+    Total_Length_mm = models.FloatField(blank=True, null=True, default=50)
+    Width_mm = models.FloatField(blank=True, null=True, default=0.4)
+    Height_mm = models.FloatField(blank=True, null=True, default=0.04)
+    Wall_Thickness_mm = models.FloatField(blank=True, null=True, default=0.028)
+    Mass_g = models.FloatField(blank=True, null=True)
+    Effective_Length_mm = models.FloatField(blank=True, null=True)
+    Glass_Plate = models.BooleanField(blank=True, null=True)
+    Fixture_Mass_without_Glass_Plate_g = models.FloatField(blank=True, null=True)
+    Fixture_Mass_with_Glass_Plate_g = models.FloatField(blank=True, null=True)
+    Eigenfrequency_Hz = models.FloatField(blank=True, null=True)
+    Spring_Constant_N_per_m = models.FloatField(blank=True, null=True)
+    Delta_Spring_Constant_N_per_m = models.FloatField(blank=True, null=True)
+    def __str__(self):
+        return str(self.Name)

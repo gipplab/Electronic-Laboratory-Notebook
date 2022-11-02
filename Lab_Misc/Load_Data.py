@@ -1,14 +1,16 @@
 import glob, os
 import pandas as pd
-from Exp_Main.models import OCA, ExpBase, ExpPath, RSD
+from Exp_Main.models import OCA, ExpBase, ExpPath, RSD, DAF
 from Analysis.models import OszAnalysis
-from Exp_Sub.models import LSP, MFR
+from Analysis.models import DafAnalysis
+from Exp_Sub.models import LSP, MFR, CAP
 from dbfread import DBF
 from Lab_Misc import General
 import datetime
 from django.apps import apps
 import numpy as np
 from django.utils import timezone
+from functools import reduce
 
 from datatable import (dt, fread, f, by, ifelse, update, sort,
                        count, min, max, mean, sum, rowsum)
@@ -36,6 +38,10 @@ def Load_from_Model(ModelName, pk):
         return Load_TCM(pk)
     if ModelName == 'HIA':
         return Load_HIA(pk)
+    if ModelName == 'DAF':
+        return Load_sliced_DAF(pk)
+    if ModelName == 'CAP':
+        return Load_CAP(pk)
 
 def Load_LMP_cosolvent(pk, file_name):
     entry = General.get_in_full_model(pk)
@@ -226,8 +232,80 @@ def Load_OCA(Main_id):
     os.chdir(cwd)
     return data
 
+def Load_DAF(Main_id):
+    entry = DAF.objects.get(id = Main_id)
+    file = os.path.join(rel_path, entry.Link_Data)
+    data = pd.read_excel(file, header=0, index_col=0)
+    info = pd.read_excel(file, sheet_name='Datacard', index_col=0)
+
+    try: # add additional data from left drop edge if there is extra file
+        file = os.path.join(rel_path, entry.Link_Additional_Data_CAL)
+        tmp_data = pd.read_excel(file, header=0)
+        if 'BI_left' in tmp_data.columns:
+            tmp_data = tmp_data[['framenumber', 'CA_L', 'contactpointleft', 'leftcontact_y', 'BI_left']]
+            data = data.drop(['CA_L', 'contactpointleft', 'leftcontact_y', 'BI_left'], axis = 1)
+        else:
+            tmp_data = tmp_data[['framenumber', 'CA_L', 'contactpointleft', 'leftcontact_y']]
+            data = data.drop(['CA_L', 'contactpointleft', 'leftcontact_y'], axis = 1)
+        data = reduce(lambda left, right: pd.merge(left, right, on=['framenumber'], how='outer'), [data, tmp_data])
+    except:
+        pass
+
+    try: # add additional data from right drop edge if there is extra file
+        file = os.path.join(rel_path, entry.Link_Additional_Data_CAR)
+        tmp_data = pd.read_excel(file, header=0)
+        if 'BI_right' in tmp_data.columns:
+            tmp_data = tmp_data[['framenumber', 'CA_R', 'contactpointright', 'rightcontact_y', 'BI_right']]
+            data = data.drop(['CA_R', 'contactpointright', 'rightcontact_y', 'BI_right'], axis = 1)
+        else:
+            tmp_data = tmp_data[['framenumber', 'CA_R', 'contactpointright', 'rightcontact_y']]
+            data = data.drop(['CA_R', 'contactpointright', 'rightcontact_y'], axis = 1)
+        data = reduce(lambda left, right: pd.merge(left, right, on=['framenumber'], how='outer'), [data, tmp_data])
+    except:
+        pass
+    
+    try: # add additional data from 2nd camera if there is extra file
+        file = os.path.join(rel_path, entry.Link_Data_2nd_Camera)
+        tmp_data = pd.read_excel(file, header=0)
+        if 'width / mm' in tmp_data.columns: # width column already exists in file
+            tmp_data = tmp_data[['framenumber', 'width', 'width / mm']]
+        elif 'width' in tmp_data.columns:
+            tmp_data = tmp_data[['framenumber', 'width']]
+        elif 'BI_left' in tmp_data.columns: # no width column in file
+            tmp_data['width / mm'] = tmp_data['contactpointright'] - tmp_data['contactpointleft']
+            tmp_data['width'] = tmp_data['BI_right'] - tmp_data['BI_left']
+            tmp_data = tmp_data[['framenumber', 'width', 'width / mm']]
+        else:
+            tmp_data['width'] = tmp_data['BI_right'] - tmp_data['BI_left']
+            tmp_data = tmp_data[['framenumber', 'width']]
+        data = reduce(lambda left, right: pd.merge(left, right, on=['framenumber'], how='outer'), [data, tmp_data])
+    except:
+        pass
+
+    data['time_loc'] = data['abs_time'].dt.tz_localize(timezone.get_current_timezone())
+    data['Age'] = (pd.to_datetime(data['time_loc']) - pd.to_datetime(data['time_loc'].to_numpy()[0])).dt.total_seconds()
+    cap_entry = CAP.objects.get(Capillary = entry.Capillary)
+    effective_spring_const = cap_entry.Spring_Constant_N_per_m * cap_entry.Effective_Length_mm/(cap_entry.Effective_Length_mm - info["value"]["needle_offset"]*info["value"]["pix_calibration"])
+    data['force / mN'] = data['deflection / mm'] * effective_spring_const
+    
+    return data
+
+def Load_CAP(pk):
+    entry = General.get_in_full_model_sub(pk)
+    file = os.path.join( rel_path, entry.Link_Data)
+    data = pd.read_csv(file, skiprows=3, header=None, names=["label", "framenumber", "position"])
+    data = data.sort_values(by=["framenumber"]) # times not sorted in file
+    data["time"] = data["framenumber"] / entry.FPS
+    return data
+
 def Load_sliced_OCA(Main_id):
     data = Load_OCA(Main_id)
+    entry = General.get_in_full_model(Main_id)
+    DashTab = entry.Dash
+    return Slice_data(data, DashTab)
+
+def Load_sliced_DAF(Main_id):
+    data = Load_DAF(Main_id)
     entry = General.get_in_full_model(Main_id)
     DashTab = entry.Dash
     return Slice_data(data, DashTab)
@@ -256,6 +334,23 @@ def Slice_data(data, DashTab):
     if isinstance(DashTab.Time_low_sec, float):
         slice_time = data['Age']>DashTab.Time_low_sec
         data = data[slice_time]
+
+    if isinstance(DashTab.Width_high_mm, float):
+        slice_width = data['width / mm']<DashTab.Width_high_mm
+        data = data[slice_width]
+
+    if isinstance(DashTab.Width_low_mm, float):
+        slice_width = data['width / mm']>DashTab.Width_low_mm
+        data = data[slice_width]
+
+    if isinstance(DashTab.Force_high_muN, float):
+        slice_force = data['force / mN']<1000*DashTab.Force_high_muN
+        data = data[slice_force]
+
+    if isinstance(DashTab.Force_low_muN, float):
+        slice_force = data['force / mN']>1000*DashTab.Force_low_muN
+        data = data[slice_force]
+
     return data
 
 
@@ -351,3 +446,17 @@ def Load_OszAnalysis_in_df(Osz_Ana_id):
 
     df_OszDerivedRes = pd.concat([df_drop_nr, df_OszDerivedRes_left, df_OszDerivedRes_right], keys=['General', 'Left', 'Right'], axis = 1)
     return df_drop_pram, df_fit_res, df_OszDerivedRes
+
+def Load_DAFAnalysis_in_df(DAF_id):
+    Exp = DAF.objects.get(id = DAF_id)
+    try:
+        data_path = os.path.join(General.get_BasePath(), Exp.Link_Result)
+        df = pd.read_excel(data_path, header=0, index_col=0)
+        columns = df.columns.values
+        df = df.to_numpy()
+        data = pd.DataFrame([df[-2]], columns=columns)
+        errors = pd.DataFrame([df[-1]], columns=columns)
+    except:
+        print("No analysis results existing for ", Exp.Name)
+    
+    return data, errors

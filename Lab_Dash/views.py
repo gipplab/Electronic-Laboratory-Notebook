@@ -7,10 +7,12 @@ from Exp_Main.models import SEL as SEL_Main
 from Exp_Main.models import SFG as SFG_Main
 from Exp_Main.models import RSD as RSD_Main
 from Exp_Main.models import LMP as LMP_Main
+from Exp_Main.models import DAF as DAF_Main
 from Lab_Misc.models import OszScriptGen
 from Analysis.models import Comparison as Comparison_Main
 from Exp_Main.models import Group
 from Analysis.models import OszAnalysisJoin as OszAnalysis_Main
+from Analysis.models import DafAnalysis as DafAnalysis_Main
 from Lab_Dash.dash_plot_SEL import Gen_dash
 from Lab_Dash.dash_plot_RSD import Gen_dash as Gen_dash_RSD
 from Lab_Dash.dash_plot_LMP import Gen_dash as Gen_dash_LMP
@@ -23,6 +25,7 @@ from Lab_Dash.dash_plot_SFG_kin_3D import Gen_dash as Gen_dash_SFG_kin_3D
 from Lab_Dash.dash_plot_SFG_kin_drive import Gen_dash as Gen_dash_SFG_kin_drive
 from Lab_Dash.dash_plot_SFG_abrastern import Gen_dash as Gen_dash_SFG_abrastern
 from Lab_Dash.dash_plot_SFG_cycle import Gen_dash as Gen_dash_SFG_cycle
+from Lab_Dash.dash_plot_DAFAnalysis import Gen_dash as Gen_dash_DafAnalysis
 from django.apps import apps
 from Lab_Dash.dash_plot_SEL_compare import Gen_dash as Gen_dash_compare
 from .forms import OCAForm, get_Form, From_Choice
@@ -103,6 +106,54 @@ def OszAnalysis(request, pk):
             return redirect('/Dash/update_model/OszAnalysisEntry/' + str(entry.Dash.Entry.get(Name = selected).id))
 
     return render(request, "plot_OszAnalysis.html", context)
+
+def DafAnalysis(request, pk):
+    entry = DafAnalysis_Main.objects.get(id = pk)
+    context = {'stuff': 'somestuff'}
+    context['Experiment_Name'] = entry.Name
+    all_dash_entry = list(entry.Experiments.all().values_list('Name', flat=True))
+    all_dash_entry.insert(0, 'All')
+    label_to_number = {label: i for i, label in enumerate(all_dash_entry, 0)}
+    choices = [(label_to_number[label], label) for label in all_dash_entry]
+    form_class = From_Choice(choices)
+    context['model_name'] = 'DAF'
+    Name_dash_app = 'dash_DAF_' + str(pk)
+    context['Name_dash_app'] = Name_dash_app
+    Gen_dash_DafAnalysis(Name_dash_app, pk)#Creates a new app for every pk so the data will not corrupt
+    context['dash_context'] = {'target_id': {'value': pk}}
+    if request.method == 'POST' and 'Select_edit' in request.POST:
+        selected = all_dash_entry[int(request.POST['field'])]
+        if selected == 'All':
+            return redirect('/Dash/update_model/DafAnalysis/' + str(entry.id))
+        else:
+            return redirect('/Dash/update_model/DafAnalysisEntry/' + str(entry.Experiments.get(Name = selected).id))
+
+    return render(request, "plot_DafAnalysis.html", context)
+
+def DAF_Graph(request, pk):
+    entry = DafAnalysis_Main.objects.get(id = pk)
+    context = {'stuff': 'somestuff'}
+    context['Experiment_Name'] = entry.Name
+    all_dash_entry = list(entry.Dash.Entry.all().values_list('Name', flat=True))
+    all_dash_entry.insert(0, 'All')
+    label_to_number = {label: i for i, label in enumerate(all_dash_entry, 0)}
+    choices = [(label_to_number[label], label) for label in all_dash_entry]
+    form_class = From_Choice(choices)
+    context['form'] = form_class
+    context['pk_dash'] = entry.Dash.pk # '-' is theseperator defined in url
+    context['model_name'] = 'DAF'
+    Name_dash_app = 'dash_DAF_' + str(pk)
+    context['Name_dash_app'] = Name_dash_app
+    Gen_dash_DafAnalysis(Name_dash_app)#Creates a new app for every pk so the data will not corrupt
+    context['dash_context'] = {'target_id': {'value': pk}}
+    if request.method == 'POST' and 'Select_edit' in request.POST:
+        selected = all_dash_entry[int(request.POST['field'])]
+        if selected == 'All':
+            return redirect('/Dash/update_model/DAF/' + str(entry.Dash.id))
+        else:
+            return redirect('/Dash/update_model/DafAnalysisEntry/' + str(entry.Dash.Entry.get(Name = selected).id))
+
+    return render(request, "plot_DAF.html", context)
 
 def update_model(request, ModelName, pk):
     formset = get_Form(ModelName)
@@ -233,6 +284,15 @@ def OCA_graph(request, pk):
     context['dash_context'] = {'target_id': {'value': pk}}
     context['Experiment_Name'] = entry.Name
     return render(request, "plot_OCA.html", context)
+
+def DAF_graph(request, pk):
+    entry = DAF_Main.objects.get(id = pk)
+    context = {'stuff': 'somestuff'}
+    context['pk_dash'] = entry.Dash.pk # '-' is theseperator defined in url
+    context['model_name'] = 'DAF'
+    context['dash_context'] = {'target_id': {'value': pk}}
+    context['Experiment_Name'] = entry.Name
+    return render(request, "plot_DAF.html", context)
 
 def Generic(request, ModelName, pk):
     try:
