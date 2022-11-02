@@ -81,7 +81,7 @@ def Gen_dash(dash_name):
 
         def CA_Time(self):
             fig = go.Figure()
-            fig.add_trace(go.Scattergl(x=self.data['Ellipsometry']['time'], y=self.data['Ellipsometry']['Thickness # 3'],
+            fig.add_trace(go.Scattergl(x=self.data['Ellipsometry']['time'], y=self.data['Ellipsometry']['Thickness_Brush'],
                         mode='markers',
                         name='CA left')
             )
@@ -140,7 +140,7 @@ def Gen_dash(dash_name):
             thickness = []
             humidities = []
             while(date<end_date):
-                thicknes = np.mean(self.data['Ellipsometry']['Thickness # 3'][(self.data['Ellipsometry']['time']<date+time_step)&(self.data['Ellipsometry']['time']>date)])
+                thicknes = np.mean(self.data['Ellipsometry']['Thickness_Brush'][(self.data['Ellipsometry']['time']<date+time_step)&(self.data['Ellipsometry']['time']>date)])
                 thickness.append(thicknes)
                 humidity = np.mean(Humidity_data['Humidity'][(Humidity_data['time']<date+time_step)&(Humidity_data['time']>date)])
                 humidities.append(humidity)
@@ -174,7 +174,7 @@ def Gen_dash(dash_name):
                 )
             except:
                 pass
-            fig.add_trace(go.Scattergl(x=self.data['Ellipsometry']["time"], y=self.data['Ellipsometry']['Thickness # 3'],
+            fig.add_trace(go.Scattergl(x=self.data['Ellipsometry']["time"], y=self.data['Ellipsometry']['Thickness_Brush'],
                         mode='markers',
                         name='Thickness'),
                         secondary_y=False,

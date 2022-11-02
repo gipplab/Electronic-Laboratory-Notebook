@@ -131,6 +131,31 @@ class SampleBrushPNiPAAmSi(SampleBase):
     Polymer = models.ManyToManyField(Polymer, blank=True)
     def __str__(self):
         return str(self.Name)
+class SampleBrushPNiPAAmGlass(SampleBase):
+    """SampleBrushPNiPAAmSi Model to store all samples that are a PNiPAAm brush and grafted to silica
+
+    Parameters
+    ----------
+    SampleBase : Model
+        :py:meth:`SampleBase`
+
+    Returns
+    -------
+    str
+        Name of sample
+    """    
+    Parent = models.TextField(blank=True, null=True)
+    Birth = models.DateTimeField(default=datetime(1900, 1, 1, 0, 0, 0), blank=True)
+    Death = models.DateTimeField(default=datetime(1900, 1, 1, 0, 0, 0), blank=True)
+    Length_cm = models.FloatField(blank=True, null=True)
+    Width_cm = models.FloatField(blank=True, null=True)
+    Thickness_SiO2_nm = models.FloatField(blank=True, null=True)
+    Thickness_PGMA_nm = models.FloatField(blank=True, null=True)
+    Thickness_PNiPAAm_nm = models.FloatField(blank=True, null=True)
+    Number_on_back = models.IntegerField(blank=True, null=True)
+    Polymer = models.ManyToManyField(Polymer, blank=True)
+    def __str__(self):
+        return str(self.Name)
 
 class SampleHydrogelPNiPAAm(SampleBase):
     """SampleBrushPNiPAAmSi Model to store all samples that are a PNiPAAm brush and grafted to silica

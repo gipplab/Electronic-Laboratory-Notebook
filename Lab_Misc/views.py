@@ -81,7 +81,13 @@ def Plan_Gas_OSZ_pk(request, pk):
     if request.method == 'POST' and 'Open_Scripts' in request.POST:
         Folder_path = os.path.join(General.get_BasePath(), entry.Link_folder_script)
         Folder_path = Folder_path.replace(',', '","')
-        subprocess.Popen(r'explorer /select,' + Folder_path)
+        cwd = os.getcwd()
+        if General.is_linux():
+            os.chdir(Folder_path)
+            os.system('xdg-open .')
+            os.chdir(cwd)
+        else:
+            subprocess.Popen(r'explorer /select,' + Folder_path)
     form = request.POST
     context = gen_context()
     return render(request, 'Plan_Gas_OSZ.html', context)

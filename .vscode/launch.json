@@ -5,6 +5,15 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: contour",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": ["E:\\Schubotz\\01_Experimental/02_Experiments/01_Main_Exp/02_Liquid_Exp/03_Rolling_Drop/20190911/194827/DSC_5369.MOV"]
+            "justMyCode": true
+        },
+        {
             "name": "Python: Django",
             "type": "python",
             "request": "launch",

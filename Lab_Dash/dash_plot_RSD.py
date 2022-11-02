@@ -1,5 +1,6 @@
 import json
 import glob, os
+from xml import dom
 import dash
 import datetime
 import dash_core_components as dcc
@@ -10,12 +11,12 @@ from django_plotly_dash import DjangoDash
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
-from Exp_Main.models import RSD
 from Exp_Sub.models import LSP
 from plotly.subplots import make_subplots
 from Analysis.Osz_Drop import *
 from Lab_Misc import Load_Data
 from Lab_Misc import General
+from Analysis.RSD import RSD
 
 def conv(x):
     return x.replace(',', '.').encode()
@@ -25,10 +26,8 @@ def Gen_dash(dash_name):
         colours = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf', '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',]
         def load_data(self, target_id):
             try:
-                entry = RSD.objects.get(id = target_id)
-                self.entry = entry
-                self.data = Load_Data.Load_sliced_RSD(target_id)
-                self.Gas, self.Pump = Load_Data.Load_RSD_subs(target_id)
+                self.entry = RSD(target_id)
+                self.entry.Merge_LSP_MFR()
                 return_str = 'Data loaded!'
 
                 os.chdir(cwd)
@@ -38,15 +37,15 @@ def Gen_dash(dash_name):
 
         def CA_time(self):
             fig = go.Figure()
-            fig.add_trace(go.Scattergl(x=self.data['abs_time'], y=(self.data['CA_L'] + self.data['CA_R'])/2,
+            fig.add_trace(go.Scattergl(x=self.entry.RSD_data['time_loc'], y=self.entry.RSD_data['CA_M'],
                         mode='markers',
                         name='CA mean')
             )
-            fig.add_trace(go.Scattergl(x=self.data['abs_time'], y=self.data['CA_L'],
+            fig.add_trace(go.Scattergl(x=self.entry.RSD_data['time_loc'], y=self.entry.RSD_data['CA_L'],
                         mode='markers',
                         name='CA left')
             )
-            fig.add_trace(go.Scattergl(x=self.data['abs_time'], y=self.data['CA_R'],
+            fig.add_trace(go.Scattergl(x=self.entry.RSD_data['time_loc'], y=self.entry.RSD_data['CA_R'],
                         mode='markers',
                         name='CA right')
             )
@@ -54,44 +53,31 @@ def Gen_dash(dash_name):
                                 yaxis_title='Conact angle [°]')
             return fig
 
-        def slice_residual(self):
-            self.data['CA_L'] = self.data['CA_L'][self.data['res_left']>0.00001]
-            self.data['CA_R'] = self.data['CA_R'][self.data['res_right']>0.00001]
-            DashTab = self.entry.Dash
-            if isinstance(DashTab.Residual, float):
-                self.data['CA_L'] = self.data['CA_L'][self.data['res_left']<DashTab.Residual]
-                self.data['CA_R'] = self.data['CA_R'][self.data['res_right']<DashTab.Residual]
-
         def CA_CLPos(self):
             fig = go.Figure()
-            try:
-                self.slice_residual()
-            except:
-                print('No residual found!')
-            for i, drop in enumerate(list(self.data.index.unique(level=0))):
-                dominant_gas_name = ''
-                if len(self.Gas)>0:
-                    first_time = self.data.loc[drop]['time_loc'].iloc[0]
-                    last_time = self.data.loc[drop]['time_loc'].iloc[-1]
-                    dominant_gas = 0
-                    for gas in list(self.Gas.index.unique(level=0)):
-                        curr_gas = self.Gas.loc[gas].where((self.Gas.loc[gas]['time_loc']<last_time)&(self.Gas.loc[gas]['time_loc']>first_time))
-                        if curr_gas['sccm'].mean() > dominant_gas:
-                            dominant_gas_name = gas
-                            dominant_gas = curr_gas['sccm'].mean()
-                x_val = self.data.loc[drop]['BI_left']
-                y_val = self.data.loc[drop]['CA_L']
+            merged = self.entry.merged
+            for i, drop in enumerate(merged['Drop_Number'].unique()):
+                filtered = merged.loc[(merged['Drop_Number']==drop)]
+                try:
+                    dominant_gas_name = filtered['gas'].value_counts().idxmax()
+                except:
+                    dominant_gas_name = None
+                label_name = 'Drop ' + str(drop)
+                if dominant_gas_name != None:
+                    label_name = label_name + ' ' + dominant_gas_name
+                x_val = filtered['BI_left']
+                y_val = filtered['CA_L']
                 fig.add_trace(go.Scattergl(x=x_val, y=y_val,
                             mode='markers',
                             marker=dict(color=self.colours[i]),
-                            name=drop+'_'+dominant_gas_name)
+                            name=label_name)
                 )
-                x_val = self.data.loc[drop]['BI_right']
-                y_val = self.data.loc[drop]['CA_R']
+                x_val = filtered['BI_right']
+                y_val = filtered['CA_R']
                 fig.add_trace(go.Scattergl(x=x_val, y=y_val,
                             mode='markers',
                             marker=dict(color=self.colours[i]),
-                            name=drop+'_'+dominant_gas_name)
+                            name=label_name)
                 )
             fig.update_layout(  xaxis_title='Contact line position [mm]',
                                 yaxis_title='Contact angle [°]')
@@ -99,39 +85,55 @@ def Gen_dash(dash_name):
 
         def With_sub_data(self):
             fig = make_subplots(specs=[[{"secondary_y": True}]])
-            fig.add_trace(go.Scattergl(x=self.data['abs_time'], y=(self.data['CA_L'] + self.data['CA_R'])/2,
+            fig.add_trace(go.Scattergl(x=self.entry.RSD_data['time_loc'], y=self.entry.RSD_data['CA_M'],
                         mode='markers',
-                        name='CA mean'),
-                        secondary_y=False,
+                        name='CA mean')
             )
-            fig.add_trace(go.Scattergl(x=self.data['abs_time'], y=self.data['CA_L'],
+            fig.add_trace(go.Scattergl(x=self.entry.RSD_data['time_loc'], y=self.entry.RSD_data['CA_L'],
                         mode='markers',
-                        name='CA left'),
-                        secondary_y=False,
+                        name='CA left')
             )
-            fig.add_trace(go.Scattergl(x=self.data['abs_time'], y=self.data['CA_R'],
+            fig.add_trace(go.Scattergl(x=self.entry.RSD_data['time_loc'], y=self.entry.RSD_data['CA_R'],
                         mode='markers',
-                        name='CA right'),
-                        secondary_y=False,
+                        name='CA right')
             )
             try:
-                for gas in list(self.Gas.index.unique(level=0)):
-                    x_val = self.Gas.loc[gas]['time_loc']
-                    y_val = self.Gas.loc[gas]['ccm']
+                indices = [i for i, s in enumerate(list(self.entry.Sub_RSD_data)) if 'MFR' in s]
+                for index in indices:
+                    MFR_name = list(self.entry.Sub_RSD_data)[index]
+                    gas_name = MFR_name[General.get_LastIndex(MFR_name,'_')+1:]
+                    x_val = self.entry.Sub_RSD_data[MFR_name]['time_loc']
+                    y_val = self.entry.Sub_RSD_data[MFR_name]['sccm']
                     fig.add_trace(go.Scattergl(x=x_val, y=y_val,
                                 mode='markers',
-                                name=gas),
+                                name=gas_name),
                                 secondary_y=True,
                     )
             except:
                 print('No gas found!')
 
-            for pump in list(self.Pump.index.unique(level=0)):
-                x_val = self.Pump.loc[pump]['time_loc']
-                y_val = self.Pump.loc[pump]['Current flow rate']
+            try:
+                indices = [i for i, s in enumerate(list(self.entry.Sub_RSD_data)) if 'HIA' in s]
+                for index in indices:
+                    name = list(self.entry.Sub_RSD_data)[index]
+                    x_val = self.entry.Sub_RSD_data[name]['time_loc']
+                    y_val = self.entry.Sub_RSD_data[name]['Humidity:']
+                    fig.add_trace(go.Scattergl(x=x_val, y=y_val,
+                                mode='markers + lines',
+                                name=name),
+                                secondary_y=False,
+                    )
+            except:
+                print('No humidity found!')
+
+            indices = [i for i, s in enumerate(list(self.entry.Sub_RSD_data)) if 'LSP' in s]
+            for index in indices:
+                name = list(self.entry.Sub_RSD_data)[index]
+                x_val = self.entry.Sub_RSD_data[name]['time_loc']
+                y_val = self.entry.Sub_RSD_data[name]['Current flow rate']
                 fig.add_trace(go.Scattergl(x=x_val, y=y_val,
                             mode='markers + lines',
-                            name=pump),
+                            name=name),
                             secondary_y=False,
                 )
 

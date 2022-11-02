@@ -73,10 +73,12 @@ def Load_LMP_cosolvent(pk, file_name):
 def Load_SEL(pk):
     entry = General.get_in_full_model(pk)
     file = os.path.join( rel_path, entry.Link_XLSX)
-    df = pd.read_excel(file, 'Tabelle1')
+    df = pd.read_excel(file)#, 'Tabelle1')
     new_vals = df[df>1]/1000000#correct for wrong format
     Curr_Dash = entry.Dash
     df.update(new_vals)
+    df = df.rename(columns = {'Thickness # 3':'Thickness_Brush'})
+    df = df.rename(columns = {'Thickness # 4':'Thickness_Brush'})
     df["Time (min.)"] = Curr_Dash.Start_datetime_elli + pd.TimedeltaIndex(df["Time (min.)"], unit='m')
     df["time"] = df["Time (min.)"].dt.tz_convert(timezone.get_current_timezone())
     df['time_loc'] = df["time"]
