@@ -334,22 +334,24 @@ def Slice_data(data, DashTab):
     if isinstance(DashTab.Time_low_sec, float):
         slice_time = data['Age']>DashTab.Time_low_sec
         data = data[slice_time]
+    try:
+        if isinstance(DashTab.Width_high_mm, float):
+            slice_width = data['width / mm']<DashTab.Width_high_mm
+            data = data[slice_width]
 
-    if isinstance(DashTab.Width_high_mm, float):
-        slice_width = data['width / mm']<DashTab.Width_high_mm
-        data = data[slice_width]
+        if isinstance(DashTab.Width_low_mm, float):
+            slice_width = data['width / mm']>DashTab.Width_low_mm
+            data = data[slice_width]
 
-    if isinstance(DashTab.Width_low_mm, float):
-        slice_width = data['width / mm']>DashTab.Width_low_mm
-        data = data[slice_width]
+        if isinstance(DashTab.Force_high_muN, float):
+            slice_force = data['force / mN']<1000*DashTab.Force_high_muN
+            data = data[slice_force]
 
-    if isinstance(DashTab.Force_high_muN, float):
-        slice_force = data['force / mN']<1000*DashTab.Force_high_muN
-        data = data[slice_force]
-
-    if isinstance(DashTab.Force_low_muN, float):
-        slice_force = data['force / mN']>1000*DashTab.Force_low_muN
-        data = data[slice_force]
+        if isinstance(DashTab.Force_low_muN, float):
+            slice_force = data['force / mN']>1000*DashTab.Force_low_muN
+            data = data[slice_force]
+    except:
+        pass
 
     return data
 
