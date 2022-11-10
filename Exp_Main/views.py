@@ -356,9 +356,15 @@ class Read_entry(BSModalReadView):
                 Folder_path = os.path.join(get_BasePath(), self.curr_entry.Link)
                 Folder_path = Folder_path.replace(',', '","')
                 if General.is_linux():
-                    os.chdir(Folder_path)
+                    try:
+                        os.chdir(Folder_path)
+                    except:
+                        os.chdir(Folder_path[:General.get_LastIndex(Folder_path, '/')])
                     os.system('xdg-open .')
                     os.chdir(cwd)
+                    #webbrowser.open(Folder_path)
+                    #os.system('xdg-open "%s"' % Folder_path)
+
                 else:
                     subprocess.Popen(r'explorer /select,' + Folder_path)
 

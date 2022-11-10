@@ -126,7 +126,7 @@ def Sort_RSD():
         delay = closest_entry.Script.delay
         link_df = closest_entry.Script.Link_gas_df
         pum_df = pd.read_pickle(os.path.join(General.get_BasePath(), link_df))
-        times = pum_df[pum_df.columns[0][0]]['abs_time']
+        times = pum_df[pum_df.columns[0][0]]['abs_time'].dropna()
         times = times[1:-2:2]
         times = np.asarray(times)
         date = str(record_time.strftime('%Y%m%d'))

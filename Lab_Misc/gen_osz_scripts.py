@@ -63,9 +63,16 @@ def gen_scripts(pk):
                 cumulated_wait_time =0.1/60
                 flowcontrol_gas(0.1, 0, liquid, True)
 
-        for liquid in Gas_controll['Liquid']:
-            gas_flow[liquid] = post_precessing_df(gas_flow[liquid])
-        return pd.concat(gas_flow, keys=Gas_controll['Liquid'], axis = 1)
+        used_liquid = []
+        for liquid in Gas_controll['Liquid']:#.unique():
+            try:
+                used_liquid.index(liquid)
+                liquid_name = str(liquid)+'_1'
+                gas_flow[liquid_name] = post_precessing_df(gas_flow[liquid])
+            except:
+                gas_flow[liquid] = post_precessing_df(gas_flow[liquid])
+            used_liquid.append(liquid)
+        return pd.concat(gas_flow, keys=Gas_controll['Liquid'].unique(), axis = 1)
 
     def gen_pump_script():
         def init_liquid(inout):
@@ -340,14 +347,16 @@ def gen_scripts(pk):
         for i in range(len(Gas_controll)):
             on_cycle_i = []
             for start_number in Gas_controll.iloc[i]['Start_number']:
+                #on_cycle_i = on_cycle_i + list(range(start_number, number_of_cycles, Gas_controll.iloc[i]['Periodicity']))
                 on_cycle_i = on_cycle_i + list(range(start_number, number_of_cycles, Gas_controll.iloc[i]['Periodicity']))
-                #on_cycle_i = on_cycle_i + list(range(start_number, number_of_cycles+1, Gas_controll.iloc[i]['Periodicity']))
             off_cycle_i = []
             for off_number in range(Gas_controll.iloc[i]['Periodicity']):
                 try:
                     Gas_controll.iloc[i]['Start_number'].index(off_number)
                 except:
-                    off_cycle_i = off_cycle_i + list(range(off_number, number_of_cycles+1, Gas_controll.iloc[i]['Periodicity']))
+                    off_cycle_i = off_cycle_i + list(range(off_number, number_of_cycles, Gas_controll.iloc[i]['Periodicity']))
+                    #off_cycle_i = off_cycle_i + list(range(off_number, number_of_cycles+1, Gas_controll.iloc[i]['Periodicity']))
+            off_cycle_i.append(number_of_cycles)
             on_cycle[Gas_controll.iloc[i]['Liquid']] = on_cycle_i
             off_cycle[Gas_controll.iloc[i]['Liquid']] = off_cycle_i
         return on_cycle, off_cycle

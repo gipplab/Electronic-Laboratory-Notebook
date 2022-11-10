@@ -36,12 +36,19 @@ class RSD():
         if isinstance(self.entry.Dash.Time_diff_vid, float):
             self.RSD_data['time_loc'] = self.RSD_data['time_loc'] + timedelta(minutes = self.entry.Dash.Time_diff_vid)
 
+
     def Merge_LSP(self):
         self.RSD_data['Drop_Number'] = 0
         for item in self.RSD_data.index.levels[0]:
             number = item[item.find('_')+1:]
-            self.RSD_data.loc[item,'Drop_Number'] = int(number)
+            number = int(number)
+            self.RSD_data.loc[item,'Drop_Number'] = number
         indices = [i for i, s in enumerate(list(self.Sub_RSD_data)) if 'LSP' in s]
+
+        self.RSD_data = self.RSD_data.dropna()
+        for index in indices:
+            lsp_name = list(self.Sub_RSD_data)[index]
+            self.Sub_RSD_data[lsp_name] = self.Sub_RSD_data[lsp_name][self.Sub_RSD_data[lsp_name]['time_loc']>min(self.RSD_data['time_loc'])]
 
         if len(indices)==2:
             lsp_dict = {'time_loc': self.Sub_RSD_data[list(self.Sub_RSD_data)[indices[0]]]['time_loc'], 
