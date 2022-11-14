@@ -31,6 +31,7 @@ from .filters import OCA_filter, RLD_filter, ExpBase_filter, get_Filter
 from Lab_Misc.forms import get_Form
 from .filters import *
 from django.apps import apps
+from pathlib import Path
 from django.urls import reverse_lazy
 from bootstrap_modal_forms.generic import (BSModalLoginView,
                                            BSModalCreateView,
@@ -333,6 +334,8 @@ class Read_entry(BSModalReadView):
             if request.method == 'POST' and 'Run_RSD_Analysis' in request.POST:
                 chosen_drop=request.POST.get('Drop_choose')
                 Link_to_vid = os.path.join(get_BasePath(), self.curr_entry.Link)#
+                if not General.is_linux():
+                    Link_to_vid = Link_to_vid.replace('/', '\\')
                 try:
                     Link_to_datacard = os.path.join(get_BasePath(), self.curr_entry.Link_Data)
                 except:
@@ -366,6 +369,7 @@ class Read_entry(BSModalReadView):
                     #os.system('xdg-open "%s"' % Folder_path)
 
                 else:
+                    Folder_path = Folder_path.replace('/', '\\')
                     subprocess.Popen(r'explorer /select,' + Folder_path)
 
             if request.method == 'POST' and 'OpenPDFPath' in request.POST:
