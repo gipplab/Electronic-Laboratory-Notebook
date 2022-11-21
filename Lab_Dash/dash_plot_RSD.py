@@ -83,6 +83,36 @@ def Gen_dash(dash_name):
                                 yaxis_title='Contact angle [°]')
             return fig
 
+        def CL_Speed(self):
+            fig = go.Figure()
+            merged = self.entry.merged
+            for i, drop in enumerate(merged['Drop_Number'].unique()):
+                filtered = merged.loc[(merged['Drop_Number']==drop)]
+                try:
+                    dominant_gas_name = filtered['gas'].value_counts().idxmax()
+                except:
+                    dominant_gas_name = None
+                label_name = 'Drop ' + str(drop)
+                if dominant_gas_name != None:
+                    label_name = label_name + ' ' + dominant_gas_name
+                x_val = filtered['BI_left']
+                y_val = filtered['speed_left_avg']
+                fig.add_trace(go.Scattergl(x=x_val, y=y_val,
+                            mode='markers',
+                            marker=dict(color=self.colours[i]),
+                            name=label_name)
+                )
+                x_val = filtered['BI_right']
+                y_val = filtered['speed_right_avg']
+                fig.add_trace(go.Scattergl(x=x_val, y=y_val,
+                            mode='markers',
+                            marker=dict(color=self.colours[i]),
+                            name=label_name)
+                )
+            fig.update_layout(  xaxis_title='Contact line position [mm]',
+                                yaxis_title='Contact line speed [m/s]')
+            return fig
+
         def With_sub_data(self):
             fig = make_subplots(specs=[[{"secondary_y": True}]])
             fig.add_trace(go.Scattergl(x=self.entry.RSD_data['time_loc'], y=self.entry.RSD_data['CA_M'],
@@ -126,6 +156,20 @@ def Gen_dash(dash_name):
             except:
                 print('No humidity found!')
 
+            try:
+                indices = [i for i, s in enumerate(list(self.entry.Sub_RSD_data)) if 'TCM' in s]
+                for index in indices:
+                    name = list(self.entry.Sub_RSD_data)[index]
+                    x_val = self.entry.Sub_RSD_data[name]['time_loc']
+                    y_val = self.entry.Sub_RSD_data[name]['object temperature']
+                    fig.add_trace(go.Scattergl(x=x_val, y=y_val,
+                                mode='markers + lines',
+                                name=name),
+                                secondary_y=False,
+                    )
+            except:
+                print('No temperature found!')
+
             indices = [i for i, s in enumerate(list(self.entry.Sub_RSD_data)) if 'LSP' in s]
             for index in indices:
                 name = list(self.entry.Sub_RSD_data)[index]
@@ -166,6 +210,7 @@ def Gen_dash(dash_name):
         html.Div([dcc.Dropdown(id='my-dropdown1',
                                                             options=[{'label': 'CA time:', 'value': 'CA_time'},
                                                                         {'label': 'CA / CL_Pos:', 'value': 'CA/CL_Pos'},
+                                                                        {'label': 'CL_Speed', 'value': 'CL_Speed'},
                                                                         {'label': 'With sub data:', 'value': 'With_sub_data'},
                                                                     ],
                                                             value='Lineplot',
@@ -200,6 +245,8 @@ def Gen_dash(dash_name):
             fig = GenFig.CA_time()
         elif Graph_select == 'CA/CL_Pos':
             fig = GenFig.CA_CLPos()
+        elif Graph_select == 'CL_Speed':
+            fig = GenFig.CL_Speed()
         elif Graph_select == 'With_sub_data':
             fig = GenFig.With_sub_data()
         return fig
