@@ -1,8 +1,6 @@
 import glob, os
-import stat
-import time
 import datetime
-from .models import ExpPath, RSD, DAF
+from .models import ExpPath, RSD
 from Lab_Misc import General
 from django.db.models import Q
 import pandas as pd
@@ -163,8 +161,8 @@ def Sort_DAF():
     for sample in glob.glob("*/"):
         os.chdir(sample)
         curr_path = os.getcwd()
-        columns = ['files', 'old_paths', 'record_times', 'vid_lengths']
-        df = pd.DataFrame([["default", "default", datetime.datetime(2015, 1, 1, 12, 12, 12), 0]], columns=columns)
+        columns = ['files', 'old_paths', 'record_times', 'vid_lengths', 'endings']
+        df = pd.DataFrame([["default", "default", datetime.datetime(2015, 1, 1, 12, 12, 12), 0, "default"]], columns=columns)
         exp_times = []
 
         for ending in ExpPath.objects.get(Abbrev = 'DAF').File_ending.all().values_list('Ending', flat = True): # list all files and times
@@ -173,7 +171,7 @@ def Sort_DAF():
                 record_time = os.path.getmtime(file)
                 record_time = datetime.datetime.fromtimestamp(record_time) # convert to datetime format
                 vid_length = get_video_length(old_path)
-                newrow = pd.DataFrame([[file, old_path, record_time, vid_length]], columns=columns)
+                newrow = pd.DataFrame([[file, old_path, record_time, vid_length, ending]], columns=columns)
                 df = pd.concat([df, newrow], ignore_index=True)
 
         df['record_times'] = df['record_times'].dt.tz_localize(timezone.get_current_timezone())
@@ -185,6 +183,8 @@ def Sort_DAF():
                 vid_no = 1
                 exp_times.append(record_time)
                 record_timestamp = str(df['record_times'][i].strftime('%H%M%S'))
+                filename = df['files'][i]
+                ending = df['endings'][i]
                 date = str(df['record_times'][i].strftime('%Y%m%d'))
                 date_path = os.path.join(con_path, date)
                 if not os.path.exists(date_path):
@@ -194,7 +194,7 @@ def Sort_DAF():
                     os.makedirs(sample_path)
             else: # videos belong to same measurement
                 vid_no += 1
-            new_file = record_timestamp + '_' + df['files'][i].replace('.'+ending, '_'+str(vid_no)+'.'+ending)
+            new_file = record_timestamp + '_' + filename.replace('.'+ending, '_'+str(vid_no)+'.'+df['endings'][i-vid_no+1])
             new_path = os.path.join(sample_path, new_file)
             os.rename(df['old_paths'][i], new_path)
 
@@ -202,16 +202,16 @@ def Sort_DAF():
             os.chdir('2nd_Camera')
             curr_path_2nd = os.getcwd()
             exp_times = np.asarray(exp_times)
-            df = pd.DataFrame([["default", "default", datetime.datetime(2015, 1, 1, 12, 12, 12), 0]], columns=columns)
+            df = pd.DataFrame([["default", "default", datetime.datetime(2015, 1, 1, 12, 12, 12), 0, "default"]], columns=columns)
 
             for ending in ExpPath.objects.get(Abbrev = 'DAF').File_ending.all().values_list('Ending', flat = True): # list all files and times
                 for file in glob.glob('*.'+ending):
                     old_path = os.path.join(curr_path_2nd, file)
                     record_time = os.path.getmtime(file)
-                    record_time = datetime.datetime.fromtimestamp(record_time) + datetime.timedelta(hours=1) # internal time of second camera is 1 hour earlier
-                    # TODO: get absolute time from camera (if other cameras are used)
+                    record_time = datetime.datetime.fromtimestamp(record_time)
+                    #record_time = record_time + datetime.timedelta(hours=1) # if internal time of second camera differs from that of first camera
                     vid_length = get_video_length(old_path)
-                    newrow = pd.DataFrame([[file, old_path, record_time, vid_length]], columns=columns)
+                    newrow = pd.DataFrame([[file, old_path, record_time, vid_length, ending]], columns=columns)
                     df = pd.concat([df, newrow], ignore_index=True)
 
             df['record_times'] = df['record_times'].dt.tz_localize(timezone.get_current_timezone())
@@ -223,12 +223,14 @@ def Sort_DAF():
                     vid_no = 1
                     idx = (np.abs(exp_times - record_time)).argmin()
                     record_timestamp = str(exp_times[idx].strftime('%H%M%S'))
+                    filename = df['files'][i]
+                    ending = df['endings'][i]
                     date = str(record_time.strftime('%Y%m%d'))
                     date_path = os.path.join(con_path, date)
                     sample_path = os.path.join(date_path, sample)
                 else: # videos belong to same measurement
                     vid_no += 1
-                new_file = record_timestamp + '_' + df['files'][i].replace('.'+ending, '_P_'+str(vid_no)+'.'+ending)
+                new_file = record_timestamp + '_' + filename.replace('.'+ending, '_P_'+str(vid_no)+'.'+df['endings'][i-vid_no+1])
                 new_path = os.path.join(sample_path, new_file)
                 os.rename(df['old_paths'][i], new_path)
 

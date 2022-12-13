@@ -114,8 +114,7 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
                 path_to_file = self.get_FullPath(file)
                 if model.objects.filter(Link = path_to_file).count() == 0:#if path is not found in model
                     if str(Exp.Abbrev) == 'DAF':
-                        if (model.objects.filter(Link_Data = path_to_file).count() != 0) or (model.objects.filter(Link_Data_2nd_Camera = path_to_file).count() != 0) or (model.objects.filter(Link_Additional_Data_CAL = path_to_file).count() != 0) or (model.objects.filter(Link_Additional_Data_CAR = path_to_file).count() != 0) or (model.objects.filter(Link_Video = path_to_file).count() != 0) or (model.objects.filter(Link_Video_2nd_Camera = path_to_file).count() != 0):
-                            # (file[len(file)-file[::-1].find(".")-3:len(file)-file[::-1].find(".")-1] == '_2')
+                        if model.objects.filter(Link_Video_2nd_Camera = path_to_file).count() != 0: # path can also be found in link to video of 2nd camera
                             return
                     if self.is_ValidFile(file, Exp, Group):
                         latest_Exp = self.get_LatestExp(Exp)
@@ -154,7 +153,7 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
             else:
                 return False
         elif str(Exp.Abbrev) == 'DAF':
-            if (file[-6:-4] == '_2') or (file[-6:-4] == '_P'):
+            if (file[-6:-4] == '_2') or (file[-6:-4] == '_P') or (file[-8:-6] == '_P'):
                 return False
             else:
                 return super(CreateAndUpdate, self).is_ValidFile(file, Exp)
@@ -377,7 +376,7 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
                     self.f.write(', add ' + file_in_Folder)
 
         # try to add additional experiment details from file name
-        try:
+        try: # drop volume
             ind_end = file.find('muL')
             ind_start = ind_end - (file[:ind_end][::-1]).find('_')
             entry.Drop_Volume_muL = float(file[ind_start:ind_end])
@@ -386,23 +385,23 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
             entry.Liquid = file[ind_start:ind_end]
         except:
             pass
-        try:
+        try: # disk rotations per minute
             ind_end = file.find('UPM')
             ind_start = ind_end - (file[:ind_end][::-1]).find('_')
             entry.Rotations_per_min = float(file[ind_start:ind_end])
         except:
             pass
-        try:
+        try: # radius of drop trajectory
             ind_end = file.find('mm')
             ind_start = ind_end - (file[:ind_end][::-1]).find('_')
             entry.Trajectory_Radius_mm = float(file[ind_start:ind_end])
         except:
             pass
-        try:
+        try: # velocity of drop (from rotations per minute and drop radius)
             entry.Velocity_mu_m_per_s = round(2*np.pi*entry.Trajectory_Radius_mm*1000 * entry.Rotations_per_min/60, 2)
         except:
             pass
-        try:
+        try: # distance between glass plate and sample
             ind_start = len(file) - file[::-1].find("H_")
             try:
                 ind_end = ind_start + (file[ind_start:]).find('_')
@@ -412,19 +411,21 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
                 entry.Height_Glass_Plate_mm = float(file[ind_start:ind_end])/200
         except:
             pass
-        try:
+        try: # capillary number
             ind_start = file.find('_K') + 2
-            try:
-                ind_end = ind_start + (file[ind_start:]).find('_')
-                entry.Capillary = int(file[ind_start:ind_end])
-            except:
-                ind_end = ind_start + (file[ind_start:]).find('.')
-                entry.Capillary = int(file[ind_start:ind_end])
+            if ind_start > 1:
+                try:
+                    ind_end = ind_start + (file[ind_start:]).find('_')
+                    entry.Capillary = int(file[ind_start:ind_end])
+                except:
+                    ind_end = ind_start + (file[ind_start:]).find('.')
+                    entry.Capillary = int(file[ind_start:ind_end])
         except:
             pass
+        # comments
         if "Ofen" in file:
             entry.Comment = "sample heated in vacuum oven"
-        if "EtOH" in file:
+        if "_EtOH_" in file:
             entry.Comment = "sample prewetted with ethanol"
         
         entry_dash = DAF_dash()

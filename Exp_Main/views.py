@@ -298,11 +298,11 @@ class Read_entry(BSModalReadView):
         def start_drop_ana():
             cwd = os.getcwd()
             path = 'Private/Sessile.drop.analysis/'
-            subprocess.call(['python3', 'Private/Sessile.drop.analysis/QT_sessile_drop_analysis.py', Link_to_vid, chosen_drop, path, Link_to_datacard])
+            subprocess.call(['python', 'Private/Sessile.drop.analysis/QT_sessile_drop_analysis.py', Link_to_vid, chosen_drop, path, Link_to_datacard, Link_to_vid_2])
             os.chdir(cwd)
         def start_compress_vid():
             cwd = os.getcwd()
-            subprocess.call(['python', 'Private/Sessile.drop.analysis/video_compression.py', Link_to_vid, chosen_drop, compression_level])
+            subprocess.call(['python', 'Private/Sessile.drop.analysis/video_compression.py', Link_to_vid, chosen_drop, compression_level, Link_to_result])
             os.chdir(cwd)
         def start_daf_ana():
             cwd = os.getcwd()
@@ -311,6 +311,10 @@ class Read_entry(BSModalReadView):
         def start_daf_ana_all():
             cwd = os.getcwd()
             subprocess.call(['python', 'Private/DAFI_Analysis/DafAnalysis.py'])
+            os.chdir(cwd)
+        def start_cap_ana():
+            cwd = os.getcwd()
+            subprocess.call(['python', 'Private/DAFI_Analysis/capillary_eigenfrequency.py', str(Main_id)])
             os.chdir(cwd)
         pk = self.kwargs['pk']
         curr_entry = ExpBase.objects.get(pk = pk)
@@ -327,6 +331,7 @@ class Read_entry(BSModalReadView):
             if request.method == 'POST' and 'Run_compress_vid' in request.POST:
                 chosen_drop=request.POST.get('Drop_choose')
                 Link_to_vid = os.path.join(get_BasePath(), self.curr_entry.Link)
+                Link_to_result = os.path.join(get_BasePath(), self.curr_entry.Link_Data)
                 compression_level = '1'
                 x = threading.Thread(target=start_compress_vid)
                 x.start()
@@ -345,9 +350,37 @@ class Read_entry(BSModalReadView):
                 x = threading.Thread(target=start_drop_ana)
                 x.start()
 
+            if request.method == 'POST' and 'Run_DAF_Video_Analysis' in request.POST:
+                Link_to_vid = os.path.join(get_BasePath(), self.curr_entry.Link)
+                try:
+                    Link_to_datacard = os.path.join(get_BasePath(), self.curr_entry.Link_Data)
+                except:
+                    Link_to_datacard = 'None'
+                chosen_drop = "DAFI"
+                name, ending = os.path.splitext(self.curr_entry.Link)
+                if ("_1"+ending) in self.curr_entry.Link:
+                    ending = self.curr_entry.Link[-len(ending)-2:]
+                self.curr_entry.Link_Data = self.curr_entry.Link.replace(ending, '.xlsx')
+                if (self.curr_entry.Link_Video_2nd_Camera != None) and self.curr_entry.Link_Video_2nd_Camera != "":
+                    Link_to_vid_2 = os.path.join(get_BasePath(), self.curr_entry.Link_Video_2nd_Camera)
+                    name, ending = os.path.splitext(self.curr_entry.Link)
+                    if ("_1"+ending) in self.curr_entry.Link_Video_2nd_Camera:
+                        ending = self.curr_entry.Link_Video_2nd_Camera[-len(ending)-2:]
+                    self.curr_entry.Link_Data_2nd_Camera = self.curr_entry.Link_Video_2nd_Camera.replace(ending, '.xlsx')
+                else:
+                    Link_to_vid_2 = 'None'
+                self.curr_entry.save()
+                x = threading.Thread(target=start_drop_ana)
+                x.start()
+
             if request.method == 'POST' and 'Run_DAF_Analysis' in request.POST:
                 Main_id = self.curr_entry.id
                 x = threading.Thread(target=start_daf_ana)
+                x.start()
+
+            if request.method == 'POST' and 'Run_CAP_Analysis' in request.POST:
+                Main_id = self.curr_entry.id
+                x = threading.Thread(target=start_cap_ana)
                 x.start()
 
             if request.method == 'POST' and 'Run_DAF_Analysis_all' in request.POST:

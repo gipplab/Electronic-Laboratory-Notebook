@@ -21,8 +21,6 @@ def conv(x):
     return x.replace(',', '.').encode()
 
 class Gen_fig():
-    drop_name = ['Drop 1', 'Drop 2', 'Drop 3', 'Drop 4', 'Drop 5', 'Drop 6', 'Drop 7', 'Drop 8', 'Drop 9', 'Drop 10', 'Drop 11', 'Drop 12', 'Drop 13', 'Drop 14', 'Drop 15',]
-    colours = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf', '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',]
     def __init__(self, target_id):
         entry = DAF.objects.get(id = target_id)
         self.entry = entry
@@ -76,7 +74,7 @@ class Gen_fig():
             length = self.data['contactpointright'] - self.data['contactpointleft']
             fig.update_layout(yaxis_title='Drop Size [pix]')
             try:
-                width = self.data['width']
+                width = self.data['P_width']
             except:
                 pass
         fig.add_trace(go.Scattergl(x=self.data['Age'], y=length,

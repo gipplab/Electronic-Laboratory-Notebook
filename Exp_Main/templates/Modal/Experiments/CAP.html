@@ -1,0 +1,12 @@
+{% extends "Modal/read_entry.html" %}
+
+  {% block Modal_detailed_content %}
+  <tr>
+    <th>Calculate Spring Constant:</th>
+    <th><form method="post">
+      {% csrf_token %}
+      <button type="submit" name="Run_CAP_Analysis">Run</button>
+    </form></th>
+  </tr>
+
+{% endblock Modal_detailed_content %}

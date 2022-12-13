@@ -234,59 +234,64 @@ def Load_OCA(Main_id):
 
 def Load_DAF(Main_id):
     entry = DAF.objects.get(id = Main_id)
-    file = os.path.join(rel_path, entry.Link_Data)
-    data = pd.read_excel(file, header=0, index_col=0)
-    info = pd.read_excel(file, sheet_name='Datacard', index_col=0)
+    try:
+        file = os.path.join(rel_path, entry.Link_Data)
+        data = pd.read_excel(file, header=0, index_col=0)
+        info = pd.read_excel(file, sheet_name='Datacard', index_col=0)
 
-    try: # add additional data from left drop edge if there is extra file
-        file = os.path.join(rel_path, entry.Link_Additional_Data_CAL)
-        tmp_data = pd.read_excel(file, header=0)
-        if 'BI_left' in tmp_data.columns:
-            tmp_data = tmp_data[['framenumber', 'CA_L', 'contactpointleft', 'leftcontact_y', 'BI_left']]
-            data = data.drop(['CA_L', 'contactpointleft', 'leftcontact_y', 'BI_left'], axis = 1)
-        else:
-            tmp_data = tmp_data[['framenumber', 'CA_L', 'contactpointleft', 'leftcontact_y']]
-            data = data.drop(['CA_L', 'contactpointleft', 'leftcontact_y'], axis = 1)
-        data = reduce(lambda left, right: pd.merge(left, right, on=['framenumber'], how='outer'), [data, tmp_data])
-    except:
-        pass
+        try: # add additional data from left drop edge if there is extra file
+            file = os.path.join(rel_path, entry.Link_Additional_Data_CAL)
+            tmp_data = pd.read_excel(file, header=0)
+            if 'BI_left' in tmp_data.columns:
+                tmp_data = tmp_data[['framenumber', 'CA_L', 'contactpointleft', 'leftcontact_y', 'BI_left']]
+                data = data.drop(['CA_L', 'contactpointleft', 'leftcontact_y', 'BI_left'], axis = 1)
+            else:
+                tmp_data = tmp_data[['framenumber', 'CA_L', 'contactpointleft', 'leftcontact_y']]
+                data = data.drop(['CA_L', 'contactpointleft', 'leftcontact_y'], axis = 1)
+            data = reduce(lambda left, right: pd.merge(left, right, on=['framenumber'], how='outer'), [data, tmp_data])
+        except:
+            pass
 
-    try: # add additional data from right drop edge if there is extra file
-        file = os.path.join(rel_path, entry.Link_Additional_Data_CAR)
-        tmp_data = pd.read_excel(file, header=0)
-        if 'BI_right' in tmp_data.columns:
-            tmp_data = tmp_data[['framenumber', 'CA_R', 'contactpointright', 'rightcontact_y', 'BI_right']]
-            data = data.drop(['CA_R', 'contactpointright', 'rightcontact_y', 'BI_right'], axis = 1)
-        else:
-            tmp_data = tmp_data[['framenumber', 'CA_R', 'contactpointright', 'rightcontact_y']]
-            data = data.drop(['CA_R', 'contactpointright', 'rightcontact_y'], axis = 1)
-        data = reduce(lambda left, right: pd.merge(left, right, on=['framenumber'], how='outer'), [data, tmp_data])
-    except:
-        pass
-    
-    try: # add additional data from 2nd camera if there is extra file
-        file = os.path.join(rel_path, entry.Link_Data_2nd_Camera)
-        tmp_data = pd.read_excel(file, header=0)
-        if 'width / mm' in tmp_data.columns: # width column already exists in file
-            tmp_data = tmp_data[['framenumber', 'width', 'width / mm']]
-        elif 'width' in tmp_data.columns:
-            tmp_data = tmp_data[['framenumber', 'width']]
-        elif 'BI_left' in tmp_data.columns: # no width column in file
-            tmp_data['width / mm'] = tmp_data['contactpointright'] - tmp_data['contactpointleft']
-            tmp_data['width'] = tmp_data['BI_right'] - tmp_data['BI_left']
-            tmp_data = tmp_data[['framenumber', 'width', 'width / mm']]
-        else:
-            tmp_data['width'] = tmp_data['BI_right'] - tmp_data['BI_left']
-            tmp_data = tmp_data[['framenumber', 'width']]
-        data = reduce(lambda left, right: pd.merge(left, right, on=['framenumber'], how='outer'), [data, tmp_data])
-    except:
-        pass
+        try: # add additional data from right drop edge if there is extra file
+            file = os.path.join(rel_path, entry.Link_Additional_Data_CAR)
+            tmp_data = pd.read_excel(file, header=0)
+            if 'BI_right' in tmp_data.columns:
+                tmp_data = tmp_data[['framenumber', 'CA_R', 'contactpointright', 'rightcontact_y', 'BI_right']]
+                data = data.drop(['CA_R', 'contactpointright', 'rightcontact_y', 'BI_right'], axis = 1)
+            else:
+                tmp_data = tmp_data[['framenumber', 'CA_R', 'contactpointright', 'rightcontact_y']]
+                data = data.drop(['CA_R', 'contactpointright', 'rightcontact_y'], axis = 1)
+            data = reduce(lambda left, right: pd.merge(left, right, on=['framenumber'], how='outer'), [data, tmp_data])
+        except:
+            pass
+        
+        try: # add additional data from 2nd camera if there is extra file
+            file = os.path.join(rel_path, entry.Link_Data_2nd_Camera)
+            tmp_data = pd.read_excel(file, header=0)
+            if 'width / mm' in tmp_data.columns: # width column already exists in file
+                tmp_data = tmp_data[['framenumber', 'width', 'width / mm']]
+            elif 'width' in tmp_data.columns:
+                tmp_data = tmp_data[['framenumber', 'width']]
+            elif 'BI_left' in tmp_data.columns: # no width column in file
+                tmp_data['width / mm'] = tmp_data['contactpointright'] - tmp_data['contactpointleft']
+                tmp_data['width'] = tmp_data['BI_right'] - tmp_data['BI_left']
+                tmp_data = tmp_data[['framenumber', 'width', 'width / mm']]
+            else:
+                tmp_data['width'] = tmp_data['BI_right'] - tmp_data['BI_left']
+                tmp_data = tmp_data[['framenumber', 'width']]
+            data = reduce(lambda left, right: pd.merge(left, right, on=['framenumber'], how='outer'), [data, tmp_data])
+        except:
+            pass
 
-    data['time_loc'] = data['abs_time'].dt.tz_localize(timezone.get_current_timezone())
-    data['Age'] = (pd.to_datetime(data['time_loc']) - pd.to_datetime(data['time_loc'].to_numpy()[0])).dt.total_seconds()
-    cap_entry = CAP.objects.get(Capillary = entry.Capillary)
-    effective_spring_const = cap_entry.Spring_Constant_N_per_m * cap_entry.Effective_Length_mm/(cap_entry.Effective_Length_mm - info["value"]["needle_offset"]*info["value"]["pix_calibration"])
-    data['force / mN'] = data['deflection / mm'] * effective_spring_const
+        data['time_loc'] = data['abs_time'].dt.tz_localize(timezone.get_current_timezone())
+        data['Age'] = (pd.to_datetime(data['time_loc']) - pd.to_datetime(data['time_loc'].to_numpy()[0])).dt.total_seconds()
+        cap_entry = CAP.objects.get(Capillary = entry.Capillary)
+        effective_spring_const = cap_entry.Spring_Constant_N_per_m * cap_entry.Effective_Length_mm/(cap_entry.Effective_Length_mm - info["value"]["needle_offset"]*info["value"]["pix_calibration"])
+        data['force / mN'] = data['deflection / mm'] * effective_spring_const
+
+    except:
+        print("No data file existing for ", entry.Name)
+        data = pd.DataFrame()
     
     return data
 
@@ -460,5 +465,6 @@ def Load_DAFAnalysis_in_df(DAF_id):
         errors = pd.DataFrame([df[-1]], columns=columns)
     except:
         print("No analysis results existing for ", Exp.Name)
+        data, errors = pd.DataFrame(), pd.DataFrame()
     
     return data, errors

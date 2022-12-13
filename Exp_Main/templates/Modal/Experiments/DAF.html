@@ -21,17 +21,19 @@
     </form></th>
   </tr>
   <tr>
-    <th>Analysis:</th>
+    <th>Video Analysis:</th>
     <th><form method="post">
-      <!-- <select name="Drop_choose">
-        {% for entry in Drops %}
-            <option value="{{ entry }}">{{ entry }}</option>
-        {% endfor %}
-      </select> -->
       {% csrf_token %}
-      <button type="submit" name="Run_DAF_Analysis">Run DAFI Analysis</button>
+      <button type="submit" name="Run_DAF_Video_Analysis">Run</button>
+    </form></th>
+  </tr>
+  <tr>
+    <th>Data Analysis:</th>
+    <th><form method="post">
+      {% csrf_token %}
+      <button type="submit" name="Run_DAF_Analysis">Run</button>
       &nbsp
-      <button type="submit" name="Run_DAF_Analysis_all">Run DAFI Analysis for all entries</button>
+      <button type="submit" name="Run_DAF_Analysis_all">Run for all entries</button>
     </form></th>
   </tr>
 

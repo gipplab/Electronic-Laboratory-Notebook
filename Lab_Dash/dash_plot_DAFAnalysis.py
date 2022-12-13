@@ -1,88 +1,68 @@
-import json
 import glob, os
-import dash
-import plotly.io as pio
-import datetime
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
-import plotly.express as px
 from django_plotly_dash import DjangoDash
 from django.apps import apps
 import plotly.graph_objects as go
-from Lab_Misc.General import *
-from dbfread import DBF
-import pandas as pd
-from django.http import HttpResponse
-from django.utils import timezone
-import numpy as np
-import datetime
-from Lab_Misc import General
-from Exp_Main.models import SFG, ExpBase, DAF
-from Analysis.models import DafAnalysis
-from Lab_Dash.models import DAF as DAF_Dash
-from Lab_Dash.models import DafAnalysisEntry
-from Exp_Sub.models import LSP
 from plotly.subplots import make_subplots
+from Lab_Misc.General import *
+import pandas as pd
+from Exp_Main.models import DAF
+from Analysis.models import DafAnalysis
 from Lab_Misc import Load_Data
+from django.db.models import Q
 
 def conv(x):
     return x.replace(',', '.').encode()
 def Gen_dash(dash_name, pk):
     class Gen_fig():
-        select_y1 = ['']
-        select_y2 = ['']
+        select_ana = pk # selected analysis entry (1st selection box)
+        select_exp = [] # selected experiments to be plotted (2nd selection box)
+        x_Selection = [] # selected parameters to be plotted on x-axis (3rd selection box)
+        y1_Selection = [] # selected parameters to be plotted on 1st y-axis (4th selection box)
+        y2_Selection = [] # selected parameters to be plotted on 2nd y-axis (5th selection box)
+
         def load_data(self, target_id):
+            """Load selected analysis entry and corresponding experiments"""
             try:
+                try:
+                    if self.entry.id == target_id: # update experiments only if analysis in selection box was changed
+                        return True, 'Data found!'
+                except:
+                    pass
                 entry = DafAnalysis.objects.get(id = target_id)
                 self.entry = entry
-                self.Saved_ExpBases = entry.Experiments.all().values_list('id', flat=True)
+                self.select_exp = entry.Experiments.all().values_list('id', flat=True)
                 return True, 'Data found!'
             except:
                 return False, 'No data found!'
 
-        def slice_data(self, data):
-            DashTab = self.entry.Dash
-
-            if isinstance(DashTab.Y_high, float):
-                slice_signal = data['Y_axis']<DashTab.Y_high
-                data = data[slice_signal]
-
-            if isinstance(DashTab.Y_low, float):
-                slice_signal = data['Y_axis']>DashTab.Y_low
-                data = data[slice_signal]
-
-            if isinstance(DashTab.X_high, float):
-                slice_wavenumber = data['X_axis']<DashTab.X_high
-                data = data[slice_wavenumber]
-
-            if isinstance(DashTab.X_low, float):
-                slice_wavenumber = data['X_axis']>DashTab.X_low
-                data = data[slice_wavenumber]
-
-            return data
-
         def sel_plot(self):
-            fig = go.Figure()
-            for xparam in self.x_Selection:
-                for yparam in self.y_Selection:
-                    plot_columns = ['x_value', 'y_value', 'x_error', 'y_error']
-                    plt_df = pd.DataFrame(columns=plot_columns)
-                    for y2 in self.select_y2:
-                        # entry = DAF.objects.get(id = y2)
-                        Drop_parameters, Drop_errors = Load_Data.Load_DAFAnalysis_in_df(y2)
-                        columns = Drop_parameters.columns.values
-                        if xparam in columns:
+            """Plot selected combination of x and y parameters for selected experiments"""
+            fig = make_subplots(specs=[[{"secondary_y": True}]])
+            plot_columns = ['Name', 'x_value', 'y_value', 'x_error', 'y_error']
+            for exp_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
+                Drop_parameters, Drop_errors = Load_Data.Load_DAFAnalysis_in_df(exp_id)
+                columns = Drop_parameters.columns.values
+                for xparam in self.x_Selection:
+                    if xparam in columns:
+                        for yparam in self.y1_Selection:
+                                if yparam in columns:
+                                    plt_dfi = pd.DataFrame([[Drop_parameters['Name'][0], Drop_parameters[xparam][0], Drop_parameters[yparam][0], Drop_errors[xparam][0], Drop_errors[yparam][0]]], columns=plot_columns)
+                                    fig.add_trace(go.Scatter(x=plt_dfi['x_value'], y=plt_dfi['y_value'],
+                                        error_x = dict(type='data', array=plt_dfi['x_error'], visible=True, thickness=1.5,),
+                                        error_y = dict(type='data', array=plt_dfi['y_error'], visible=True, thickness=1.5,),
+                                        mode='markers', yaxis='y', name=str(plt_dfi['Name'][0])+" ("+str(xparam)+" vs. "+str(yparam)+")"),
+                                    )
+                        for yparam in self.y2_Selection:
                             if yparam in columns:
-                                plt_dfi = pd.DataFrame([[Drop_parameters[xparam][0], Drop_parameters[yparam][0], Drop_errors[xparam][0], Drop_errors[yparam][0]]], columns=plot_columns)
-                                plt_df = pd.concat([plt_df, plt_dfi], ignore_index=True)
-                    plt_df = plt_df.sort_values(by=['x_value'])
-                    fig.add_trace(go.Scattergl(x=plt_df['x_value'], y=plt_df['y_value'],
-                                error_x = dict(type='data', array=plt_df['x_error'], visible=True, thickness=1.5,),
-                                error_y = dict(type='data', array=plt_df['y_error'], visible=True, thickness=1.5,),
-                                mode='markers', name=str(xparam)+" vs. "+str(yparam)),
-                    )
-
+                                plt_dfi = pd.DataFrame([[Drop_parameters['Name'][0], Drop_parameters[xparam][0], Drop_parameters[yparam][0], Drop_errors[xparam][0], Drop_errors[yparam][0]]], columns=plot_columns)
+                                fig.add_trace(go.Scatter(x=plt_dfi['x_value'], y=plt_dfi['y_value'],
+                                    error_x = dict(type='data', array=plt_dfi['x_error'], visible=True, thickness=1.5,),
+                                    error_y = dict(type='data', array=plt_dfi['y_error'], visible=True, thickness=1.5,),
+                                    mode='markers', yaxis='y2', name=str(plt_dfi['Name'][0])+" ("+str(xparam)+" vs. "+str(yparam)+")"),
+                                )
             return fig
 
     value = 'temp'
@@ -130,13 +110,13 @@ def Gen_dash(dash_name, pk):
         html.Div(id='Plot_sel_dropdown', children = [
             dcc.Dropdown(
                 options=axis_options,
-                id='MS_drop_y1',
-                value=['MTL', 'SF'],
+                id='MS_drop_ana',
+                value=GenFig.select_ana,
                 style={'width': '33%', 'display': 'table-cell'},
             ),
             dcc.Dropdown(
                 options=axis_options,
-                id='MS_drop_y2',
+                id='MS_drop_exp',
                 value=[],
                 multi=True,
                 style={'width': '33%', 'display': 'table-cell'},
@@ -150,7 +130,14 @@ def Gen_dash(dash_name, pk):
             ),
             dcc.Dropdown(
                 options=axis_options,
-                id='MS_y_Selection',
+                id='MS_y1_Selection',
+                value=[],
+                multi=True,
+                style={'width': '7%', 'display': 'table-cell'},
+            ),
+            dcc.Dropdown(
+                options=axis_options,
+                id='MS_y2_Selection',
                 value=[],
                 multi=True,
                 style={'width': '7%', 'display': 'table-cell'},
@@ -175,36 +162,49 @@ def Gen_dash(dash_name, pk):
         ),
         html.Button('Save image', id='Btn_save_image'),
         html.Div(id='Save_output'),
+        #html.Button('Save plot', id='Btn_save_plot'),
+        #html.Div(id='Save_plot_output'),
     ])
-    def save_fig():
-        global fig
-        fig.write_image("fig1.png", width=800, height=400, scale=10)
+
+    # @app.callback(
+    #     Output(component_id='Save_plot_output', component_property='children'),
+    #     [Input('Btn_save_plot', 'n_clicks'),],
+    # )
+    # def save_fig(n_clicks, *args,**kwargs):
+    #     global fig
+    #     fig.write_image('fig1.png', width=800, height=400, scale=10, engine='orca')
+    #     try:
+    #         entry = DAF.objects.get(id = GenFig.select_exp[0])
+    #         rel_path = os.path.dirname(os.path.dirname(os.path.dirname(entry.Link)))
+    #         path = os.path.join(get_BasePath(), rel_path)
+    #         name = str(datetime.datetime.now().strftime('%Y%m%d')) + '_' + str(datetime.datetime.now().strftime('%H%M%S')) + '_DAFI_plot.png'
+    #         fig.write_image(os.path.join(path, name), width=800, height=400, scale=10)
+    #         return 'Image Saved!'
+    #     except:
+    #         return 'Nothing saved!'
 
     @app.callback(
         Output(component_id='Save_output', component_property='children'),
         [Input('Btn_save_image', 'n_clicks'),
-        Input('MS_drop_y2', 'value'),
+        Input('MS_drop_exp', 'value'),
         Input('textarea_tile', 'value'),],
     )
-    def save_figure(n_clicks, MS_drop_y2, textarea_tile, *args,**kwargs):
+    def save_figure(n_clicks, MS_drop_exp, textarea_tile, *args,**kwargs):
+        """Save selected list of experiments to new analysis entry"""
         global Save_clicked
-        if n_clicks > Save_clicked:
-            Save_clicked = n_clicks
-            DAF_dash_item = DAF_Dash(Name = textarea_tile)
-            DAF_dash_item.save()
-            # DAFAnalysis_list = DafAnalysis.objects.filter(pk__in=MS_drop_y2)
-            # DAFAnalysis_item = DafAnalysisJoin(Name = textarea_tile, Dash = DAF_dash_item)
-            # DAFAnalysis_item.save()
-            # DAFAnalysis_item.DAFAnalysis.add(*DAFAnalysis_list)
-            # DAFAnalysis_item.save()
-            for DafAnalysis_id in MS_drop_y2:
-                entry = DafAnalysis.objects.get(id = DafAnalysis_id)
-                DAFAnalysis_entry_item = DafAnalysisEntry(Name = entry.Name, DafAnalysisID = int(DafAnalysis_id))
-                DAFAnalysis_entry_item.save()
-                DAF_dash_item.Entry.add(DAFAnalysis_entry_item)
-                DAF_dash_item.save()
-
-        return 'Image Saved!'
+        try:
+            if n_clicks > Save_clicked:
+                Save_clicked = n_clicks
+                try: # create new analysis entry if name does not exist
+                    DAFAnalysis_item = DafAnalysis(Name = textarea_tile)
+                    DAFAnalysis_item.save()
+                except: # change existing analysis entry
+                    DAFAnalysis_item = DafAnalysis.objects.get(Name = textarea_tile)
+                DAFAnalysis_list = DAF.objects.filter(pk__in=MS_drop_exp)
+                DAFAnalysis_item.Experiments.set(DAFAnalysis_list)
+                return 'Image Saved!'
+        except:
+            return 'Nothing saved!'
 
     @app.callback(
         Output(component_id='Sel_plot_graph', component_property='figure'),
@@ -217,22 +217,24 @@ def Gen_dash(dash_name, pk):
 
     @app.callback(
         Output(component_id='placeholder', component_property='style'),
-        [Input('MS_drop_y1', 'value'),
-        Input('MS_drop_y2', 'value'),
+        [Input('MS_drop_ana', 'value'),
+        Input('MS_drop_exp', 'value'),
         Input('MS_x_Selection', 'value'),
-        Input('MS_y_Selection', 'value'),]
+        Input('MS_y1_Selection', 'value'),
+        Input('MS_y2_Selection', 'value'),]
         )
-    def update_sel_list(select_y1, select_y2, x_Selection, y_Selection, *args,**kwargs):
+    def update_sel_list(select_ana, select_exp, x_Selection, y1_Selection, y2_Selection, *args,**kwargs):
         style={'display': 'none'}
-        GenFig.select_y1 = select_y1
-        GenFig.select_y2 = select_y2
+        GenFig.select_ana = select_ana
+        GenFig.select_exp = select_exp
         GenFig.x_Selection = x_Selection
-        GenFig.y_Selection = y_Selection
+        GenFig.y1_Selection = y1_Selection
+        GenFig.y2_Selection = y2_Selection
         return style
 
     @app.callback(
-        [Output(component_id='MS_drop_y1', component_property='style'),
-        Output(component_id='MS_drop_y2', component_property='style'),
+        [Output(component_id='MS_drop_ana', component_property='style'),
+        Output(component_id='MS_drop_exp', component_property='style'),
         Output(component_id='Btn_Plot', component_property='style'),
         Output(component_id='Sel_plot_graph', component_property='style'),
         Output(component_id='example-graph', component_property='style'),],
@@ -262,78 +264,75 @@ def Gen_dash(dash_name, pk):
         return fig
 
     @app.callback(
-        [Output(component_id='MS_drop_y1', component_property='options'),
+        [Output(component_id='MS_drop_ana', component_property='options'),
         Output(component_id='MS_x_Selection', component_property='options'),
-        Output(component_id='MS_y_Selection', component_property='options'),
+        Output(component_id='MS_y1_Selection', component_property='options'),
+        Output(component_id='MS_y2_Selection', component_property='options'),
         Output("loading-output", "children"),
-        Output(component_id='MS_drop_y2', component_property='value'),
+        Output(component_id='MS_drop_exp', component_property='value'),
         Output(component_id='textarea_tile', component_property='value'),],
-        [Input('Load_Data', 'n_clicks'),
-        Input('target_id', 'value'),])
-    def update_output(n_clicks, target_id, *args,**kwargs):
+        [Input('target_id', 'value'),])
+    def update_output(target_id, *args,**kwargs):
+        """Update options for selection boxes"""
         data_was_loaded, return_str = GenFig.load_data(target_id)
         x_Selection = []
         if data_was_loaded:
             return_str += '.\n Select the desired plot at the dropdown.'
             axis_options = []
             label_names = ['label', 'value']
-            for data in DafAnalysis.objects.all():
-                #for col in GenFig.data[data_name].columns:
+            for data in DafAnalysis.objects.all(): # options for 1st selection box = all analysis entries
                 values = [data.Name + '-' + 'col', data.id]
                 axis_options.append(dict(zip(label_names, values)))
             axis_value = []
-            for value in GenFig.Saved_ExpBases:
+            columns = []
+            for value in GenFig.select_exp: # selected options of 2nd selection box = experiments corresponding to selected analysis entry
                 entry = DAF.objects.get(id = value)
                 values = [entry.Name, value]
                 axis_value.append(value)
-            if len(GenFig.Saved_ExpBases) > 0:
-                id =  GenFig.Saved_ExpBases[0]
-                Drop_parameters, Drop_errors = Load_Data.Load_DAFAnalysis_in_df(id)
-                columns = Drop_parameters.columns.values
-                for param in columns:
+                Drop_parameters, Drop_errors = Load_Data.Load_DAFAnalysis_in_df(entry.id)
+                columns = columns + list(Drop_parameters.columns.values)
+            if len(GenFig.select_exp) > 0:
+                columns = list(set(columns)) # remove duplicates from column list
+                columns.sort() # sort column options alphabetically
+                for param in columns: # options for 3rd selection box (x-axis parameter) = all available columns from analysis result files
                     x_Selection.append({'label': param, 'value': param})
         else:
             axis_options = [
                     {'label': 'Dummy', 'value': 'Dummy'},
                 ]
             axis_value = []
-        y_Selection = x_Selection
-        return [axis_options, x_Selection, y_Selection, return_str, axis_value, GenFig.entry.id]
+        y1_Selection = x_Selection # same options for 4th selection box (y1-axis parameter) as for 3rd
+        y2_Selection = x_Selection # same options for 5th selection box (y2-axis parameter) as for 3rd
+        return [axis_options, x_Selection, y1_Selection, y2_Selection, return_str, axis_value, GenFig.entry.Name]
 
     @app.callback(
             Output(component_id='textarea_tile', component_property='style'),
             [Input('textarea_tile', 'value'),
             Input('textarea_tile_btn', 'n_clicks'),]
             )
-    # def update_title(title, n_clicks, *args,**kwargs):
-    #     global Title_clicked
-    #     if n_clicks > Title_clicked:
-    #         Title_clicked = n_clicks
-    #         dash = GenFig.entry.Dash
-    #         dash.Title = title
-    #         dash.save()
-    #         style=style={'width': '50%', 'height': 20}
-    #         return style#because a retrun is needed
+    def update_title(title, n_clicks, *args,**kwargs):
+        """Rename analysis entry to name from title text box"""
+        global Title_clicked
+        try:
+            if n_clicks > Title_clicked:
+                Title_clicked = n_clicks
+                GenFig.entry.Name = title
+                GenFig.entry.save()
+                style=style={'width': '50%', 'height': 20}
+                return style#because a retrun is needed
+        except:
+            pass
 
     @app.callback(
-            Output(component_id='MS_drop_y2', component_property='options'),
-            [Input('MS_drop_y1', 'value'),
-            Input('MS_drop_y2', 'value'),]
+            [Output(component_id='MS_drop_exp', component_property='options'),
+            Output(component_id='target_id', component_property='value'),],
+            [Input('MS_drop_ana', 'value'),]
             )
-    def update_sel_list(select_y1, select_y2, *args,**kwargs):
-        sel = DafAnalysis.objects.get(id = select_y1)
+    def update_sel_list(select_ana, *args,**kwargs):
+        """Update options that can be selected in 2nd selection box"""
         axis_options = []
         label_names = ['label', 'value']
-        values = [sel.Name + '-' + 'col', sel.id]
-        axis_options.append(dict(zip(label_names, values)))
-        """         for value in GenFig.Saved_ExpBases:
-            entry = SFG.objects.get(id = value)
-            values = [entry.Name, value]
+        for entry in DAF.objects.filter(~Q(Link_Result = None)): # selection of all experiments with existing analysis result possible
+            values = [entry.Name, entry.id] # experiment options that can be selected in 2nd selection box
             axis_options.append(dict(zip(label_names, values)))
-        #GenFig.Saved_ExpBases = [] """
-        for pk in select_y2:
-            entry = DAF.objects.get(id = pk)
-            values = [entry.Name, entry.id]
-            #values = [entry['label'], entry['value']]
-            axis_options.append(dict(zip(label_names, values)))
-        return axis_options
+        return [axis_options, select_ana]
