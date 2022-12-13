@@ -339,6 +339,7 @@ class Read_entry(BSModalReadView):
             if request.method == 'POST' and 'Run_RSD_Analysis' in request.POST:
                 chosen_drop=request.POST.get('Drop_choose')
                 Link_to_vid = os.path.join(get_BasePath(), self.curr_entry.Link)#
+                Link_to_vid_2 = ""
                 if not General.is_linux():
                     Link_to_vid = Link_to_vid.replace('/', '\\')
                 try:
