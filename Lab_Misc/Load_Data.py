@@ -1,6 +1,6 @@
 import glob, os
 import pandas as pd
-from Exp_Main.models import OCA, ExpBase, ExpPath, RSD, DAF
+from Exp_Main.models import OCA, ExpBase, ExpPath, RSD, DAF, SFG
 from Analysis.models import OszAnalysis
 from Analysis.models import DafAnalysis
 from Exp_Sub.models import LSP, MFR, CAP
@@ -42,6 +42,25 @@ def Load_from_Model(ModelName, pk):
         return Load_sliced_DAF(pk)
     if ModelName == 'CAP':
         return Load_CAP(pk)
+    if ModelName == 'SFG':
+        return Load_SFG(pk)
+
+def conv(x):
+    return x.replace(',', '.').encode()
+
+def Load_SFG(pk):
+    entry = SFG.objects.get(id = pk)
+    file = os.path.join( rel_path, entry.Link)
+    try:
+        if file[-9:] == '_data.txt':
+            data = np.genfromtxt((conv(x) for x in open(file)), delimiter='	', skip_header=5, names=['Wellenzahl', 'smth_1', 'smth_2', 'Signal'])
+        else:
+            data = np.genfromtxt(file, delimiter=',', skip_header=0, names=['Wellenzahl', 'Signal'])
+    except:
+        data = pd.read_csv(file, sep='	', )
+        data.columns = ["Wellenzahl", "Signal"]
+        data = data[pd.to_numeric(data.Wellenzahl, errors='coerce').notnull()]
+    return data
 
 def Load_LMP_cosolvent(pk, file_name):
     entry = General.get_in_full_model(pk)

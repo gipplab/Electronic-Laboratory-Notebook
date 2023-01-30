@@ -12,6 +12,7 @@ import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
 from Exp_Sub.models import LSP
+from Analysis.Osz_Drop_RSD import Osz_Drop_Analysis as Osz_Drop_Analysis_RSD
 from plotly.subplots import make_subplots
 from Analysis.Osz_Drop import *
 from Lab_Misc import Load_Data
@@ -188,6 +189,76 @@ def Gen_dash(dash_name):
             return fig
 
 
+        def Analysis_plot(self):
+            entry = General.get_in_full_model(self.entry.pk)
+            if (entry.Link_Osz_join_LSP == None) | (len(entry.Link_Osz_join_LSP) == 0):
+                Osz_Drop_Analysis_RSD(entry.pk)
+            rel_path = General.get_BasePath()
+            data = pd.read_pickle(os.path.join(rel_path, entry.Link_Osz_join_LSP))
+            Drop_parameters, Osz_fit_parameters, Derived_parameters = Load_Data.Load_OszAnalysis_in_df(entry.oszanalysis_set.first().id)
+            fig = go.Figure()
+            fig = self.fit_step('L', Drop_parameters, Osz_fit_parameters, data, fig)
+            fig = self.fit_step('R', Drop_parameters, Osz_fit_parameters, data, fig)
+            return fig
+
+        def fit_step(self, L_or_R, Drop_parameters, Osz_fit_parameters, data, fig):
+            if L_or_R == 'L':
+                BI = 'BI_left Abs'
+                CA = 'CA_L'
+                RL = 'Left'
+            if L_or_R == 'R':
+                BI = 'BI_right'
+                CA = 'CA_R'
+                RL = 'Right'
+            for Drop_Nr in Drop_parameters['General']['Drop_Nr']:
+                if Drop_Nr==1:
+                    pass
+                else:
+                    if Drop_Nr>2:
+                        min_dia = abs(Drop_parameters.loc[Drop_parameters['General']['Drop_Nr'] == Drop_Nr-2, (RL, 'Max_CL')].iloc[0])
+                    else:
+                        min_dia = 0
+                    Area_slice = (data['Drop_Number']==Drop_Nr)&(data['flowrate']>0)&(data[BI]>min_dia)
+                    fit_drop = Osz_fit_parameters.loc[Osz_fit_parameters['General']['General']['Drop_Nr'] == Drop_Nr]
+                    a, b, c, d = [fit_drop[RL]['Value']['Step_width'].item(), fit_drop[RL]['Value']['x_pos'].item(), 
+                                    fit_drop[RL]['Value']['Step_hight'].item(), fit_drop[RL]['Value']['y_pos'].item()]
+                    My_function=stufen_fit(data.loc[Area_slice, BI], a, b, c, d)
+                    try:
+                        x = np.arange(min_dia, max(data.loc[Area_slice, BI]), 0.01)
+                    except:
+                        x = np.arange(0, 0.1, 0.01)
+                    i = Drop_Nr-1
+                    if L_or_R == 'L':
+                        fig.add_trace(go.Scatter(x=-data.loc[Area_slice, BI], y=data.loc[Area_slice, CA],
+                                        mode='markers',
+                                        marker=dict(color=self.colours[i]),
+                                        name=self.drop_name[i] + ' L')
+                                    )
+                        fig.add_trace(go.Scatter(x=-x, y=stufen_fit(x, a, b, c, d),
+                                    mode='markers',
+                                    marker=dict(color=self.colours[-i-1]),
+                                    name=self.drop_name[i] + ' L fit'),
+                                )
+
+                        fig.update_layout(  xaxis_title='Contact line position [mm]',
+                                        yaxis_title='Contact angle [°]')
+                    if L_or_R == 'R':
+                        fig.add_trace(go.Scatter(x=data.loc[Area_slice, BI], y=data.loc[Area_slice, CA],
+                                        mode='markers',
+                                        marker=dict(color=self.colours[i]),
+                                        name=self.drop_name[i] + ' R')
+                                    )
+                        fig.add_trace(go.Scatter(x=x, y=stufen_fit(x, a, b, c, d),
+                                    mode='markers',
+                                    marker=dict(color=self.colours[-i-1]),
+                                    name=self.drop_name[i] + ' R fit'),
+                                )
+
+                        fig.update_layout(  xaxis_title='Contact line position [mm]',
+                                        yaxis_title='Contact angle [°]')
+            return fig
+
+
     value = 'temp'
 
     global fig
@@ -212,6 +283,7 @@ def Gen_dash(dash_name):
                                                                         {'label': 'CA / CL_Pos:', 'value': 'CA/CL_Pos'},
                                                                         {'label': 'CL_Speed', 'value': 'CL_Speed'},
                                                                         {'label': 'With sub data:', 'value': 'With_sub_data'},
+                                                                        {'label': 'Analysis', 'value': 'Analysis'},
                                                                     ],
                                                             value='Lineplot',
                                                             className='col-md-12',
@@ -249,6 +321,8 @@ def Gen_dash(dash_name):
             fig = GenFig.CL_Speed()
         elif Graph_select == 'With_sub_data':
             fig = GenFig.With_sub_data()
+        elif Graph_select == 'Analysis':
+            fig = GenFig.Analysis_plot()
         return fig
 
     @app.callback(

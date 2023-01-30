@@ -203,6 +203,7 @@ def gen_scripts(pk):
                 pump_df.loc[index,'time'] = max_time
                 end_flow = base_flow+base_flow*max_time_pls_increase*(org_time-max_time)
                 time = (org_time-max_time)*(base_flow+base_flow)/(base_flow+end_flow)
+                #time = max_time+(max_time*org_time-base_flow*max_time)/(base_flow+(end_flow-base_flow)/2)
                 pump_df_item_in = pd.DataFrame([[0, 'in', pump_df.loc[index,'cycle_number'], base_flow, 0], [time, 'in', pump_df.loc[index,'cycle_number'], end_flow, 0]], 
                                             columns=['time', 'state', 'cycle_number', 'flowrate_in', 'flowrate_out']
                                             , index=[index+0.1,index+0.2])
@@ -221,6 +222,12 @@ def gen_scripts(pk):
             pump_df = pump_df.sort_index().reset_index(drop=True)
 
         def ethanol_compensation():
+            def none_break(cycle):
+                nonlocal pump_df
+                for index in pump_df[(pump_df['cycle_number']==cycle)&(pump_df['state']=='none breake')].index:
+                    pump_df.loc[index, 'flowrate_in']=0.3
+                    pump_df.loc[index, 'flowrate_out']=-0.9
+
             def pump_in(cycle):
                 nonlocal pump_df
                 indexs = pump_df[(pump_df['cycle_number']==cycle)&(pump_df['state']=='in')].index
@@ -278,6 +285,7 @@ def gen_scripts(pk):
 
             if 'Ethanol' in on_cycle:
                 for cycle in on_cycle['Ethanol']:
+                    none_break(cycle)
                     pump_in(cycle)
                     full_break(cycle)
                     pump_out(cycle)

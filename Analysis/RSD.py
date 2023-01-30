@@ -147,7 +147,10 @@ class RSD():
     def Merge_LSP_MFR(self):
         self.Load_all_data()
         self.correct_times()
-        self.calc_speed()
+        try:
+            self.calc_speed()
+        except:
+            print('No speed calculated')
         self.Merge_LSP()
         indices = [i for i, s in enumerate(list(self.Sub_RSD_data)) if 'MFR' in s]
         if len(indices)!=0:
