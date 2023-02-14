@@ -33,7 +33,7 @@ $(document).ready( function () {
     } );
 } );
 </script>
-<div>
+<!-- <div>
     Toggle column: <a class="toggle-vis" data-column="0">Firstname</a> - <a class="toggle-vis" data-column="1">Position</a> - <a class="toggle-vis" data-column="2">Office</a> - <a class="toggle-vis" data-column="3">Age</a> - <a class="toggle-vis" data-column="4">Start date</a>
 </div>
 <table id = "table" class = "table table-bordered">
@@ -57,7 +57,7 @@ $(document).ready( function () {
         </tr>
        {% endfor %}
     </tbody>
-</table>
+</table> -->
 
 {% load render_table from django_tables2 %}
 {% render_table table %}

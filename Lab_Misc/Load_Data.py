@@ -197,6 +197,7 @@ def Load_MFL(pk):
     MFL_N2_data = Load_csv(entry)
     MFL_N2_data['Date_Time'] = pd.to_datetime(MFL_N2_data['Date_Time'], format='%d.%m.%Y %H:%M:%S', errors="coerce")
     MFL_N2_data['time'] = MFL_N2_data['Date_Time'].dt.tz_localize(timezone.get_current_timezone())
+    MFL_N2_data['time_loc'] = MFL_N2_data['time']
     return MFL_N2_data
 
 def Load_MFR(pk):

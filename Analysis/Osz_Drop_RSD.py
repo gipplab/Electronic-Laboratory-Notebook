@@ -95,7 +95,7 @@ def Osz_Drop_Analysis(Main_id):
                         min_dia = abs(Drop_parameters.loc[Drop_parameters['General']['Drop Numbers'] == Drop_Nr-2, (RL, 'Max CL')].iloc[0])
                     else:
                         min_dia = 0
-                    Area_slice = (data['Drop_Nr']==Drop_Nr)&(data['Flowrate']>0)&(data[BI]>min_dia)
+                    Area_slice = (data['Drop_Number']==Drop_Nr)&(data['flowrate']>0)&(data[BI]>min_dia)
                     ai = [5, 0, 1000]
                     bi = [abs(Drop_parameters.loc[Drop_parameters['General']['Drop Numbers'] == Drop_Nr-1, (RL, 'Max CL')]), 0, 15]
                     min_AdvCA = abs(Drop_parameters.loc[Drop_parameters['General']['Drop Numbers'] == Drop_Nr-1, (RL, 'Min AdvCA')])

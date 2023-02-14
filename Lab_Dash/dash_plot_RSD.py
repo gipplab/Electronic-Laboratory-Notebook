@@ -191,7 +191,9 @@ def Gen_dash(dash_name):
 
         def Analysis_plot(self):
             entry = General.get_in_full_model(self.entry.pk)
-            if (entry.Link_Osz_join_LSP == None) | (len(entry.Link_Osz_join_LSP) == 0):
+            if (entry.Link_Osz_join_LSP == None):# | (len(entry.Link_Osz_join_LSP) == 0):
+                Osz_Drop_Analysis_RSD(entry.pk)
+            elif (len(entry.Link_Osz_join_LSP) == 0):
                 Osz_Drop_Analysis_RSD(entry.pk)
             rel_path = General.get_BasePath()
             data = pd.read_pickle(os.path.join(rel_path, entry.Link_Osz_join_LSP))
@@ -232,12 +234,12 @@ def Gen_dash(dash_name):
                         fig.add_trace(go.Scatter(x=-data.loc[Area_slice, BI], y=data.loc[Area_slice, CA],
                                         mode='markers',
                                         marker=dict(color=self.colours[i]),
-                                        name=self.drop_name[i] + ' L')
+                                        name='Drop ' + str(Drop_Nr) + ' L')
                                     )
                         fig.add_trace(go.Scatter(x=-x, y=stufen_fit(x, a, b, c, d),
                                     mode='markers',
                                     marker=dict(color=self.colours[-i-1]),
-                                    name=self.drop_name[i] + ' L fit'),
+                                    name='Drop ' + str(Drop_Nr) + ' L fit'),
                                 )
 
                         fig.update_layout(  xaxis_title='Contact line position [mm]',
@@ -246,12 +248,12 @@ def Gen_dash(dash_name):
                         fig.add_trace(go.Scatter(x=data.loc[Area_slice, BI], y=data.loc[Area_slice, CA],
                                         mode='markers',
                                         marker=dict(color=self.colours[i]),
-                                        name=self.drop_name[i] + ' R')
+                                        name='Drop ' + str(Drop_Nr) + ' R')
                                     )
                         fig.add_trace(go.Scatter(x=x, y=stufen_fit(x, a, b, c, d),
                                     mode='markers',
                                     marker=dict(color=self.colours[-i-1]),
-                                    name=self.drop_name[i] + ' R fit'),
+                                    name='Drop ' + str(Drop_Nr) + ' R fit'),
                                 )
 
                         fig.update_layout(  xaxis_title='Contact line position [mm]',

@@ -2,11 +2,12 @@ from django.shortcuts import render
 import os
 import threading
 from Analysis.Osz_Drop import Osz_Drop_Analysis
+from Analysis.Osz_Drop_RSD import Osz_Drop_Analysis as Osz_Drop_Analysis_RSD
 from Analysis.models import OszAnalysis, OszBaseParam, OszFitRes, OszAnalysisJoin, OszDerivedRes
 from Analysis.models import DafAnalysis
 from .tables import Comparison_table, OszAnalysis_table, get_Table, RSD_CA_Mess_table
 from .tables import DafAnalysis_table
-from Exp_Main.models import RSD, DAF
+from Exp_Main.models import RSD, DAF, ExpBase
 
 # Create your views here.
 def index(request):
@@ -50,7 +51,12 @@ def OszAnalysis_table_view(request, pk):
     context['Experiment_Name'] = OszAnalysis.objects.get(id = pk).Exp.Name
     context['Hit_prec'] = OszAnalysis.objects.get(id = pk).Hit_prec
     if request.method == 'POST' and 'Analyse_osz' in request.POST:
-        Osz_Drop_Analysis(OszAnalysis.objects.get(id = pk).Exp.id)
+        Exp_Base_id = OszAnalysis.objects.get(id = pk).Exp.id
+        str_dev = str(ExpBase.objects.get(pk = Exp_Base_id).Device.Abbrev)
+        if str_dev == 'OCA':
+            Osz_Drop_Analysis(OszAnalysis.objects.get(id = pk).Exp.id)
+        elif str_dev == 'RSD':
+            Osz_Drop_Analysis_RSD(OszAnalysis.objects.get(id = pk).Exp.id)
     return render(request, 'OszAnalysis_table.html', context)
 
 def DafAnalysis_table_view(request, pk):

@@ -417,9 +417,19 @@ class Read_entry(BSModalReadView):
                 subprocess.Popen(r'explorer /select,' + Folder_path)
 
             if request.method == 'POST' and 'OpenXLSXPath' in request.POST:
+                cwd = os.getcwd()
                 Folder_path = os.path.join(get_BasePath(), self.curr_entry.Link_XLSX)
-                Folder_path = Folder_path.replace(',', '","')
-                subprocess.Popen(r'explorer /select,' + Folder_path)
+                Folder_path = Folder_path.replace(',', '","')                
+                if General.is_linux():
+                    try:
+                        os.chdir(Folder_path)
+                    except:
+                        os.chdir(Folder_path[:General.get_LastIndex(Folder_path, '/')])
+                    os.system('xdg-open .')
+                    os.chdir(cwd)
+                else:
+                    Folder_path = Folder_path.replace('/', '\\')
+                    subprocess.Popen(r'explorer /select,' + Folder_path)
             
             if request.method == 'POST' and 'OpenResultPath' in request.POST:
                 Folder_path = os.path.join(get_BasePath(), self.curr_entry.Link_Result)
