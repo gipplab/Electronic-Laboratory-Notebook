@@ -28,6 +28,7 @@ from Lab_Dash.dash_plot_SFG_cycle import Gen_dash as Gen_dash_SFG_cycle
 from Lab_Dash.dash_plot_DAFAnalysis import Gen_dash as Gen_dash_DafAnalysis
 from django.apps import apps
 from Lab_Dash.dash_plot_SEL_compare import Gen_dash as Gen_dash_compare
+from Lab_Dash.dash_plot_SEL_compare_HIA import Gen_dash as Gen_dash_compare_HIA
 from .forms import OCAForm, get_Form, From_Choice
 from .models import OCA
 from bootstrap_modal_forms.generic import (BSModalUpdateView)
@@ -342,6 +343,18 @@ def SEL_compare_graph(request, pk):
     Name_dash_app = 'dash_SEL_compare_' + str(pk)
     context['Name_dash_app'] = Name_dash_app
     Gen_dash_compare(Name_dash_app)#Creates a new app for every pk so the data will not corrupt
+    context['dash_context'] = {'target_id': {'value': pk}}
+    return render(request, "plot_SEL.html", context)
+
+def SEL_compare_graph_HIA(request, pk):
+    entry = SEL_Main.objects.get(id = pk)
+    context = {'stuff': 'somestuff'}
+    context['pk_dash'] = entry.Dash.pk # '-' is theseperator defined in url
+    context['model_name'] = 'SEL'
+    context['Experiment_Name'] = entry.Name
+    Name_dash_app = 'dash_SEL_compare_' + str(pk)
+    context['Name_dash_app'] = Name_dash_app
+    Gen_dash_compare_HIA(Name_dash_app)#Creates a new app for every pk so the data will not corrupt
     context['dash_context'] = {'target_id': {'value': pk}}
     return render(request, "plot_SEL.html", context)
 

@@ -121,6 +121,8 @@ class CreateAndUpdate():
         path_to_file = os.getcwd()
         path_to_file = path_to_file[path_to_file.index(BaseFolderName):]
         path_to_file = os.path.join(path_to_file, file)
+        path_to_file = path_to_file.replace('\\', '/')
+
         return path_to_file
     
     def get_DateOfFile(self, date, file):

@@ -89,6 +89,9 @@ class SEL(models.Model):
     """    
     Name = models.TextField(unique=True, blank=True, null=True)
     Start_datetime_elli = models.DateTimeField(default=datetime.now(), null=True, blank=True)
+    Temp_pelt = models.FloatField(blank=True, null=True)
+    Krit_mse = models.FloatField(blank=True, null=True)
+    Mse_time_delta = models.FloatField(blank=True, null=True)
     def __str__(self):
         return str(self.Name)
     def save(self, *args, **kwargs):#saves '' as none

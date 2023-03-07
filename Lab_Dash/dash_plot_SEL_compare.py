@@ -128,7 +128,7 @@ def Gen_dash(dash_name):
 
         def CA_Time(self):
             fig = go.Figure()
-            fig.add_trace(go.Scattergl(x=self.data['Time (min.)'], y=self.data['Thickness_Brush'],
+            fig.add_trace(go.Scattergl(x=self.data['Time (min.)'], y=self.data['Thickness # 3'],
                         mode='markers',
                         name='CA left')
             )
@@ -162,7 +162,7 @@ def Gen_dash(dash_name):
             humidities = []
             times  = []
             while(date<end_date):
-                thicknes = np.mean(self.data['Thickness_Brush'][(self.data['Time (min.)']<date+time_step)&(self.data['Time (min.)']>date)])
+                thicknes = np.mean(self.data['Thickness # 3'][(self.data['Time (min.)']<date+time_step)&(self.data['Time (min.)']>date)])
                 thickness.append(thicknes)
                 humidity = np.mean(Humidity_data['CHN1RH'][(Humidity_data['UHRZEIT']<date+time_step)&(Humidity_data['UHRZEIT']>date)])
                 humidities.append(humidity)

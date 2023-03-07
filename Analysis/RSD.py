@@ -115,7 +115,7 @@ class RSD():
                 MFR_merge = MFRs[item]
                 first_item = item
                 continue
-            MFR_merge = pd.merge_asof(MFR_merge, MFRs[item], on = 'time_loc', suffixes = ['','_'+str(item)])
+            MFR_merge = pd.merge_asof(MFR_merge.dropna(), MFRs[item].dropna(), on = 'time_loc', suffixes = ['','_'+str(item)])
 
         MFR_merge = MFR_merge.rename(columns = {'sccm':'sccm_'+str(first_item)})
         MFR_merge_max = MFR_merge.drop(columns='time_loc')

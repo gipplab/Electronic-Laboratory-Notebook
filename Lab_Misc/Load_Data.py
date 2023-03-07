@@ -384,7 +384,17 @@ def Slice_data(data, DashTab):
 def Load_sub_LSP(Main_id):
     entry = General.get_in_full_model(Main_id)
     Sub_Exp = entry.Sub_Exp.all()
-    df = Load_LSP(Sub_Exp[0])
+    indices = [str(s) for i, s in enumerate(list(entry.Sub_Exp.all())) if 'LSP' in str(s)]
+
+    if len(indices)==2:
+        df = Load_LSP(LSP.objects.get(Name = indices[0]))
+        df2 = Load_LSP(LSP.objects.get(Name = indices[1]))
+        df['Current flow rate'] = df['Current flow rate']+df2['Current flow rate']
+        print('Create new effective flowrate!')
+    elif len(indices) == 1:
+        df = Load_LSP(LSP.objects.get(Name = indices[0]))
+    else:
+        print('Wrong amount of LSPs!')
     DashTab = entry.Dash
     time_to_add = 0
     if isinstance(DashTab.Time_diff_pump, float):

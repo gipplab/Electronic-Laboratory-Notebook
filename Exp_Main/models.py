@@ -169,6 +169,8 @@ class LMP(ExpBase):
     Link_Osz_join_LSP = models.TextField(blank=True, null=True)
     Chem_ETOH = models.FloatField(blank=True, null=True)
     Chem_H2O = models.FloatField(blank=True, null=True)
+    Distance_s = models.FloatField(blank=True, null=True)#distance between grafting sites
+    N_Monomers = models.FloatField(blank=True, null=True)#number of monomers
     Dash = models.ForeignKey(LMP_dash, on_delete=models.CASCADE, blank=True, null=True)
     Sub_Exp = models.ManyToManyField(SubExp_base, blank=True)
     def __str__(self):

@@ -31,6 +31,7 @@ urlpatterns = [
     path("RSD/<str:pk>", views.RSD_Graph, name="RSD_Graph"),
     path("LMP/<str:pk>", views.LMP_Graph, name="LMP_Graph"),
     path("SEL/compare/<str:pk>", views.SEL_compare_graph, name="SEL_compare_graph"),
+    path("SEL/compare_HIA/<str:pk>", views.SEL_compare_graph_HIA, name="SEL_compare_graph_HIA"),
     path("SEL/<str:pk>", views.SEL_graph, name="SEL_graph"),
     path("MFL/<str:pk>", views.MFL_graph, name="MFL_graph"),
     path("GRP/<str:model>/<str:pk>", views.GRP_graph, name="GRP_graph"),
