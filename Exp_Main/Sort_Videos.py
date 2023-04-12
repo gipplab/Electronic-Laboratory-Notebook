@@ -109,7 +109,7 @@ def Sort_RSD():
             files.append(file)
             record_time = os.path.getmtime(file)
             record_time = datetime.datetime.fromtimestamp(record_time)
-            record_time = record_time - datetime.timedelta(minutes=60) # in case of systematic shift
+            record_time = record_time - datetime.timedelta(minutes=120) # in case of systematic shift
             record_times.append(record_time)
     df['files'] = files
     df['record_times'] = record_times

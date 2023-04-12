@@ -24,6 +24,7 @@ class SEL():
             data_.loc[v.iloc[-1:].index, 'drop_time'] = True
         data_['is_valid'] = True
         data_.loc[data_['MSE']>krit_mse, 'is_valid'] = False
+        data_.loc[data_['n of Cauchy @ 632.8 nm']>1.55, 'is_valid'] = False
 
         for i, item in data_[data_['drop_time']==True].T.iteritems():
             data_.loc[(data_['time_loc']>item['time_loc']-datetime.timedelta(minutes = krit_time/2)) & 
@@ -31,8 +32,8 @@ class SEL():
         return data_[data_['is_valid']==True]
 
     def get_rh(self, T1, T2, RH):
-        absMoisture1 = (RH*0.42*np.exp(T1*10*0.006235398)/10)
-        RH_at_T = (absMoisture1*10/(0.42*np.exp(T2*10*0.006235398)))
+        abs_hum = 6.112*np.exp((17.67*T1)/(T1+243.5))*RH*2.1674/(273.15+T1)
+        RH_at_T =  abs_hum*(273.15+T2)/(6.112*np.exp((17.67*T2)/(T2+243.5))*2.1674)
         return RH_at_T
    
   
