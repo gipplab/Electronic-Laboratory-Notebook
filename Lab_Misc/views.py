@@ -17,10 +17,10 @@ from Lab_Misc.models import SampleBase
 # Create your views here.
 
 def index(request):
-    def copy_all_data_smaller_100MB():
-        os.system('robocopy ..\..\\02_Experiments C:\\Users\schubotz\IPFDD\\02_Experiments /S /MAX:100000000')
+    def copy_all_data_smaller_10MB():
+        os.system('robocopy ..\..\\02_Experiments C:\\Users\schubotz\IPFDD\\02_Experiments /S /MAX:10000000')
     if request.method == 'POST' and 'Copy_small' in request.POST:
-        x = threading.Thread(target=copy_all_data_smaller_100MB)
+        x = threading.Thread(target=copy_all_data_smaller_10MB)
         x.start()
     return render(request = request, template_name='home.html')
 

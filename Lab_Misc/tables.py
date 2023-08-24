@@ -10,9 +10,9 @@ import glob, os
 
 class ProjectEntry(ColumnShiftTable):
 
-    '''change = tables.TemplateColumn(verbose_name= ('Edit'),
-                                    template_name='Col_Edit.html',
-                                    orderable=False)'''
+    change = tables.TemplateColumn(verbose_name= ('Edit'),
+                                    template_name='Col_Edit_Proj.html',
+                                    orderable=False)
     
     try:
         print(ColumnShiftTable.__getattribute__)

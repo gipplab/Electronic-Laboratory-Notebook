@@ -22,7 +22,7 @@ def ana_lmp_cosolvent(pk):
             if len(base_exp.Type.filter(id = 21)) == 1:
                 data2 = data[(f.type == 1),:]
                 data2 = data2[:, mean(f.z), by(f.time)]
-                height = data2[:, mean(f.z)][0].to_list()[0][0]*2
+                height = data2[:-50:, mean(f.z)].to_list()*2
         counts, bins, bars = plt.hist(points, 200)
         len_points = points.nrows
         data_dic = {'counts':counts, 'bins':bins[:-1]}
