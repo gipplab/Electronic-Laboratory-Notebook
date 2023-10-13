@@ -64,7 +64,7 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
             Name of the file with time in the front with the format %H%M%S
         """
         if is_AppendableTime(sample):
-            if (str(Exp.Abbrev) == 'RLD') | (str(Exp.Abbrev) == 'CON') | (str(Exp.Abbrev) == 'SLD') | (str(Exp.Abbrev) == 'LPT'):
+            if (str(Exp.Abbrev) == 'RLD') | (str(Exp.Abbrev) == 'CON') | (str(Exp.Abbrev) == 'SLD') | (str(Exp.Abbrev) == 'LPT') | (str(Exp.Abbrev) == 'GRV'):
                 model = apps.get_model(self.Exp_Category, str(Exp.Abbrev))
                 Exps_noVideo = model.objects.filter(Q(Link__isnull = True) | Q(Link__exact='')).order_by('Date_time')
                 date_time = self.get_DateOfFile(date, sample)

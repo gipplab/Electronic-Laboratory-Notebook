@@ -7,6 +7,7 @@ from Lab_Dash.models import SFG as SFG_dash
 from Lab_Dash.models import SEL as SEL_dash
 from Lab_Dash.models import GRP as GRP_dash
 from Lab_Dash.models import LMP as LMP_dash
+from Lab_Dash.models import GRV as GRV_dash
 from Lab_Dash.models import DAF as DAF_dash
 from Lab_Dash.models import Comparison as Comparison_dash
 from Lab_Misc.models import SampleBase, OszScriptGen
@@ -189,6 +190,33 @@ class RSD(ExpBase):
     Link_PDF = models.TextField(blank=True, null=True)
     Link_Osz_join_LSP = models.TextField(blank=True, null=True)
     Dash = models.ForeignKey(RSD_dash, on_delete=models.CASCADE, blank=True, null=True)
+    Sub_Exp = models.ManyToManyField(SubExp_base, blank=True)
+    Liquid = models.ForeignKey(Liquid, on_delete=models.CASCADE, blank=True, null=True)
+    Script = models.ForeignKey(OszScriptGen, on_delete=models.CASCADE, blank=True, null=True)
+    Temp_Observation = models.TextField(blank=True, null=True)
+    Temp_Hypothesis = models.TextField(blank=True, null=True)
+    Temp_Mixing_ratio = models.TextField(blank=True, null=True)
+    Temp_Atmosphere_relax = models.TextField(blank=True, null=True)
+    Temp_Flowrate = models.TextField(blank=True, null=True)
+    Temp_Volume = models.TextField(blank=True, null=True)
+    Temp_Buzz_word = models.TextField(blank=True, null=True)
+    Temp_Bath_time = models.TextField(blank=True, null=True)
+    def __str__(self):
+        return str(self.Name)
+
+class GRV(ExpBase):
+    """OCA Model to store all experiments done with the OCA
+
+    Parameters
+    ----------
+    models : [type]
+        [description]
+    """
+    Link = models.TextField(blank=True, null=True)
+    Link_Data = models.TextField(blank=True, null=True)
+    Link_PDF = models.TextField(blank=True, null=True)
+    Link_Osz_join_LSP = models.TextField(blank=True, null=True)
+    Dash = models.ForeignKey(GRV_dash, on_delete=models.CASCADE, blank=True, null=True)
     Sub_Exp = models.ManyToManyField(SubExp_base, blank=True)
     Liquid = models.ForeignKey(Liquid, on_delete=models.CASCADE, blank=True, null=True)
     Script = models.ForeignKey(OszScriptGen, on_delete=models.CASCADE, blank=True, null=True)
