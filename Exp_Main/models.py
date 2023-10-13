@@ -212,13 +212,14 @@ class GRV(ExpBase):
     models : [type]
         [description]
     """
+    Liquid = models.ForeignKey(Liquid, on_delete=models.CASCADE, blank=True, null=True)
+    Plate_speed_mm_s = models.FloatField(blank=True, null=True)
     Link = models.TextField(blank=True, null=True)
     Link_Data = models.TextField(blank=True, null=True)
     Link_PDF = models.TextField(blank=True, null=True)
     Link_Osz_join_LSP = models.TextField(blank=True, null=True)
     Dash = models.ForeignKey(GRV_dash, on_delete=models.CASCADE, blank=True, null=True)
     Sub_Exp = models.ManyToManyField(SubExp_base, blank=True)
-    Liquid = models.ForeignKey(Liquid, on_delete=models.CASCADE, blank=True, null=True)
     Script = models.ForeignKey(OszScriptGen, on_delete=models.CASCADE, blank=True, null=True)
     Temp_Observation = models.TextField(blank=True, null=True)
     Temp_Hypothesis = models.TextField(blank=True, null=True)
