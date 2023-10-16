@@ -102,7 +102,7 @@ class GRV(models.Model):
     def save(self, *args, **kwargs):#saves '' as none
         if not self.Name:
             self.Name = None
-        super(RSD, self).save(*args, **kwargs)
+        super(GRV, self).save(*args, **kwargs)
 
 class SEL(models.Model):
     """SEL Saves all dash properties of the SEL measurements

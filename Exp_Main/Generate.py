@@ -2,6 +2,7 @@ from .models import ExpBase as ExpBase_Main, Liquid
 from .models import ExpPath as ExpPath_Main
 from Lab_Dash.models import SEL as SEL_dash
 from Lab_Dash.models import OCA as OCA_dash
+from Lab_Dash.models import GRV as GRV_dash
 from Lab_Dash.models import LMP as LMP_dash
 from Lab_Dash.models import RSD as RSD_dash
 from Lab_Dash.models import SFG as SFG_dash
@@ -75,6 +76,7 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
                     closest_entry.Link = path_to_vids
                     closest_entry.save()
                     self.f.write('The path ' + path_to_vids + ' was added to ' + str(closest_entry.Name) + '. <br>\n')
+                    self.ModelSpecificChanges(date, file, Exp, closest_entry, sample)
             elif (str(Exp.Abbrev) == 'RSD'):
                 model = apps.get_model(self.Exp_Category, str(Exp.Abbrev))
                 Exps_noVideo = model.objects.filter(Q(Link__isnull = True) | Q(Link__exact='')).order_by('Date_time')
@@ -175,6 +177,9 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
             entry.save()
         if Exp.Abbrev == 'DAF':
             self.add_DAF_files(file, entry)
+            entry.save()
+        if Exp.Abbrev == 'GRV':
+            self.add_GRV_files(entry)
             entry.save()
         
     def add_SFG_files(self, file, entry):
@@ -308,6 +313,25 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
             entry to which the file was added
         """
         entry_dash = RSD_dash()
+        entry_dash.save()
+        entry.Dash = entry_dash
+        self.f.write(' and add dash.</p>\n')
+        entry.save()
+
+    def add_GRV_files(self, entry):
+        """
+        add_Gas Adds the correct gas to the entry
+
+        Looks in the file name for gases. If a gas is found it is added to the entry
+
+        Parameters
+        ----------
+        file : string
+            filename with possible infomation about the gas used
+        entry : [type]
+            entry to which the file was added
+        """
+        entry_dash = GRV_dash()
         entry_dash.save()
         entry.Dash = entry_dash
         self.f.write(' and add dash.</p>\n')

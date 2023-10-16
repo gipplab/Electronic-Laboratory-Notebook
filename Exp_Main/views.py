@@ -68,6 +68,10 @@ def Generate(request):
         except:
             pass
         try:
+            Sort_Videos.Sort_GRV()
+        except:
+            pass
+        try:
             Sort_Videos.Sort_DAF()
         except:
             pass
@@ -316,6 +320,10 @@ class Read_entry(BSModalReadView):
             cwd = os.getcwd()
             subprocess.call(['python', 'Private/DAFI_Analysis/capillary_eigenfrequency.py', str(Main_id)])
             os.chdir(cwd)
+        def start_grv_ana():
+            cwd = os.getcwd()
+            subprocess.call(['python', 'Private/Groove_analysis/Groove_analysis.py', str(Main_id), Link_to_vid])
+            os.chdir(cwd)
         pk = self.kwargs['pk']
         curr_entry = ExpBase.objects.get(pk = pk)
         curr_exp = ExpPath.objects.get(Name = str(curr_entry.Device))
@@ -387,7 +395,15 @@ class Read_entry(BSModalReadView):
             if request.method == 'POST' and 'Run_DAF_Analysis_all' in request.POST:
                 x = threading.Thread(target=start_daf_ana_all)
                 x.start()
-            
+
+            if request.method == 'POST' and 'Run_GRV_Analysis' in request.POST:
+                Link_to_vid = os.path.join(get_BasePath(), self.curr_entry.Link)
+                Main_id = self.curr_entry.id
+                self.curr_entry.Link_Data = self.curr_entry.Link.replace('01_Videos', '02_Analysis_Results')
+                self.curr_entry.save()
+                x = threading.Thread(target=start_grv_ana)
+                x.start()
+
             if request.method == 'POST' and 'OpenMainPath' in request.POST:
                 cwd = os.getcwd()
                 Folder_path = os.path.join(get_BasePath(), self.curr_entry.Link)
@@ -407,14 +423,40 @@ class Read_entry(BSModalReadView):
                     subprocess.Popen(r'explorer /select,' + Folder_path)
 
             if request.method == 'POST' and 'OpenPDFPath' in request.POST:
+                cwd = os.getcwd()
                 Folder_path = os.path.join(get_BasePath(), self.curr_entry.Link_PDF)
                 Folder_path = Folder_path.replace(',', '","')
-                subprocess.Popen(r'explorer /select,' + Folder_path)
+                if General.is_linux():
+                    try:
+                        os.chdir(Folder_path)
+                    except:
+                        os.chdir(Folder_path[:General.get_LastIndex(Folder_path, '/')])
+                    os.system('xdg-open .')
+                    os.chdir(cwd)
+                    #webbrowser.open(Folder_path)
+                    #os.system('xdg-open "%s"' % Folder_path)
+
+                else:
+                    Folder_path = Folder_path.replace('/', '\\')
+                    subprocess.Popen(r'explorer /select,' + Folder_path)
 
             if request.method == 'POST' and 'OpenDataPath' in request.POST:
+                cwd = os.getcwd()
                 Folder_path = os.path.join(get_BasePath(), self.curr_entry.Link_Data)
                 Folder_path = Folder_path.replace(',', '","')
-                subprocess.Popen(r'explorer /select,' + Folder_path)
+                if General.is_linux():
+                    try:
+                        os.chdir(Folder_path)
+                    except:
+                        os.chdir(Folder_path[:General.get_LastIndex(Folder_path, '/')])
+                    os.system('xdg-open .')
+                    os.chdir(cwd)
+                    #webbrowser.open(Folder_path)
+                    #os.system('xdg-open "%s"' % Folder_path)
+
+                else:
+                    Folder_path = Folder_path.replace('/', '\\')
+                    subprocess.Popen(r'explorer /select,' + Folder_path)
 
             if request.method == 'POST' and 'OpenXLSXPath' in request.POST:
                 cwd = os.getcwd()

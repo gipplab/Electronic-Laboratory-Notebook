@@ -94,6 +94,38 @@ def Sort_CON():
     os.chdir(cwd)
 
 
+def Sort_GRV():
+    con_path = ExpPath.objects.get(Abbrev = 'GRV').Path
+    os.chdir(os.path.join(General.get_BasePath(), con_path))
+
+    for ending in ExpPath.objects.get(Abbrev = 'GRV').File_ending.all().values_list('Ending', flat = True):
+        for file in glob.glob('*.'+ending):
+            record_time = os.path.getmtime(file)
+            record_time = datetime.datetime.fromtimestamp(record_time) #convert to datetime format
+            folder_name = str(record_time.strftime('%Y%m%d'))
+            if not os.path.exists(folder_name):
+                os.makedirs(folder_name)
+            os.rename(file, os.path.join(folder_name,file))
+    
+
+    for date in glob.glob("*/"):
+        os.chdir(date)
+        old_record_time = datetime.datetime(2015, 1, 1, 12, 12, 12)
+        for ending in ExpPath.objects.get(Abbrev = 'GRV').File_ending.all().values_list('Ending', flat = True):
+            for file in glob.glob('*.'+ending):
+                record_time = os.path.getmtime(file)
+                record_time = datetime.datetime.fromtimestamp(record_time) #convert to datetime format
+
+                if record_time - old_record_time > datetime.timedelta(minutes=1):
+                    folder_name = str(record_time.strftime('%H%M%S'))
+                    if not os.path.exists(folder_name):
+                        os.makedirs(folder_name)
+                os.rename(file, os.path.join(folder_name,file))
+                old_record_time = record_time
+        os.chdir('..')
+    os.chdir(cwd)
+
+
 def Sort_RSD():
     con_path = ExpPath.objects.get(Abbrev = 'RSD').Path
     os.chdir(os.path.join(General.get_BasePath(), con_path))

@@ -271,3 +271,23 @@ class SampleBlank(SampleBase):
     Width_cm = models.FloatField(blank=True, null=True)
     def __str__(self):
         return str(self.Name)
+    
+class SampleGroovedPlate(SampleBase):
+    """SampleBlank Model to store Samples without anything on top
+
+    Parameters
+    ----------
+    SampleBase : Model
+        :py:meth:`SampleBase`
+
+    Returns
+    -------
+    str
+        Name of sample
+    """    
+    Material = models.TextField(blank=True, null=True)
+    Description = models.TextField(blank=True, null=True)
+    Length_cm = models.FloatField(blank=True, null=True)
+    Width_cm = models.FloatField(blank=True, null=True)
+    def __str__(self):
+        return str(self.Name)
