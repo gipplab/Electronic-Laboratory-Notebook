@@ -44,6 +44,8 @@ def Load_from_Model(ModelName, pk):
         return Load_CAP(pk)
     if ModelName == 'SFG':
         return Load_SFG(pk)
+    if ModelName == 'GRV':
+        return Load_GRV(pk)
 
 def conv(x):
     return x.replace(',', '.').encode()
@@ -107,6 +109,20 @@ def Load_SEL(pk):
     df["Time (min.)"] = Curr_Dash.Start_datetime_elli + pd.TimedeltaIndex(df["Time (min.)"], unit='m')
     df["time"] = df["Time (min.)"].dt.tz_convert(timezone.get_current_timezone())
     df['time_loc'] = df["time"]
+    return df
+
+def Load_GRV(pk):
+    entry = General.get_in_full_model(pk)
+    Folder = os.path.join( rel_path, entry.Link_Data)
+    os.chdir(Folder)
+    data = {}
+    for file in glob.glob('Analysis*.xlsx'):
+        name = file[file.find('_')+1:file.find('.')]
+        data[name] = pd.read_excel(file)
+        fps = entry.Frame_rate
+        data[name]['time'] = data[name]['frame']/fps
+    os.chdir(cwd)
+    df = pd.concat(data.values(), keys=data.keys(), axis = 1)
     return df
 
 def Load_TCM(pk):

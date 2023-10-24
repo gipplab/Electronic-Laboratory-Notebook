@@ -214,6 +214,9 @@ class GRV(ExpBase):
     """
     Liquid = models.ForeignKey(Liquid, on_delete=models.CASCADE, blank=True, null=True)
     Plate_speed_mm_s = models.FloatField(blank=True, null=True)
+    Frame_rate = models.FloatField(blank=True, null=True)
+    Dipping_angle = models.FloatField(blank=True, null=True)
+    px_to_mm = models.FloatField(blank=True, null=True)
     Link = models.TextField(blank=True, null=True)
     Link_Data = models.TextField(blank=True, null=True)
     Link_PDF = models.TextField(blank=True, null=True)
