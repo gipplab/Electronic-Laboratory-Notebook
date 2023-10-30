@@ -71,6 +71,21 @@ class LSP(ExpBase):
     def __str__(self):
         return str(self.Name)
 
+class HBK(ExpBase):
+    """LSP Model to store all experiments done with the LSP
+
+    Parameters
+    ----------
+    models : [type]
+        [description]
+    """
+    Liquid = models.ForeignKey(Liquid, on_delete=models.CASCADE, blank=True, null=True)
+    px_to_mm = models.FloatField(blank=True, null=True)
+    Link = models.TextField(blank=True, null=True)
+    Link_Data = models.TextField(blank=True, null=True)
+    def __str__(self):
+        return str(self.Name)
+
 class MFL(ExpBase):
     Gas = models.ManyToManyField(Gas)
     Link = models.TextField(blank=True, null=True)

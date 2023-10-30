@@ -13,11 +13,17 @@ from django_tables2 import SingleTableView
 from django_filters.views import FilterView
 from django_tables2.views import SingleTableMixin
 from django.core.files.storage import default_storage
-from .models import ExpPath
+from .models import ExpPath, ExpBase
 from .forms import get_Form
 from .tables import get_Table
 from .filters import get_Filter
 from django.apps import apps
+from Lab_Misc.General import *
+from bootstrap_modal_forms.generic import (BSModalLoginView,
+                                           BSModalCreateView,
+                                           BSModalUpdateView,
+                                           BSModalReadView,
+                                           BSModalDeleteView)
 
 # Create your views here.
 class Sub_table_view(SingleTableMixin, FilterView):
@@ -37,6 +43,7 @@ class Sub_table_view(SingleTableMixin, FilterView):
         return filterset_class
     table_pagination = {"per_page": 25}
     template_name = 'Show_sample.html'
+    
 
 class Sub_base_table_view(SingleTableMixin, FilterView):
     def get_table_class(self, **kwargs):
@@ -55,6 +62,7 @@ class Sub_base_table_view(SingleTableMixin, FilterView):
         return filterset_class
     table_pagination = {"per_page": 25}
     template_name = 'Show_sample.html'
+
 
 def Generate(request):
     cwd = os.getcwd()

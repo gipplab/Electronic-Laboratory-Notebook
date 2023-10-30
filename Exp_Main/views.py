@@ -324,10 +324,18 @@ class Read_entry(BSModalReadView):
             cwd = os.getcwd()
             subprocess.call(['python', 'Private/Groove_analysis/Groove_analysis.py', str(Main_id), Link_to_vid])
             os.chdir(cwd)
+        def start_hbk_ana():
+            cwd = os.getcwd()
+            subprocess.call(['python', 'Private/Groove_analysis/Height_analysis.py', str(Main_id), Link_to_vid])
+            os.chdir(cwd)
         pk = self.kwargs['pk']
         curr_entry = ExpBase.objects.get(pk = pk)
         curr_exp = ExpPath.objects.get(Name = str(curr_entry.Device))
         curr_model = apps.get_model('Exp_Main', str(curr_exp.Abbrev))
+        model_name = self.kwargs['model']
+        group_name = self.kwargs['group']
+        model_name = self.get_model_name(group_name, model_name, pk)
+        curr_model = apps.get_model(group_name, model_name)
         self.curr_entry = curr_model.objects.get(pk = pk)
 
         if os.environ['DJANGO_SETTINGS_MODULE'] == 'Private.settings':
@@ -402,6 +410,14 @@ class Read_entry(BSModalReadView):
                 self.curr_entry.Link_Data = self.curr_entry.Link.replace('01_Videos', '02_Analysis_Results')
                 self.curr_entry.save()
                 x = threading.Thread(target=start_grv_ana)
+                x.start()
+            
+            if request.method == 'POST' and 'Run_HBK_Analysis' in request.POST:
+                Link_to_vid = os.path.join(get_BasePath(), self.curr_entry.Link)
+                Main_id = self.curr_entry.id
+                #self.curr_entry.Link_Data = self.curr_entry.Link.replace('01_Videos', '02_Analysis_Results')
+                self.curr_entry.save()
+                x = threading.Thread(target=start_hbk_ana)
                 x.start()
 
             if request.method == 'POST' and 'OpenMainPath' in request.POST:

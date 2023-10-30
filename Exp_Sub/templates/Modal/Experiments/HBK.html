@@ -1,0 +1,46 @@
+{% extends "Modal/read_entry.html" %}
+
+  {% block Modal_detailed_content %}
+  <tr>
+    <th>Plot:</th>
+    <th><a href="/Dash/GRV/{{ExpBase.pk}}">Link to plot</a></th>
+  </tr>
+  <tr>
+    <th>Pump type:</th>
+    <th><a href="/Plan_Gas_OSZ/{{ExpBase.Script.pk}}">{{ExpBase.Script}}</a></th>
+  </tr>
+  <tr>
+    <th>Links:</th>
+    <th><form method="post">
+      {% csrf_token %}
+      <button type="submit" name="OpenMainPath">Video</button>
+      &nbsp
+      <button type="submit" name="OpenPDFPath">PDF</button>
+      &nbsp
+      <button type="submit" name="OpenDataPath">Data</button>
+    </form></th>
+  </tr>  
+  <tr>
+    <tr>
+      <th>Analysis Result:</th>
+      <th><a href="/Analysis/OszAnalysis_table/{{ExpBase.oszanalysis_set.first.id}}">Link Analysis Result</a></th>
+    </tr>
+    <tr>
+  <tr>
+    <th>Analysis:</th>
+    <th><form method="post">
+      {% csrf_token %}
+      <button type="submit" name="Run_HBK_Analysis">Run HBK Analysis</button>
+    </form></th>
+  </tr>
+  <tr>
+    <th>Sub data:</th>
+    <th>
+      {% for Sub_dat in ExpBase.Sub_Exp.all %}
+        <a href="/ExpSub/?Name={{Sub_dat.Name}}">{{Sub_dat.Name}}</a>
+        &nbsp
+      {% endfor %}
+    </th>
+  </tr>
+
+{% endblock Modal_detailed_content %}
