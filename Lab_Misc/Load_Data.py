@@ -115,12 +115,56 @@ def Load_GRV(pk):
     entry = General.get_in_full_model(pk)
     Folder = os.path.join( rel_path, entry.Link_Data)
     os.chdir(Folder)
+
+    # ******** get offset
+    filenames= os.listdir (".") # get all files' and folders' names in the current directory
+
+    result = []
+
+    for filename in filenames: # loop through all the files and folders
+        if os.path.isdir(os.path.join(os.path.abspath("."), filename)): # check whether the current object is a folder or not
+            result.append(filename)
+    os.chdir(result[1])
+    offset = np.genfromtxt('offset.txt', delimiter=';')
+    off = pd.DataFrame(offset.astype('int64'))
+
+    os.chdir('..')
+    settings = pd.read_excel('settings.xlsx')
+    saved_setting = settings
+    saved_setting = saved_setting.set_index('Unnamed: 0')
+    saved_setting = saved_setting.to_dict(orient = 'dict')
+    saved_setting = saved_setting[0]
+    settings = {**settings, **saved_setting}
+
+
+
+    if settings['Flipped_fit']:
+        data_off = off[[0,2]]
+        data_off.columns = ['frame', 'shift_motor']
+    else:
+        data_off = off[[0,1]]
+        data_off.columns = ['frame', 'shift_motor']
+
+    try:
+        angle = entry.Dipping_angle
+        scaling = np.sin(angle/180*np.pi)
+        Bulk = entry.Pix_Pos_0
+        conv_px_mm = entry.px_to_mm
+        bla = angle + Bulk + conv_px_mm
+        conversion_values = True
+    except:
+        conversion_values = False
+        print('Conversion values are missing')
+
     data = {}
     for file in glob.glob('Analysis*.xlsx'):
         name = file[file.find('_')+1:file.find('.')]
         data[name] = pd.read_excel(file)
+        data[name] = pd.merge_asof(data[name], data_off.sort_values('frame'), on = 'frame')
         fps = entry.Frame_rate
         data[name]['time'] = data[name]['frame']/fps
+        if conversion_values:
+            data[name]['Height_over_Bulk'] = Bulk*conv_px_mm-(data[name]['transition']*scaling + data[name]['shift_motor'].min())*conv_px_mm
     os.chdir(cwd)
     df = pd.concat(data.values(), keys=data.keys(), axis = 1)
     return df

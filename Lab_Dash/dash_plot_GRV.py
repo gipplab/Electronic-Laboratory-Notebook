@@ -45,6 +45,10 @@ def Gen_dash(dash_name):
                             mode='markers',
                             name=data_name)
                 )
+            fig.add_trace(go.Scattergl(x=self.data[data_name]['frame'], y=(self.data[data_name]['shift_motor']),
+                        mode='markers',
+                        name='Motor')
+            )
             fig.update_layout(  xaxis_title='Time [s]',
                                 yaxis_title='Distance [mm]')
             return fig
@@ -73,23 +77,14 @@ def Gen_dash(dash_name):
         def With_sub_data(self):
             fig = go.Figure()
             data_set = self.data.columns.levels[0]
-            
-            l_grv = [s for s in data_set if 'lower_in_groove' in s]
-            if len(l_grv) == 2:
-                l_grv = l_grv[0]
-            try:
-                zero = float(self.data[l_grv].tail(10).mean().loc[l_grv, 'transition'])
-            except:
-                zero = float(self.data[l_grv].tail(10).mean().loc['transition'])
-            angle = self.entry.Dipping_angle
-            scaling = np.sin(angle/180*np.pi)
+
             for data_name in data_set:
-                fig.add_trace(go.Scattergl(x=self.data[data_name]['time'], y=(zero-self.data[data_name]['transition'])*self.entry.px_to_mm*scaling,
+                fig.add_trace(go.Scattergl(x=self.data[data_name]['time'], y=(self.data[data_name]['Height_over_Bulk']),
                             mode='markers',
                             name=data_name)
                 )
             fig.update_layout(  xaxis_title='Time [s]',
-                                yaxis_title='Distance [mm]')
+                                yaxis_title='Distance to bulk [mm]')
             return fig
 
 

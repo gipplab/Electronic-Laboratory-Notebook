@@ -115,6 +115,7 @@ def Sort_GRV():
             for file in glob.glob('*.'+ending):
                 record_time = os.path.getmtime(file)
                 record_time = datetime.datetime.fromtimestamp(record_time) #convert to datetime format
+                record_time = record_time - datetime.timedelta(minutes=60) # in case of systematic shift
 
                 if record_time - old_record_time > datetime.timedelta(minutes=1):
                     folder_name = str(record_time.strftime('%H%M%S'))

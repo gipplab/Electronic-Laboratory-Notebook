@@ -1,5 +1,6 @@
 from django.db import models
 from Lab_Dash.models import Comparison as Comparison_dash
+from Lab_Dash.models import GrvAnalysis as GrvAnalysis_dash
 from Lab_Dash.models import OszAnalysis as OszAnalysis_dash
 from Lab_Dash.models import DafAnalysis as DafAnalysis_dash
 from Exp_Main.models import ExpBase, DAF
@@ -22,6 +23,47 @@ class Comparison(models.Model):
          if not self.Name:
               self.Name = None
          super(Comparison, self).save(*args, **kwargs)
+
+class PointsShift(models.Model):
+    Pos_ch = [('upper_on_hill', 'upper_on_hill'), ('upper_on_plate', 'upper_on_plate'), ('lower_in_groove', 'lower_in_groove'), 
+              ('upper_in_groove', 'upper_in_groove'), 
+              ('white_lower_in_groove', 'white_lower_in_groove'), ('white_upper_in_groove', 'white_upper_in_groove')]
+    Type_pos = models.TextField(choices=Pos_ch, blank=True, null=True)
+    Position = models.FloatField(blank=True, null=True)
+
+class SteadyShift(models.Model):
+    Frame = models.IntegerField(blank=True, null=True)
+    NrAvrgFrame = models.IntegerField(default=3, blank=True, null=True)
+    state_ch = [('steady', 'steady'), 
+           ('static', 'static')]
+    Type_state = models.TextField(choices=state_ch, blank=True, null=True)
+    PointsShift = models.ManyToManyField(PointsShift, blank=True)
+
+class GrvAnalysis(models.Model):
+    Name = models.TextField(null=True, blank=True)
+    SteadyShift = models.ManyToManyField(SteadyShift, blank=True)
+    Exp = models.ForeignKey(ExpBase, on_delete=models.CASCADE, blank=True, null=True)
+    def __str__(self):
+        return str(self.Name)
+
+class GrvAnalysisJoin(models.Model):
+    """SEL Saves all dash properties of the SEL measurements
+
+    Parameters
+    ----------
+    models : [type]
+        [description]
+    """    
+    Name = models.TextField(unique=True, blank=True, null=True)
+    GrvAnalysis = models.ManyToManyField(GrvAnalysis, blank=True)
+    Dash = models.ForeignKey(GrvAnalysis_dash, blank=True, on_delete=models.CASCADE)
+    def __str__(self):
+        return str(self.Name)
+    def save(self, *args, **kwargs):#saves '' as none
+         if not self.Name:
+              self.Name = None
+         super(OszAnalysisJoin, self).save(*args, **kwargs)
+
 
 class OszBaseParam(models.Model):
     Drop_Nr = models.IntegerField(blank=True, null=True)

@@ -408,6 +408,7 @@ class Read_entry(BSModalReadView):
                 Link_to_vid = os.path.join(get_BasePath(), self.curr_entry.Link)
                 Main_id = self.curr_entry.id
                 self.curr_entry.Link_Data = self.curr_entry.Link.replace('01_Videos', '02_Analysis_Results')
+
                 self.curr_entry.save()
                 x = threading.Thread(target=start_grv_ana)
                 x.start()
@@ -415,7 +416,9 @@ class Read_entry(BSModalReadView):
             if request.method == 'POST' and 'Run_HBK_Analysis' in request.POST:
                 Link_to_vid = os.path.join(get_BasePath(), self.curr_entry.Link)
                 Main_id = self.curr_entry.id
-                #self.curr_entry.Link_Data = self.curr_entry.Link.replace('01_Videos', '02_Analysis_Results')
+                self.curr_entry.Link_Data = self.curr_entry.Link.replace('01_Videos', '02_Analysis_Results')
+                self.curr_entry.Link_Data = self.curr_entry.Link_Data[:General.get_LastIndex(self.curr_entry.Link_Data, '/')]
+                self.curr_entry.Link_Data = os.path.join(self.curr_entry.Link_Data, 'Grays_'+str(Main_id))
                 self.curr_entry.save()
                 x = threading.Thread(target=start_hbk_ana)
                 x.start()

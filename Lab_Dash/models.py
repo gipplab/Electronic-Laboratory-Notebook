@@ -270,6 +270,30 @@ class OszAnalysis(models.Model):
               self.Name = None
          super(OszAnalysis, self).save(*args, **kwargs)
 
+class GrvAnalysis(models.Model):
+    """SEL Saves all dash properties of the SEL measurements
+
+    Parameters
+    ----------
+    models : [type]
+        [description]
+    """    
+    Name = models.TextField(blank=True, null=True)
+    Title = models.TextField(blank=True, null=True)
+    Entry = models.ManyToManyField(OszAnalysisEntry, blank=True)
+    X_shift = models.FloatField(blank=True, null=True)
+    Y_shift = models.FloatField(blank=True, null=True)
+    X_high = models.FloatField(blank=True, null=True)
+    X_low = models.FloatField(blank=True, null=True)
+    Y_high = models.FloatField(blank=True, null=True)
+    Y_low = models.FloatField(blank=True, null=True)
+    def __str__(self):
+        return str(self.Name)
+    def save(self, *args, **kwargs):#saves '' as none
+         if not self.Name:
+              self.Name = None
+         super(GRVAnalysis, self).save(*args, **kwargs)
+
 class DafAnalysis(models.Model):
     """SEL Saves all dash properties of the SEL measurements
 

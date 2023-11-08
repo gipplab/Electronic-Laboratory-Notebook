@@ -217,6 +217,7 @@ class GRV(ExpBase):
     Frame_rate = models.FloatField(blank=True, null=True)
     Dipping_angle = models.FloatField(blank=True, null=True)
     px_to_mm = models.FloatField(blank=True, null=True)
+    Pix_Pos_0 = models.FloatField(blank=True, null=True)
     Link = models.TextField(blank=True, null=True)
     Link_Data = models.TextField(blank=True, null=True)
     Link_PDF = models.TextField(blank=True, null=True)

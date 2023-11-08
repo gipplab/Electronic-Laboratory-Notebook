@@ -287,6 +287,9 @@ class SampleGroovedPlate(SampleBase):
     """    
     Material = models.TextField(blank=True, null=True)
     Description = models.TextField(blank=True, null=True)
+    Nr_grooves = models.IntegerField(blank=True, null=True)
+    Groove_depth_mm = models.FloatField(blank=True, null=True)
+    Groove_width_mm = models.FloatField(blank=True, null=True)
     Length_cm = models.FloatField(blank=True, null=True)
     Width_cm = models.FloatField(blank=True, null=True)
     def __str__(self):
