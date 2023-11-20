@@ -164,7 +164,7 @@ def Load_GRV(pk):
         fps = entry.Frame_rate
         data[name]['time'] = data[name]['frame']/fps
         if conversion_values:
-            data[name]['Height_over_Bulk'] = Bulk*conv_px_mm-(data[name]['transition']*scaling + data[name]['shift_motor'].min())*conv_px_mm
+            data[name]['Height_over_Bulk'] = Bulk*conv_px_mm-(data[name]['transition']*scaling + off[[1]].min().item())*conv_px_mm
     os.chdir(cwd)
     df = pd.concat(data.values(), keys=data.keys(), axis = 1)
     return df

@@ -4,9 +4,9 @@ import threading
 from Analysis.Osz_Drop import Osz_Drop_Analysis
 from Analysis.Osz_Drop_RSD import Osz_Drop_Analysis as Osz_Drop_Analysis_RSD
 from Analysis.models import OszAnalysis, OszBaseParam, OszFitRes, OszAnalysisJoin, OszDerivedRes
-from Analysis.models import DafAnalysis
+from Analysis.models import DafAnalysis, GrvAnalysisJoin
 from .tables import Comparison_table, OszAnalysis_table, get_Table, RSD_CA_Mess_table
-from .tables import DafAnalysis_table
+from .tables import DafAnalysis_table, GrvAnalysis_table
 from Exp_Main.models import RSD, DAF, ExpBase
 
 # Create your views here.
@@ -34,6 +34,12 @@ def RSDAnalysis_view(request):
 def DafAnalysis_view(request):
     model = DafAnalysis.objects.all()
     table = DafAnalysis_table(model)
+    context = {'table': table}
+    return render(request, 'Comparison.html', context)
+
+def GrvAnalysis_view(request):
+    model = GrvAnalysisJoin.objects.all()
+    table = GrvAnalysis_table(model)
     context = {'table': table}
     return render(request, 'Comparison.html', context)
 

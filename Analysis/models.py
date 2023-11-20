@@ -62,7 +62,7 @@ class GrvAnalysisJoin(models.Model):
     def save(self, *args, **kwargs):#saves '' as none
          if not self.Name:
               self.Name = None
-         super(OszAnalysisJoin, self).save(*args, **kwargs)
+         super(GrvAnalysisJoin, self).save(*args, **kwargs)
 
 
 class OszBaseParam(models.Model):

@@ -23,6 +23,7 @@ urlpatterns = [
     path("OszAnalysis/", views.OszAnalysis_view, name="OszAnalysis_view"),
     path("RSDAnalysis/", views.RSDAnalysis_view, name="RSDAnalysis_view"),
     path("DafAnalysis/", views.DafAnalysis_view, name="DafAnalysis_view"),
+    path("GrvAnalysis/", views.GrvAnalysis_view, name="GrvAnalysis_view"),
     path("OszAnalysis_table/<str:pk>", views.OszAnalysis_table_view, name="OszAnalysis_table"),
     path("DafAnalysis/<str:pk>", views.DafAnalysis_table_view, name="DafAnalysis_table"),
     path('', views.index, name='index'),

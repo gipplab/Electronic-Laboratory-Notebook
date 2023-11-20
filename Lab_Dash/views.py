@@ -13,6 +13,7 @@ from Lab_Misc.models import OszScriptGen
 from Analysis.models import Comparison as Comparison_Main
 from Exp_Main.models import Group
 from Analysis.models import OszAnalysisJoin as OszAnalysis_Main
+from Analysis.models import GrvAnalysisJoin as GrvAnalysis_Main
 from Analysis.models import DafAnalysis as DafAnalysis_Main
 from Lab_Dash.dash_plot_SEL import Gen_dash
 from Lab_Dash.dash_plot_RSD import Gen_dash as Gen_dash_RSD
@@ -22,6 +23,7 @@ from Lab_Dash.dash_plot_Generic import Gen_dash as Gen_dash_Generic
 from Lab_Dash.dash_plot_plan_osz import Gen_dash as Gen_dash_plot_plan_osz
 from Lab_Dash.dash_plot_SFG import Gen_dash as Gen_dash_SFG
 from Lab_Dash.dash_plot_OszAnalysis import Gen_dash as Gen_dash_OszAnalysis
+from Lab_Dash.dash_plot_GRVAnalysis import Gen_dash as Gen_dash_GrvAnalysis
 from Lab_Dash.dash_plot_comparison import Gen_dash as Gen_dash_Comparisons
 from Lab_Dash.dash_plot_SFG_kin_3D import Gen_dash as Gen_dash_SFG_kin_3D
 from Lab_Dash.dash_plot_SFG_kin_drive import Gen_dash as Gen_dash_SFG_kin_drive
@@ -142,8 +144,30 @@ def DafAnalysis(request, pk):
             return redirect('/Dash/update_model/DafAnalysis/' + str(entry.id))
         else:
             return redirect('/Dash/update_model/DafAnalysisEntry/' + str(entry.Experiments.get(Name = selected).id))
-
     return render(request, "plot_DafAnalysis.html", context)
+
+def GrvAnalysis(request, pk):
+    entry = GrvAnalysis_Main.objects.get(id = pk)
+    context = {'stuff': 'somestuff'}
+    context['Experiment_Name'] = entry.Name
+    all_dash_entry = list(entry.GrvAnalysis.all().values_list('Name', flat=True))
+    all_dash_entry.insert(0, 'All')
+    label_to_number = {label: i for i, label in enumerate(all_dash_entry, 0)}
+    choices = [(label_to_number[label], label) for label in all_dash_entry]
+    form_class = From_Choice(choices)
+    context['model_name'] = 'GRV'
+    Name_dash_app = 'dash_GRV_' + str(pk)
+    context['Name_dash_app'] = Name_dash_app
+    Gen_dash_GrvAnalysis(Name_dash_app, pk)#Creates a new app for every pk so the data will not corrupt
+    context['dash_context'] = {'target_id': {'value': pk}}
+    if request.method == 'POST' and 'Select_edit' in request.POST:
+        selected = all_dash_entry[int(request.POST['field'])]
+        if selected == 'All':
+            return redirect('/Dash/update_model/GrvAnalysis/' + str(entry.id))
+        else:
+            return redirect('/Dash/update_model/GrvAnalysisEntry/' + str(entry.Experiments.get(Name = selected).id))
+
+    return render(request, "plot_GrvAnalysis.html", context)
 
 def DAF_Graph(request, pk):
     entry = DafAnalysis_Main.objects.get(id = pk)

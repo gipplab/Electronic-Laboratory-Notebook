@@ -8,8 +8,9 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from Lab_Misc.General import *
 import pandas as pd
-from Exp_Main.models import DAF
-from Analysis.models import DafAnalysis
+import numpy as np
+from Exp_Main.models import GRV
+from Analysis.models import GrvAnalysisJoin, GrvAnalysis, PointsShift
 from Lab_Misc import Load_Data
 from django.db.models import Q
 
@@ -22,6 +23,7 @@ def Gen_dash(dash_name, pk):
         x_Selection = [] # selected parameters to be plotted on x-axis (3rd selection box)
         y1_Selection = [] # selected parameters to be plotted on 1st y-axis (4th selection box)
         y2_Selection = [] # selected parameters to be plotted on 2nd y-axis (5th selection box)
+        colours = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf', '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',]
 
         def load_data(self, target_id):
             """Load selected analysis entry and corresponding experiments"""
@@ -31,38 +33,107 @@ def Gen_dash(dash_name, pk):
                         return True, 'Data found!'
                 except:
                     pass
-                entry = DafAnalysis.objects.get(id = target_id)
+                entry = GrvAnalysisJoin.objects.get(id = target_id)
                 self.entry = entry
-                self.select_exp = entry.Experiments.all().values_list('id', flat=True)
+                self.select_exp = entry.GrvAnalysis.all().values_list('id', flat=True)
                 return True, 'Data found!'
             except:
                 return False, 'No data found!'
 
         def sel_plot(self):
             """Plot selected combination of x and y parameters for selected experiments"""
+            i = 0
             fig = make_subplots(specs=[[{"secondary_y": True}]])
-            plot_columns = ['Name', 'x_value', 'y_value', 'x_error', 'y_error']
-            for exp_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
-                Drop_parameters, Drop_errors = Load_Data.Load_DAFAnalysis_in_df(exp_id)
-                columns = Drop_parameters.columns.values
-                for xparam in self.x_Selection:
-                    if xparam in columns:
-                        for yparam in self.y1_Selection:
-                                if yparam in columns:
-                                    plt_dfi = pd.DataFrame([[Drop_parameters['Name'][0], Drop_parameters[xparam][0], Drop_parameters[yparam][0], Drop_errors[xparam][0], Drop_errors[yparam][0]]], columns=plot_columns)
-                                    fig.add_trace(go.Scatter(x=plt_dfi['x_value'], y=plt_dfi['y_value'],
-                                        error_x = dict(type='data', array=plt_dfi['x_error'], visible=True, thickness=1.5,),
-                                        error_y = dict(type='data', array=plt_dfi['y_error'], visible=True, thickness=1.5,),
-                                        mode='markers', yaxis='y', name=str(plt_dfi['Name'][0])+" ("+str(xparam)+" vs. "+str(yparam)+")"),
-                                    )
-                        for yparam in self.y2_Selection:
-                            if yparam in columns:
-                                plt_dfi = pd.DataFrame([[Drop_parameters['Name'][0], Drop_parameters[xparam][0], Drop_parameters[yparam][0], Drop_errors[xparam][0], Drop_errors[yparam][0]]], columns=plot_columns)
-                                fig.add_trace(go.Scatter(x=plt_dfi['x_value'], y=plt_dfi['y_value'],
-                                    error_x = dict(type='data', array=plt_dfi['x_error'], visible=True, thickness=1.5,),
-                                    error_y = dict(type='data', array=plt_dfi['y_error'], visible=True, thickness=1.5,),
-                                    mode='markers', yaxis='y2', name=str(plt_dfi['Name'][0])+" ("+str(xparam)+" vs. "+str(yparam)+")"),
-                                )
+            for y2_sel in self.y2_Selection:
+                if y2_sel == 'Diff_steady_static':
+                    for ana_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
+                        for line_state in self.y1_Selection:
+                            i = [i for i, s in enumerate(self.y1_Selection) if line_state in s][0]
+                            entry_grv_ana = GrvAnalysis.objects.get(id = ana_id)
+                            i+=entry_grv_ana.Exp.Sample_name.id % 15
+                            entry_static = entry_grv_ana.SteadyShift.filter(Type_state = 'static').first()
+                            static_val = entry_static.PointsShift.filter(Type_pos = line_state).first().Position
+                            entry_steady = entry_grv_ana.SteadyShift.filter(Type_state = 'steady').first()
+                            steady_val = entry_steady.PointsShift.filter(Type_pos = line_state).first().Position
+                            diff_ss = steady_val-static_val
+                            exp_id = entry_grv_ana.Exp.id
+                            entry_full = get_in_full_model(exp_id)
+                            speed = entry_full.Plate_speed_mm_s
+                            fig.add_trace(go.Scatter(x=[speed], y=[diff_ss],
+                                marker=dict(color=self.colours[i]), yaxis='y1', name= entry_full.Name+' ' + line_state),
+                            )
+                elif y2_sel == 'steady':
+                    for ana_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
+                        for line_state in self.y1_Selection:
+                            i = [i for i, s in enumerate(self.y1_Selection) if line_state in s][0]
+                            entry_grv_ana = GrvAnalysis.objects.get(id = ana_id)
+                            i+=entry_grv_ana.Exp.Sample_name.id % 15
+                            entry_steady = entry_grv_ana.SteadyShift.filter(Type_state = 'steady').first()
+                            steady_val = entry_steady.PointsShift.filter(Type_pos = line_state).first().Position
+                            exp_id = entry_grv_ana.Exp.id
+                            entry_full = get_in_full_model(exp_id)
+                            speed = entry_full.Plate_speed_mm_s
+                            fig.add_trace(go.Scatter(x=[speed], y=[steady_val],
+                                marker=dict(color=self.colours[i]), yaxis='y2', name= entry_full.Name+' ' + line_state),
+                            )
+                elif y2_sel == 'static':
+                    for ana_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
+                        for line_state in self.y1_Selection:
+                            i = [i for i, s in enumerate(self.y1_Selection) if line_state in s][0]
+                            entry_grv_ana = GrvAnalysis.objects.get(id = ana_id)
+                            i+=entry_grv_ana.Exp.Sample_name.id % 15
+                            entry_static = entry_grv_ana.SteadyShift.filter(Type_state = 'static').first()
+                            static_val = entry_static.PointsShift.filter(Type_pos = line_state).first().Position
+                            exp_id = entry_grv_ana.Exp.id
+                            entry_full = get_in_full_model(exp_id)
+                            speed = entry_full.Plate_speed_mm_s
+                            fig.add_trace(go.Scatter(x=[speed], y=[static_val],
+                                marker=dict(color=self.colours[i]), yaxis='y2', name= entry_full.Name+' ' + line_state),
+                            )
+                elif y2_sel == 'theta':
+                    for ana_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
+                        for line_state in self.y1_Selection:
+                            i = [i for i, s in enumerate(self.y1_Selection) if line_state in s][0]
+                            entry_grv_ana = GrvAnalysis.objects.get(id = ana_id)
+                            i+=entry_grv_ana.Exp.Sample_name.id % 15
+                            entry_steady = entry_grv_ana.SteadyShift.filter(Type_state = 'steady').first()
+                            steady_val = entry_steady.PointsShift.filter(Type_pos = line_state).first().Position
+                            theta = np.arcsin(1-steady_val**2/(2*1.48**2))/np.pi*180
+                            exp_id = entry_grv_ana.Exp.id
+                            entry_full = get_in_full_model(exp_id)
+                            speed = entry_full.Plate_speed_mm_s
+                            ca = 10*speed/10/20
+                            theta = theta**3
+                            fig.add_trace(go.Scatter(x=[ca], y=[theta],
+                                marker=dict(color=self.colours[i]), yaxis='y2', name= entry_full.Name+' ' + line_state,),
+                            )
+                    #fig.update_xaxes(type="log")
+                    #fig.update_yaxes(type="log")
+                
+                elif y2_sel == 'virt_theta':
+                    for ana_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
+                        for line_state in self.y1_Selection:
+                            i = [i for i, s in enumerate(self.y1_Selection) if line_state in s][0]
+                            entry_grv_ana = GrvAnalysis.objects.get(id = ana_id)
+                            i+=entry_grv_ana.Exp.Sample_name.id % 15
+                            entry_steady = entry_grv_ana.SteadyShift.filter(Type_state = 'steady').first()
+                            steady_val = entry_steady.PointsShift.filter(Type_pos = line_state).first().Position
+                            
+                            entry_static = entry_grv_ana.SteadyShift.filter(Type_state = 'static').first()
+                            static_val = entry_static.PointsShift.filter(Type_pos = line_state).first().Position
+                            diff_virt = static_val - np.sqrt(2)*1.48
+                            steady_val = steady_val-diff_virt
+                            theta = np.arcsin(1-steady_val**2/(2*1.48**2))/np.pi*180
+                            exp_id = entry_grv_ana.Exp.id
+                            entry_full = get_in_full_model(exp_id)
+                            speed = entry_full.Plate_speed_mm_s
+                            ca = 10*speed/10/20
+                            
+                            #theta = theta**3
+                            fig.add_trace(go.Scatter(x=[ca], y=[theta],
+                                marker=dict(color=self.colours[i]), yaxis='y2', name= entry_full.Name+' ' + line_state,),
+                            )
+                    fig.update_xaxes(type="log")
             return fig
 
     value = 'temp'
@@ -112,14 +183,14 @@ def Gen_dash(dash_name, pk):
                 options=axis_options,
                 id='MS_drop_ana',
                 value=GenFig.select_ana,
-                style={'width': '33%', 'display': 'table-cell'},
+                style={'width': '30%', 'display': 'table-cell'},
             ),
             dcc.Dropdown(
                 options=axis_options,
                 id='MS_drop_exp',
                 value=[],
                 multi=True,
-                style={'width': '33%', 'display': 'table-cell'},
+                style={'width': '10%', 'display': 'table-cell'},
             ),
             dcc.Dropdown(
                 options=axis_options,
@@ -133,14 +204,14 @@ def Gen_dash(dash_name, pk):
                 id='MS_y1_Selection',
                 value=[],
                 multi=True,
-                style={'width': '7%', 'display': 'table-cell'},
+                style={'width': '20%', 'display': 'table-cell'},
             ),
             dcc.Dropdown(
                 options=axis_options,
                 id='MS_y2_Selection',
                 value=[],
                 multi=True,
-                style={'width': '7%', 'display': 'table-cell'},
+                style={'width': '20%', 'display': 'table-cell'},
             ),
             html.Button('Plot', id='Btn_Plot'),
         ], style={'width': '100%', 'display': 'flex', 'flex-direction': 'row'},),
@@ -196,11 +267,11 @@ def Gen_dash(dash_name, pk):
             if n_clicks > Save_clicked:
                 Save_clicked = n_clicks
                 try: # create new analysis entry if name does not exist
-                    DAFAnalysis_item = DafAnalysis(Name = textarea_tile)
+                    DAFAnalysis_item = GrvAnalysis(Name = textarea_tile)
                     DAFAnalysis_item.save()
                 except: # change existing analysis entry
-                    DAFAnalysis_item = DafAnalysis.objects.get(Name = textarea_tile)
-                DAFAnalysis_list = DAF.objects.filter(pk__in=MS_drop_exp)
+                    DAFAnalysis_item = GrvAnalysis.objects.get(Name = textarea_tile)
+                DAFAnalysis_list = GRV.objects.filter(pk__in=MS_drop_exp)
                 DAFAnalysis_item.Experiments.set(DAFAnalysis_list)
                 return 'Image Saved!'
         except:
@@ -275,34 +346,37 @@ def Gen_dash(dash_name, pk):
     def update_output(target_id, *args,**kwargs):
         """Update options for selection boxes"""
         data_was_loaded, return_str = GenFig.load_data(target_id)
-        x_Selection = []
+        y1_Selection = []
         if data_was_loaded:
             return_str += '.\n Select the desired plot at the dropdown.'
             axis_options = []
             label_names = ['label', 'value']
-            for data in DafAnalysis.objects.all(): # options for 1st selection box = all analysis entries
+            for data in GrvAnalysis.objects.all(): # options for 1st selection box = all analysis entries
                 values = [data.Name + '-' + 'col', data.id]
                 axis_options.append(dict(zip(label_names, values)))
             axis_value = []
-            columns = []
             for value in GenFig.select_exp: # selected options of 2nd selection box = experiments corresponding to selected analysis entry
-                entry = DAF.objects.get(id = value)
+                entry = GrvAnalysis.objects.get(id = value)
                 values = [entry.Name, value]
                 axis_value.append(value)
-                Drop_parameters, Drop_errors = Load_Data.Load_DAFAnalysis_in_df(entry.id)
-                columns = columns + list(Drop_parameters.columns.values)
-            if len(GenFig.select_exp) > 0:
-                columns = list(set(columns)) # remove duplicates from column list
-                columns.sort() # sort column options alphabetically
-                for param in columns: # options for 3rd selection box (x-axis parameter) = all available columns from analysis result files
-                    x_Selection.append({'label': param, 'value': param})
+            for item in PointsShift.Pos_ch: # options for 3rd selection box (x-axis parameter) = all available columns from analysis result files
+                y1_Selection.append({'label': item[0], 'value': item[0]})
         else:
             axis_options = [
                     {'label': 'Dummy', 'value': 'Dummy'},
                 ]
             axis_value = []
-        y1_Selection = x_Selection # same options for 4th selection box (y1-axis parameter) as for 3rd
-        y2_Selection = x_Selection # same options for 5th selection box (y2-axis parameter) as for 3rd
+        x_Selection = [
+                    {'label': 'Speed', 'value': 'Speed'},
+                ]
+        y2_Selection = [
+                    {'label': 'Diff steady static', 'value': 'Diff_steady_static'},
+                    
+                    {'label': 'virtual bulk', 'value': 'virt_theta'},
+                    {'label': 'theta', 'value': 'theta'},
+                    {'label': 'steady', 'value': 'steady'},
+                    {'label': 'static', 'value': 'static'},
+                ]
         return [axis_options, x_Selection, y1_Selection, y2_Selection, return_str, axis_value, GenFig.entry.Name]
 
     @app.callback(
@@ -332,7 +406,7 @@ def Gen_dash(dash_name, pk):
         """Update options that can be selected in 2nd selection box"""
         axis_options = []
         label_names = ['label', 'value']
-        for entry in DAF.objects.filter(~Q(Link_Result = None)): # selection of all experiments with existing analysis result possible
+        for entry in GrvAnalysis.objects.all(): # selection of all experiments with existing analysis result possible
             values = [entry.Name, entry.id] # experiment options that can be selected in 2nd selection box
             axis_options.append(dict(zip(label_names, values)))
         return [axis_options, select_ana]

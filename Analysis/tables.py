@@ -1,5 +1,5 @@
 import django_tables2 as tables
-from .models import Comparison, OszAnalysisJoin
+from .models import Comparison, OszAnalysisJoin, GrvAnalysisJoin
 from .models import DafAnalysis
 from django_tables2_column_shifter.tables import ColumnShiftTable
 from django.apps import apps
@@ -68,6 +68,21 @@ class OszAnalysis_table(ColumnShiftTable):
 
     class Meta:
         model = OszAnalysisJoin
+        template_name = "django_tables2/bootstrap.html"
+
+class GrvAnalysis_table(ColumnShiftTable):
+    Link = tables.TemplateColumn(verbose_name= ('Link'),
+                                    template_name='Col_GrvAnalysis.html',
+                                    orderable=False)
+
+    try:
+        print(ColumnShiftTable.__getattribute__)
+        
+    except :
+        print('error')
+
+    class Meta:
+        model = GrvAnalysisJoin
         template_name = "django_tables2/bootstrap.html"
 
 

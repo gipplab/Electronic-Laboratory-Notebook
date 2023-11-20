@@ -23,6 +23,7 @@ urlpatterns = [
     path("Comparisons/<str:pk>", views.Comparison, name="Comparisons"),
     path("OszAnalysis/<str:pk>", views.OszAnalysis, name="OszAnalysis"),
     path("DafAnalysis/<str:pk>", views.DafAnalysis, name="DafAnalysis"),
+    path("GrvAnalysis/<str:pk>", views.GrvAnalysis, name="GrvAnalysis"),
     path("update_model/<str:ModelName>/<str:pk>", views.update_model, name="update_model"),
     path("Generic/<str:ModelName>/<str:pk>", views.Generic, name="Generic"),
     path("Plan_Gas_OSZ/<str:pk>", views.Plan_Osz_graph, name="Plan_Gas_OSZ"),

@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block content %}
+{% include "Modal/_modal.html" %}
+{% load bootstrap3 %}
+<form method="post" target="print_popup"  onsubmit="window.open('about:blank','print_popup','width=1000,height=800');" novalidate>
+  {% csrf_token %}
+  {{ form }}
+  <button type="submit" name="Select_edit">Submit</button>
+</form>
+
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+{% load static %}
+{%load plotly_dash%}
+<div class="{% plotly_class name=Name_dash_app %}" style="height: 100%; width: 100%">
+{% plotly_app name=Name_dash_app ratio=1  initial_arguments=dash_context  %}
+</div>
+
+
+{% endblock content %}
+
+{% block extrascripts %}
+  <script type="text/javascript">
+    $(function () {
+      // Update properties buttons
+      $(".update-properties").each(function () {
+        $(this).modalForm({formURL: $(this).data('id')});
+      });
+    });
+  </script>
+{% endblock extrascripts %}
