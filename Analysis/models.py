@@ -25,8 +25,9 @@ class Comparison(models.Model):
          super(Comparison, self).save(*args, **kwargs)
 
 class PointsShift(models.Model):
-    Pos_ch = [('upper_on_hill', 'upper_on_hill'), ('upper_on_plate', 'upper_on_plate'), ('lower_in_groove', 'lower_in_groove'), 
-              ('upper_in_groove', 'upper_in_groove'), 
+    Pos_ch = [('upper_on_hill', 'upper_on_hill'), ('upper_on_plate', 'upper_on_plate'),
+              ('white_upper_on_hill', 'white_upper_on_hill'), ('white_upper_on_plate', 'white_upper_on_plate'), ('lower_in_groove', 'lower_in_groove'), 
+              ('upper_in_groove', 'upper_in_groove'), ('on_hill_edge', 'on_hill_edge'), 
               ('white_lower_in_groove', 'white_lower_in_groove'), ('white_upper_in_groove', 'white_upper_in_groove')]
     Type_pos = models.TextField(choices=Pos_ch, blank=True, null=True)
     Position = models.FloatField(blank=True, null=True)

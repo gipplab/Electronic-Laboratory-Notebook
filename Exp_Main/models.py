@@ -220,6 +220,7 @@ class GRV(ExpBase):
     Pix_Pos_0 = models.FloatField(blank=True, null=True)
     Link = models.TextField(blank=True, null=True)
     Link_Data = models.TextField(blank=True, null=True)
+    Link_Data_processed = models.TextField(blank=True, null=True)
     Link_PDF = models.TextField(blank=True, null=True)
     Link_Osz_join_LSP = models.TextField(blank=True, null=True)
     Dash = models.ForeignKey(GRV_dash, on_delete=models.CASCADE, blank=True, null=True)

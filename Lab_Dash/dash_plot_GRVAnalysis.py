@@ -12,6 +12,7 @@ import numpy as np
 from Exp_Main.models import GRV
 from Analysis.models import GrvAnalysisJoin, GrvAnalysis, PointsShift
 from Lab_Misc import Load_Data
+from Lab_Misc.models import SampleGroovedPlate
 from django.db.models import Q
 
 def conv(x):
@@ -44,96 +45,191 @@ def Gen_dash(dash_name, pk):
             """Plot selected combination of x and y parameters for selected experiments"""
             i = 0
             fig = make_subplots(specs=[[{"secondary_y": True}]])
-            for y2_sel in self.y2_Selection:
-                if y2_sel == 'Diff_steady_static':
-                    for ana_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
-                        for line_state in self.y1_Selection:
-                            i = [i for i, s in enumerate(self.y1_Selection) if line_state in s][0]
-                            entry_grv_ana = GrvAnalysis.objects.get(id = ana_id)
-                            i+=entry_grv_ana.Exp.Sample_name.id % 15
-                            entry_static = entry_grv_ana.SteadyShift.filter(Type_state = 'static').first()
-                            static_val = entry_static.PointsShift.filter(Type_pos = line_state).first().Position
-                            entry_steady = entry_grv_ana.SteadyShift.filter(Type_state = 'steady').first()
-                            steady_val = entry_steady.PointsShift.filter(Type_pos = line_state).first().Position
-                            diff_ss = steady_val-static_val
-                            exp_id = entry_grv_ana.Exp.id
-                            entry_full = get_in_full_model(exp_id)
-                            speed = entry_full.Plate_speed_mm_s
-                            fig.add_trace(go.Scatter(x=[speed], y=[diff_ss],
-                                marker=dict(color=self.colours[i]), yaxis='y1', name= entry_full.Name+' ' + line_state),
-                            )
-                elif y2_sel == 'steady':
-                    for ana_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
-                        for line_state in self.y1_Selection:
-                            i = [i for i, s in enumerate(self.y1_Selection) if line_state in s][0]
-                            entry_grv_ana = GrvAnalysis.objects.get(id = ana_id)
-                            i+=entry_grv_ana.Exp.Sample_name.id % 15
-                            entry_steady = entry_grv_ana.SteadyShift.filter(Type_state = 'steady').first()
-                            steady_val = entry_steady.PointsShift.filter(Type_pos = line_state).first().Position
-                            exp_id = entry_grv_ana.Exp.id
-                            entry_full = get_in_full_model(exp_id)
-                            speed = entry_full.Plate_speed_mm_s
-                            fig.add_trace(go.Scatter(x=[speed], y=[steady_val],
-                                marker=dict(color=self.colours[i]), yaxis='y2', name= entry_full.Name+' ' + line_state),
-                            )
-                elif y2_sel == 'static':
-                    for ana_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
-                        for line_state in self.y1_Selection:
-                            i = [i for i, s in enumerate(self.y1_Selection) if line_state in s][0]
-                            entry_grv_ana = GrvAnalysis.objects.get(id = ana_id)
-                            i+=entry_grv_ana.Exp.Sample_name.id % 15
-                            entry_static = entry_grv_ana.SteadyShift.filter(Type_state = 'static').first()
-                            static_val = entry_static.PointsShift.filter(Type_pos = line_state).first().Position
-                            exp_id = entry_grv_ana.Exp.id
-                            entry_full = get_in_full_model(exp_id)
-                            speed = entry_full.Plate_speed_mm_s
-                            fig.add_trace(go.Scatter(x=[speed], y=[static_val],
-                                marker=dict(color=self.colours[i]), yaxis='y2', name= entry_full.Name+' ' + line_state),
-                            )
-                elif y2_sel == 'theta':
-                    for ana_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
-                        for line_state in self.y1_Selection:
-                            i = [i for i, s in enumerate(self.y1_Selection) if line_state in s][0]
-                            entry_grv_ana = GrvAnalysis.objects.get(id = ana_id)
-                            i+=entry_grv_ana.Exp.Sample_name.id % 15
-                            entry_steady = entry_grv_ana.SteadyShift.filter(Type_state = 'steady').first()
-                            steady_val = entry_steady.PointsShift.filter(Type_pos = line_state).first().Position
-                            theta = np.arcsin(1-steady_val**2/(2*1.48**2))/np.pi*180
-                            exp_id = entry_grv_ana.Exp.id
-                            entry_full = get_in_full_model(exp_id)
-                            speed = entry_full.Plate_speed_mm_s
-                            ca = 10*speed/10/20
-                            theta = theta**3
-                            fig.add_trace(go.Scatter(x=[ca], y=[theta],
-                                marker=dict(color=self.colours[i]), yaxis='y2', name= entry_full.Name+' ' + line_state,),
-                            )
-                    #fig.update_xaxes(type="log")
-                    #fig.update_yaxes(type="log")
-                
-                elif y2_sel == 'virt_theta':
-                    for ana_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
-                        for line_state in self.y1_Selection:
-                            i = [i for i, s in enumerate(self.y1_Selection) if line_state in s][0]
-                            entry_grv_ana = GrvAnalysis.objects.get(id = ana_id)
-                            i+=entry_grv_ana.Exp.Sample_name.id % 15
-                            entry_steady = entry_grv_ana.SteadyShift.filter(Type_state = 'steady').first()
-                            steady_val = entry_steady.PointsShift.filter(Type_pos = line_state).first().Position
-                            
-                            entry_static = entry_grv_ana.SteadyShift.filter(Type_state = 'static').first()
-                            static_val = entry_static.PointsShift.filter(Type_pos = line_state).first().Position
-                            diff_virt = static_val - np.sqrt(2)*1.48
-                            steady_val = steady_val-diff_virt
-                            theta = np.arcsin(1-steady_val**2/(2*1.48**2))/np.pi*180
-                            exp_id = entry_grv_ana.Exp.id
-                            entry_full = get_in_full_model(exp_id)
-                            speed = entry_full.Plate_speed_mm_s
-                            ca = 10*speed/10/20
-                            
-                            #theta = theta**3
-                            fig.add_trace(go.Scatter(x=[ca], y=[theta],
-                                marker=dict(color=self.colours[i]), yaxis='y2', name= entry_full.Name+' ' + line_state,),
-                            )
-                    fig.update_xaxes(type="log")
+            if self.x_Selection[0] == 'Speed':
+                for y2_sel in self.y2_Selection:
+                    if y2_sel == 'Diff_steady_static':
+                        for ana_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
+                            for line_state in self.y1_Selection:
+                                i = [i for i, s in enumerate(self.y1_Selection) if line_state in s][0]
+                                entry_grv_ana = GrvAnalysis.objects.get(id = ana_id)
+                                i+=entry_grv_ana.Exp.Sample_name.id % 15
+                                entry_static = entry_grv_ana.SteadyShift.filter(Type_state = 'static').first()
+                                static_val = entry_static.PointsShift.filter(Type_pos = line_state).first().Position
+                                entry_steady = entry_grv_ana.SteadyShift.filter(Type_state = 'steady').first()
+                                steady_val = entry_steady.PointsShift.filter(Type_pos = line_state).first().Position
+                                diff_ss = steady_val-static_val
+                                exp_id = entry_grv_ana.Exp.id
+                                entry_full = get_in_full_model(exp_id)
+                                speed = entry_full.Plate_speed_mm_s
+                                fig.add_trace(go.Scatter(x=[speed], y=[diff_ss],
+                                    marker=dict(color=self.colours[i]), yaxis='y1', name= entry_full.Name+' ' + line_state),
+                                )
+                    elif y2_sel == 'steady':
+                        for ana_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
+                            for line_state in self.y1_Selection:
+                                i = [i for i, s in enumerate(self.y1_Selection) if line_state in s][0]
+                                entry_grv_ana = GrvAnalysis.objects.get(id = ana_id)
+                                i+=entry_grv_ana.Exp.Sample_name.id % 15
+                                entry_steady = entry_grv_ana.SteadyShift.filter(Type_state = 'steady').first()
+                                steady_val = entry_steady.PointsShift.filter(Type_pos = line_state).first().Position
+                                exp_id = entry_grv_ana.Exp.id
+                                entry_full = get_in_full_model(exp_id)
+                                speed = entry_full.Plate_speed_mm_s
+                                fig.add_trace(go.Scatter(x=[speed], y=[steady_val],
+                                    marker=dict(color=self.colours[i]), yaxis='y2', name= entry_full.Name+' ' + line_state),
+                                )
+                    elif y2_sel == 'static':
+                        for ana_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
+                            for line_state in self.y1_Selection:
+                                i = [i for i, s in enumerate(self.y1_Selection) if line_state in s][0]
+                                entry_grv_ana = GrvAnalysis.objects.get(id = ana_id)
+                                i+=entry_grv_ana.Exp.Sample_name.id % 15
+                                entry_static = entry_grv_ana.SteadyShift.filter(Type_state = 'static').first()
+                                static_val = entry_static.PointsShift.filter(Type_pos = line_state).first().Position
+                                exp_id = entry_grv_ana.Exp.id
+                                entry_full = get_in_full_model(exp_id)
+                                speed = entry_full.Plate_speed_mm_s
+                                fig.add_trace(go.Scatter(x=[speed], y=[static_val],
+                                    marker=dict(color=self.colours[i]), yaxis='y2', name= entry_full.Name+' ' + line_state),
+                                )
+                    elif y2_sel == 'theta':
+                        for ana_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
+                            for line_state in self.y1_Selection:
+                                i = [i for i, s in enumerate(self.y1_Selection) if line_state in s][0]
+                                entry_grv_ana = GrvAnalysis.objects.get(id = ana_id)
+                                i+=entry_grv_ana.Exp.Sample_name.id % 15
+                                entry_steady = entry_grv_ana.SteadyShift.filter(Type_state = 'steady').first()
+                                steady_val = entry_steady.PointsShift.filter(Type_pos = line_state).first().Position
+                                theta = np.arcsin(1-steady_val**2/(2*1.48**2))/np.pi*180
+                                exp_id = entry_grv_ana.Exp.id
+                                entry_full = get_in_full_model(exp_id)
+                                speed = entry_full.Plate_speed_mm_s
+                                ca = 10*speed/10/20
+                                theta = theta**3
+                                fig.add_trace(go.Scatter(x=[ca], y=[theta],
+                                    marker=dict(color=self.colours[i]), yaxis='y2', name= entry_full.Name+' ' + line_state,),
+                                )
+                        #fig.update_xaxes(type="log")
+                        #fig.update_yaxes(type="log")
+                    
+                    elif y2_sel == 'virt_theta':
+                        for ana_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
+                            for line_state in self.y1_Selection:
+                                i = [i for i, s in enumerate(self.y1_Selection) if line_state in s][0]
+                                entry_grv_ana = GrvAnalysis.objects.get(id = ana_id)
+                                i+=entry_grv_ana.Exp.Sample_name.id % 15
+                                entry_steady = entry_grv_ana.SteadyShift.filter(Type_state = 'steady').first()
+                                steady_val = entry_steady.PointsShift.filter(Type_pos = line_state).first().Position
+                                
+                                entry_static = entry_grv_ana.SteadyShift.filter(Type_state = 'static').first()
+                                static_val = entry_static.PointsShift.filter(Type_pos = line_state).first().Position
+                                diff_virt = static_val - np.sqrt(2)*1.48
+                                steady_val = steady_val-diff_virt
+                                theta = np.arcsin(1-steady_val**2/(2*1.48**2))/np.pi*180
+                                exp_id = entry_grv_ana.Exp.id
+                                entry_full = get_in_full_model(exp_id)
+                                speed = entry_full.Plate_speed_mm_s
+                                ca = 10*speed/10/20
+                                
+                                #theta = theta**3
+                                fig.add_trace(go.Scatter(x=[ca], y=[theta],
+                                    marker=dict(color=self.colours[i]), yaxis='y2', name= entry_full.Name+' ' + line_state,),
+                                )
+                        fig.update_xaxes(type="log")
+            elif self.x_Selection[0] == 'Groove':
+                for y2_sel in self.y2_Selection:
+                    if y2_sel == 'Diff_steady_static':
+                        for ana_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
+                            for line_state in self.y1_Selection:
+                                i = [i for i, s in enumerate(self.y1_Selection) if line_state in s][0]
+                                entry_grv_ana = GrvAnalysis.objects.get(id = ana_id)
+                                i+=entry_grv_ana.Exp.Sample_name.id % 15
+                                entry_static = entry_grv_ana.SteadyShift.filter(Type_state = 'static').first()
+                                static_val = entry_static.PointsShift.filter(Type_pos = line_state).first().Position
+                                entry_steady = entry_grv_ana.SteadyShift.filter(Type_state = 'steady').first()
+                                steady_val = entry_steady.PointsShift.filter(Type_pos = line_state).first().Position
+                                diff_ss = steady_val-static_val
+                                exp_id = entry_grv_ana.Exp.id
+                                entry_full = get_in_full_model(exp_id)
+                                speed = entry_full.Plate_speed_mm_s
+                                fig.add_trace(go.Scatter(x=[speed], y=[diff_ss],
+                                    marker=dict(color=self.colours[i]), yaxis='y1', name= entry_full.Name+' ' + line_state),
+                                )
+                    elif y2_sel == 'steady':
+                        for ana_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
+                            for line_state in self.y1_Selection:
+                                i = [i for i, s in enumerate(self.y1_Selection) if line_state in s][0]
+                                entry_grv_ana = GrvAnalysis.objects.get(id = ana_id)
+                                #i+=entry_grv_ana.Exp.Sample_name.id % 15
+                                entry_steady = entry_grv_ana.SteadyShift.filter(Type_state = 'steady').first()
+                                steady_val = entry_steady.PointsShift.filter(Type_pos = line_state).first().Position
+                                exp_id = entry_grv_ana.Exp.id
+                                entry_full = get_in_full_model(exp_id)
+                                sample = SampleGroovedPlate.objects.get(id = entry_full.Sample_name.id)
+                                groove_width = sample.Groove_width_mm
+                                i+=int((sample.Ridge_width_mm*10) % 15)
+                                speed = entry_full.Plate_speed_mm_s
+                                fig.add_trace(go.Scatter(x=[groove_width], y=[steady_val],
+                                    marker=dict(color=self.colours[i]), yaxis='y2', name= entry_full.Name+' ' + line_state+' ' + str(speed)),
+                                )
+                    elif y2_sel == 'static':
+                        for ana_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
+                            for line_state in self.y1_Selection:
+                                i = [i for i, s in enumerate(self.y1_Selection) if line_state in s][0]
+                                entry_grv_ana = GrvAnalysis.objects.get(id = ana_id)
+                                i+=entry_grv_ana.Exp.Sample_name.id % 15
+                                entry_static = entry_grv_ana.SteadyShift.filter(Type_state = 'static').first()
+                                static_val = entry_static.PointsShift.filter(Type_pos = line_state).first().Position
+                                exp_id = entry_grv_ana.Exp.id
+                                entry_full = get_in_full_model(exp_id)
+                                speed = entry_full.Plate_speed_mm_s
+                                fig.add_trace(go.Scatter(x=[speed], y=[static_val],
+                                    marker=dict(color=self.colours[i]), yaxis='y2', name= entry_full.Name+' ' + line_state),
+                                )
+                    elif y2_sel == 'theta':
+                        for ana_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
+                            for line_state in self.y1_Selection:
+                                i = [i for i, s in enumerate(self.y1_Selection) if line_state in s][0]
+                                entry_grv_ana = GrvAnalysis.objects.get(id = ana_id)
+                                i+=entry_grv_ana.Exp.Sample_name.id % 15
+                                entry_steady = entry_grv_ana.SteadyShift.filter(Type_state = 'steady').first()
+                                steady_val = entry_steady.PointsShift.filter(Type_pos = line_state).first().Position
+                                theta = np.arcsin(1-steady_val**2/(2*1.48**2))/np.pi*180
+                                exp_id = entry_grv_ana.Exp.id
+                                entry_full = get_in_full_model(exp_id)
+                                speed = entry_full.Plate_speed_mm_s
+                                ca = 10*speed/10/20
+                                theta = theta**3
+                                fig.add_trace(go.Scatter(x=[ca], y=[theta],
+                                    marker=dict(color=self.colours[i]), yaxis='y2', name= entry_full.Name+' ' + line_state,),
+                                )
+                        #fig.update_xaxes(type="log")
+                        #fig.update_yaxes(type="log")
+                    
+                    elif y2_sel == 'virt_theta':
+                        for ana_id in self.select_exp: # plot each experiment seperately to get legend with experiment names
+                            for line_state in self.y1_Selection:
+                                i = [i for i, s in enumerate(self.y1_Selection) if line_state in s][0]
+                                entry_grv_ana = GrvAnalysis.objects.get(id = ana_id)
+                                i+=entry_grv_ana.Exp.Sample_name.id % 15
+                                entry_steady = entry_grv_ana.SteadyShift.filter(Type_state = 'steady').first()
+                                steady_val = entry_steady.PointsShift.filter(Type_pos = line_state).first().Position
+                                
+                                entry_static = entry_grv_ana.SteadyShift.filter(Type_state = 'static').first()
+                                static_val = entry_static.PointsShift.filter(Type_pos = line_state).first().Position
+                                diff_virt = static_val - np.sqrt(2)*1.48
+                                steady_val = steady_val-diff_virt
+                                theta = np.arcsin(1-steady_val**2/(2*1.48**2))/np.pi*180
+                                exp_id = entry_grv_ana.Exp.id
+                                entry_full = get_in_full_model(exp_id)
+                                speed = entry_full.Plate_speed_mm_s
+                                ca = 10*speed/10/20
+                                
+                                #theta = theta**3
+                                fig.add_trace(go.Scatter(x=[ca], y=[theta],
+                                    marker=dict(color=self.colours[i]), yaxis='y2', name= entry_full.Name+' ' + line_state,),
+                                )
+                        fig.update_xaxes(type="log")
             return fig
 
     value = 'temp'
@@ -368,6 +464,7 @@ def Gen_dash(dash_name, pk):
             axis_value = []
         x_Selection = [
                     {'label': 'Speed', 'value': 'Speed'},
+                    {'label': 'Groove', 'value': 'Groove'},
                 ]
         y2_Selection = [
                     {'label': 'Diff steady static', 'value': 'Diff_steady_static'},

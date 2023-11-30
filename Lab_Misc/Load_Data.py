@@ -45,7 +45,7 @@ def Load_from_Model(ModelName, pk):
     if ModelName == 'SFG':
         return Load_SFG(pk)
     if ModelName == 'GRV':
-        return Load_GRV(pk)
+        return GRV_diff(pk)
 
 def conv(x):
     return x.replace(',', '.').encode()
@@ -109,6 +109,43 @@ def Load_SEL(pk):
     df["Time (min.)"] = Curr_Dash.Start_datetime_elli + pd.TimedeltaIndex(df["Time (min.)"], unit='m')
     df["time"] = df["Time (min.)"].dt.tz_convert(timezone.get_current_timezone())
     df['time_loc'] = df["time"]
+    return df
+
+def GRV_diff(pk):
+    entry = General.get_in_full_model(pk)
+    try:
+        len(entry.Link_Data_processed)
+        return Load_GRV_processed(pk)
+    except:
+        return Load_GRV(pk)
+
+def Load_GRV_processed(pk):
+    entry = General.get_in_full_model(pk)
+    Folder = os.path.join( rel_path, entry.Link_Data_processed)
+    os.chdir(Folder)
+    df = pd.read_excel('Analysis.xlsx')
+    df.index = [df['type'], df['position']]
+    scale = df.loc['settings','scale']['value']
+    def conv_val(ss, val1, val2, out):
+        plate_w1 = (df.loc[ss,'beaker_hight']['value']-df.loc[ss, val1]['value'])*scale
+        plate_w2 = (df.loc[ss,'beaker_hight']['value']-df.loc[ss, val2]['value'])*scale
+        df.loc[(ss,out), 'value'] = np.mean([plate_w1, plate_w2])
+
+    conv_val('static', 'plate1_white', 'plate2_white','white_upper_on_plate')
+    conv_val('steady', 'plate1_white', 'plate2_white','white_upper_on_plate')
+
+    conv_val('static', 'plate1', 'plate2','upper_on_plate')
+    conv_val('steady', 'plate1', 'plate2','upper_on_plate')
+
+    conv_val('static', 'ridge_c_1_white', 'ridge_c_2_white','white_upper_on_hill')
+    conv_val('steady', 'ridge_c_1_white', 'ridge_c_2_white','white_upper_on_hill')
+
+    conv_val('static', 'ridge_c_1', 'ridge_c_2','upper_on_hill')
+    conv_val('steady', 'ridge_c_1', 'ridge_c_2','upper_on_hill')
+
+
+    conv_val('static', 'ridge_e_1', 'ridge_e_2','on_hill_edge')
+    conv_val('steady', 'ridge_e_1', 'ridge_e_2','on_hill_edge')
     return df
 
 def Load_GRV(pk):
