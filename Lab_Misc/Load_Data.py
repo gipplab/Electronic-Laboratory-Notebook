@@ -124,6 +124,7 @@ def Load_GRV_processed(pk):
     Folder = os.path.join( rel_path, entry.Link_Data_processed)
     os.chdir(Folder)
     df = pd.read_excel('Analysis.xlsx')
+    df = df.rename(columns={"Type": "type", "Position": "position", "Value": "value", "Error": "error"})
     df.index = [df['type'], df['position']]
     scale = df.loc['settings','scale']['value']
     def conv_val(ss, val1, val2, out):

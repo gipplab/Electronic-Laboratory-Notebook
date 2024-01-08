@@ -177,13 +177,16 @@ def Gen_dash(dash_name, pk):
                             for line_state in self.y1_Selection:
                                 i = [i for i, s in enumerate(self.y1_Selection) if line_state in s][0]
                                 entry_grv_ana = GrvAnalysis.objects.get(id = ana_id)
-                                i+=entry_grv_ana.Exp.Sample_name.id % 15
+                                #i+=entry_grv_ana.Exp.Sample_name.id % 15
                                 entry_static = entry_grv_ana.SteadyShift.filter(Type_state = 'static').first()
                                 static_val = entry_static.PointsShift.filter(Type_pos = line_state).first().Position
                                 exp_id = entry_grv_ana.Exp.id
                                 entry_full = get_in_full_model(exp_id)
+                                sample = SampleGroovedPlate.objects.get(id = entry_full.Sample_name.id)
+                                groove_width = sample.Groove_width_mm
+                                i+=int((sample.Ridge_width_mm*10) % 15)
                                 speed = entry_full.Plate_speed_mm_s
-                                fig.add_trace(go.Scatter(x=[speed], y=[static_val],
+                                fig.add_trace(go.Scatter(x=[groove_width], y=[static_val],
                                     marker=dict(color=self.colours[i]), yaxis='y2', name= entry_full.Name+' ' + line_state),
                                 )
                     elif y2_sel == 'theta':

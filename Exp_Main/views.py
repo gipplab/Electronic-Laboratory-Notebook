@@ -459,6 +459,24 @@ class Read_entry(BSModalReadView):
                     Folder_path = Folder_path.replace('/', '\\')
                     subprocess.Popen(r'explorer /select,' + Folder_path)
 
+            if request.method == 'POST' and 'OpenProcessedPath' in request.POST:
+                cwd = os.getcwd()
+                Folder_path = os.path.join(get_BasePath(), self.curr_entry.Link_Data_processed)
+                Folder_path = Folder_path.replace(',', '","')
+                if General.is_linux():
+                    try:
+                        os.chdir(Folder_path)
+                    except:
+                        os.chdir(Folder_path[:General.get_LastIndex(Folder_path, '/')])
+                    os.system('xdg-open .')
+                    os.chdir(cwd)
+                    #webbrowser.open(Folder_path)
+                    #os.system('xdg-open "%s"' % Folder_path)
+
+                else:
+                    Folder_path = Folder_path.replace('/', '\\')
+                    subprocess.Popen(r'explorer /select,' + Folder_path)
+
             if request.method == 'POST' and 'OpenDataPath' in request.POST:
                 cwd = os.getcwd()
                 Folder_path = os.path.join(get_BasePath(), self.curr_entry.Link_Data)
