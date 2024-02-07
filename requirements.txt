@@ -31,4 +31,4 @@ scipy
 Werkzeug==2.0.0
 openpyxl
 datatable
-opencv-python
+opencv-python==4.1.2.30
