@@ -324,6 +324,10 @@ class Read_entry(BSModalReadView):
             cwd = os.getcwd()
             subprocess.call(['python', 'Private/Groove_analysis/Groove_analysis.py', str(Main_id), Link_to_vid])
             os.chdir(cwd)
+        def start_sdv_ana():
+            cwd = os.getcwd()
+            subprocess.call(['python', 'Private/Groove_analysis/canny_edge.py', str(Main_id), Link_to_vid])
+            os.chdir(cwd)
         def start_hbk_ana():
             cwd = os.getcwd()
             subprocess.call(['python', 'Private/Groove_analysis/Height_analysis.py', str(Main_id), Link_to_vid])
@@ -411,6 +415,15 @@ class Read_entry(BSModalReadView):
 
                 self.curr_entry.save()
                 x = threading.Thread(target=start_grv_ana)
+                x.start()
+
+            if request.method == 'POST' and 'Run_SDV_Analysis' in request.POST:
+                Link_to_vid = os.path.join(get_BasePath(), self.curr_entry.Link.replace('01_Videos', '03_Processed_Data'))
+                Main_id = self.curr_entry.id
+                self.curr_entry.Link_Data_processed = self.curr_entry.Link.replace('01_Videos', '03_Processed_Data')
+
+                self.curr_entry.save()
+                x = threading.Thread(target=start_sdv_ana)
                 x.start()
             
             if request.method == 'POST' and 'Run_HBK_Analysis' in request.POST:

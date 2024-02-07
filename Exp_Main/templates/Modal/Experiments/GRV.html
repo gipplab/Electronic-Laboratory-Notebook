@@ -16,8 +16,6 @@
       <button type="submit" name="OpenMainPath">Video</button>
       &nbsp
       <button type="submit" name="OpenProcessedPath">Processed</button>
-      &nbsp
-      <button type="submit" name="OpenDataPath">Data</button>
     </form></th>
   </tr>  
   <tr>
@@ -31,6 +29,8 @@
     <th><form method="post">
       {% csrf_token %}
       <button type="submit" name="Run_GRV_Analysis">Run GRV Analysis</button>
+      &nbsp
+      <button type="submit" name="Run_SDV_Analysis">Side view</button>
     </form></th>
   </tr>
   <tr>
