@@ -2,6 +2,7 @@ from .models import ExpBase as ExpBase_Main, Liquid
 from .models import ExpPath as ExpPath_Main
 from Lab_Dash.models import SEL as SEL_dash
 from Lab_Dash.models import OCA as OCA_dash
+#from Lab_Dash.models import DRP as DRP_dash#TODO Add Model
 from Lab_Dash.models import GRV as GRV_dash
 from Lab_Dash.models import LMP as LMP_dash
 from Lab_Dash.models import RSD as RSD_dash
@@ -181,6 +182,9 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
         if Exp.Abbrev == 'GRV':
             self.add_GRV_files(entry)
             entry.save()
+        '''if Exp.Abbrev == 'DRP':#TODO Add Model
+            self.add_DRP_files(file, entry)
+            entry.save()'''
         
     def add_SFG_files(self, file, entry):
         """
@@ -271,6 +275,21 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
         entry_dash.save()
         entry.Dash = entry_dash
         self.f.write(' and add dash.</p>\n')
+
+    '''def add_DRP_files(self, file, entry):#TODO Add Model
+        """
+        adds the dash model
+
+        Parameters
+        ----------
+        entry : [type]
+            entry to which the file was added
+        """
+        entry_dash = DRP_dash()
+        entry_dash.save()
+        entry.Dash = entry_dash
+        self.f.write(' and add dash.</p>\n')'''
+    
 
     def add_LMP_files(self, file, entry):
         """

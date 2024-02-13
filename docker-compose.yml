@@ -6,6 +6,10 @@ services:
       MYENV: Labbook
     volumes:
       - .:/code
+  web_makemigrations:
+    extends:
+      service: web
+    command: python manage.py makemigrations
   web_migrate:
     extends:
       service: web

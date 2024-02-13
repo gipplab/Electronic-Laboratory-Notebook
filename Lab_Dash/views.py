@@ -7,6 +7,7 @@ from Exp_Main.models import SEL as SEL_Main
 from Exp_Main.models import SFG as SFG_Main
 from Exp_Main.models import RSD as RSD_Main
 from Exp_Main.models import LMP as LMP_Main
+#from Exp_Main.models import DRP as DRP_Main#TODO Add Model
 from Exp_Main.models import GRV as GRV_Main
 from Exp_Main.models import DAF as DAF_Main
 from Lab_Misc.models import OszScriptGen
@@ -17,6 +18,7 @@ from Analysis.models import GrvAnalysisJoin as GrvAnalysis_Main
 from Analysis.models import DafAnalysis as DafAnalysis_Main
 from Lab_Dash.dash_plot_SEL import Gen_dash
 from Lab_Dash.dash_plot_RSD import Gen_dash as Gen_dash_RSD
+#from Lab_Dash.dash_plot_DRP import Gen_dash as Gen_dash_DRP#TODO Add Model
 from Lab_Dash.dash_plot_GRV import Gen_dash as Gen_dash_GRV
 from Lab_Dash.dash_plot_LMP import Gen_dash as Gen_dash_LMP
 from Lab_Dash.dash_plot_Generic import Gen_dash as Gen_dash_Generic
@@ -203,6 +205,19 @@ def update_model(request, ModelName, pk):
         formset.save()
         #return redirect('next_view')
     return render(request, 'update_Dash_model.html', {'formset': formset})
+
+'''def DRP_graph(request, pk):#TODO Add Model
+    #passes the info to the plot
+    entry = DRP_Main.objects.get(id = pk)
+    context = {'stuff': 'somestuff'}
+    context['Experiment_Name'] = entry.Name
+    context['pk_dash'] = entry.Dash.pk # '-' is theseperator defined in url
+    context['model_name'] = 'RSD'
+    Name_dash_app = 'dash_DRP_' + str(pk)
+    context['Name_dash_app'] = Name_dash_app
+    Gen_dash_DRP(Name_dash_app)#Creates a new app for every pk so the data will not corrupt
+    context['dash_context'] = {'target_id': {'value': pk}}
+    return render(request, "plot.html", context)'''
 
 def GRP_graph(request, model, pk):
     if model == 'SFG':

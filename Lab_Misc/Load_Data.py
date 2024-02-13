@@ -1,6 +1,6 @@
 import glob, os
 import pandas as pd
-from Exp_Main.models import OCA, ExpBase, ExpPath, RSD, DAF, SFG
+from Exp_Main.models import OCA, ExpBase, ExpPath, RSD, DAF, SFG#, DRP #TODO Add Model
 from Analysis.models import OszAnalysis
 from Analysis.models import DafAnalysis
 from Exp_Sub.models import LSP, MFR, CAP
@@ -46,6 +46,8 @@ def Load_from_Model(ModelName, pk):
         return Load_SFG(pk)
     if ModelName == 'GRV':
         return GRV_diff(pk)
+    '''if ModelName == 'DRP':#TODO Add Model
+        return Load_DRP(pk)'''
 
 def conv(x):
     return x.replace(',', '.').encode()
@@ -96,6 +98,21 @@ def Load_LMP_cosolvent(pk, file_name):
     data['time']=data[:, dt.as_type(f.time, int)]
     return data
 
+'''def Load_DRP(Main_id):#TODO Add Model
+    #loads the date from the file
+    entry = DRP.objects.get(id = Main_id)
+    file = os.path.join( rel_path, entry.Link)
+    tmp_dt = pd.read_table(file, sep='	', decimal = ',', skiprows = 10, encoding= 'unicode_escape')
+    if len(tmp_dt.columns) == 13:
+        names = ['Run_No', 'Age', 'CA_M', 'CA_L', 'CA_R', 'CM', 'BD', 'Vol', 'Mag', 'a', 'b', 'c', 'd']
+    else:
+        names = ['Run_No', 'Age', 'CA_M', 'CA_L', 'CA_R', 'CM', 'BD', 'Vol', 'Mag', 'BI_left', 'BI_right', 'Height']
+    data = pd.read_table(file, sep='	', decimal = ',', names = names, skiprows = 10, encoding= 'unicode_escape')
+    data['Age'] = data['Age']/1000
+    slice_CA_high = (data['CA_L']<1800) & (data['CA_R']<1800)
+    data = data[slice_CA_high]
+    os.chdir(cwd)
+    return data'''
 
 def Load_SEL(pk):
     entry = General.get_in_full_model(pk)

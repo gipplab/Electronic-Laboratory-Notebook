@@ -9,6 +9,7 @@ from Lab_Dash.models import GRP as GRP_dash
 from Lab_Dash.models import LMP as LMP_dash
 from Lab_Dash.models import GRV as GRV_dash
 from Lab_Dash.models import DAF as DAF_dash
+#from Lab_Dash.models import DRP as DRP_dash#TODO add Model
 from Lab_Dash.models import Comparison as Comparison_dash
 from Lab_Misc.models import SampleBase, OszScriptGen
 from Lab_Misc.models import ProjectEntry as Project
@@ -571,3 +572,17 @@ class DAF(ExpBase):
     Link_Result = models.TextField(blank=True, null=True)
     def __str__(self):
         return str(self.Name)
+
+'''class DRP(ExpBase):#TODO Add Model
+    """DRP Model to store all experiments done with the DRP
+
+    Parameters
+    ----------
+    models : [type]
+        [description]
+    """
+    Link = models.TextField(blank=True, null=True)
+    Dash = models.ForeignKey(DRP_dash, on_delete=models.CASCADE, blank=True, null=True)#adds connection to plot model
+    Sub_Exp = models.ManyToManyField(SubExp_base, blank=True)#adds connection to sub exp
+    def __str__(self):
+        return str(self.Name)'''

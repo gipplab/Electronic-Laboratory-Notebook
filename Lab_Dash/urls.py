@@ -29,6 +29,7 @@ urlpatterns = [
     path("Plan_Gas_OSZ/<str:pk>", views.Plan_Osz_graph, name="Plan_Gas_OSZ"),
     path("OCA/<str:pk>", views.OCA_graph, name="OCA_graph"),
     path("SFG/<str:pk>", views.SFG_graph, name="SFG_graph"),
+    #path("DRP/<str:pk>", views.DRP_graph, name="DRP_graph"),#TODO Add Model path to the plot
     path("RSD/<str:pk>", views.RSD_Graph, name="RSD_Graph"),
     path("GRV/<str:pk>", views.GRV_Graph, name="GRV_Graph"),
     path("LMP/<str:pk>", views.LMP_Graph, name="LMP_Graph"),

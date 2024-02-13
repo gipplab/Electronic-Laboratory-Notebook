@@ -1,0 +1,9 @@
+{% extends "Modal/read_entry.html" %}
+<!-- TODO Add Model -->
+<!-- In order to display links specific for your model you need to create an HTML file like this with the Abbrev as a name -->
+  {% block Modal_detailed_content %}
+  <tr>
+    <th>Plot:</th>
+    <th><a href="/Dash/DRP/{{ExpBase.pk}}">Link to plot</a></th>
+  </tr>
+{% endblock Modal_detailed_content %}

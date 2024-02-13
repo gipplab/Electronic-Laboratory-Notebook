@@ -22,7 +22,7 @@ class CreateAndUpdate():
     if os.environ['DJANGO_SETTINGS_MODULE'] == 'Private.settings':
         Reports_path = "Private/Reports/"
     else:
-        Reports_path = "Lab_Misc/templates/"
+        Reports_path = "/code/Lab_Misc/templates/"
 
     def is_ValidFile(self, file, Exp):
         """
