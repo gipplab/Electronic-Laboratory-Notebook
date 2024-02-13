@@ -154,7 +154,7 @@ To add a new sample, follow these steps:
 7. For further details about models, visit the Django documentation.
 
 
-# Navive installation
+# Native installation
 
 If you install the labbook natively on your computer, you will also have access to Jupyter. 
 To open Jupyter, click on `Analysis`, and then select `Open Jupyter`.
