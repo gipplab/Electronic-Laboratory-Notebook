@@ -1,5 +1,5 @@
 # Introduction to the Labbook!
-
+[![SWH](https://archive.softwareheritage.org/badge/origin/https://github.com/gipplab/Electronic-Laboratory-Notebook/)](https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/gipplab/Electronic-Laboratory-Notebook)
 
 With this lab book, you can **store, organize, and analyze** the experiments you've performed. It is designed for **individual users** with a **large number of experiments**. You can **input the data** you receive from your experiments and **automatically store it in a database**, which allows you to **categorize the data** in a way that suits your needs. Additionally, you can **access the database** using **Jupyter Notebook** and **manipulate it** as needed. Within the Jupyter Notebook, you also have access to all the functions that you've defined in your **Django framework**.
 
