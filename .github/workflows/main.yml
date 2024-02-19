@@ -46,4 +46,7 @@ jobs:
           cache-to: type=gha,mode=max
       - name: Build the stack
         run: >
-          docker-compose up -d 
+          docker-compose up -d
+      - name: Healthcheck
+        run: >
+          curl localhost:8000 -sS | grep -c Labbook > /dev/null
