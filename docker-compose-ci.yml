@@ -1,0 +1,13 @@
+services:
+  web_run:
+    healthcheck:
+      test: curl localhost:8000 -sS | grep -c Labbook > /dev/null
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  hello_world:
+    image: hello-world
+    depends_on:
+      web_run:
+        condition: service_healthy
+
