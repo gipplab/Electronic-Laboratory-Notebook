@@ -22,6 +22,7 @@ For more details on the concept see our [paper](https://arxiv.org/abs/2205.01058
 # Getting Started with Docker
 
 1. **Run the App in Docker**:
+   - Install the latest Version of [Docker](https://docs.docker.com/engine/install/)
    - Open your terminal or command prompt.
    - Navigate to the root directory of your project.
    - Type the following command to start the app in Docker: `docker-compose up`
