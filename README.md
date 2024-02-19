@@ -1,5 +1,5 @@
 # Introduction to the Labbook!
-[![SWH](https://archive.softwareheritage.org/badge/origin/https://github.com/gipplab/Electronic-Laboratory-Notebook/)](https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/gipplab/Electronic-Laboratory-Notebook)
+
 
 With this lab book, you can **store, organize, and analyze** the experiments you've performed. It is designed for **individual users** with a **large number of experiments**. You can **input the data** you receive from your experiments and **automatically store it in a database**, which allows you to **categorize the data** in a way that suits your needs. Additionally, you can **access the database** using **Jupyter Notebook** and **manipulate it** as needed. Within the Jupyter Notebook, you also have access to all the functions that you've defined in your **Django framework**.
 
@@ -12,14 +12,12 @@ So far, we have used the lab book in the following scientific papers:
 - [ACS Langmuir](https://doi.org/10.1021/acs.langmuir.2c03009)
 - [J. Colloid Interface Sci.](https://doi.org/10.1016/j.jcis.2023.03.139)
 
-## How It Works
-
-In essence, we recorded videos and loaded them into our database, connecting the video files to all the details of the experiment, such as information about the sample, the liquid used, or the atmospheric conditions during the experiment. From within the lab book, we started the analysis, which allowed us to save analysis parameters for potential reruns. The results of this analysis were also stored in the lab book, enabling us to perform a meta-analysis of these results using the Jupyter Notebook.
+In these papers, we recorded videos and loaded them into our database, connecting the video files to all the details of the experiment, such as information about the sample, the liquid used, or the atmospheric conditions during the experiment. From within the lab book, we started the analysis, which allowed us to save analysis parameters for potential reruns. The results of this analysis were also stored in the lab book, enabling us to perform a meta-analysis of these results using the Jupyter Notebook.
 
 For more details on the concept see our [paper](https://arxiv.org/abs/2205.01058).
 
 
-# Getting Started with Docker
+# Getting Started using Docker
 
 1. **Run the App in Docker**:
    - Install the latest Version of [Docker](https://docs.docker.com/engine/install/)
@@ -52,7 +50,7 @@ We'll cover how to explore experiments, group them, focus on specific experiment
 - Grouping experiments allows you to analyze them collectively, which can be helpful for drawing insights.
 
 ## 3. Focus on a Specific Experiment
-- Let's focus on a specific experiment that was performed in this research paper: Link to Research Paper
+- Let's focus on a specific experiment that was performed in this research [paper](https://doi.org/10.1021/acs.langmuir.2c03009).
 - In this experiment, we recorded a drop and analyzed a video to extract the contact angle. The contact angle data is saved in a text file.
 
 ## 4. Visualizing Data
@@ -67,7 +65,7 @@ We'll cover how to explore experiments, group them, focus on specific experiment
 
 ![Experiments](https://github.com/ag-gipp/Electronic-Laboratory-Notebook/blob/master/Readme_img/Flow_CA.png)
 
-- There is a small offset between the flow and the contact angle. This can be corrected by shifting them. Therfor click on the pencil and enter 20 seconds as the the shift.
+- There is a small offset between the flow and the contact angle. This can be corrected by shifting them. Therefore, click on the pencil and enter 20 seconds as the shift.
 
 ![Experiments](https://github.com/ag-gipp/Electronic-Laboratory-Notebook/blob/master/Readme_img/shift_flow.png)
 
@@ -135,6 +133,7 @@ Throughout the code, look for comments labeled **TODO add model**. Uncomment the
      ```
      docker-compose up --build
      ```
+   - Run this comand twice
 
 7. **Adding a New Experiment**:
    - Finally, in your browser, click on **Generate / Main** to add the new entry to the database along with metadata from the folder.
