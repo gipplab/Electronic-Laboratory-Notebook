@@ -22,7 +22,7 @@ For more details on the concept see our [paper](https://arxiv.org/abs/2205.01058
 1. **Run the App in Docker**:
    - Install the latest Version of [Docker](https://docs.docker.com/engine/install/)
    - Open your terminal or command prompt.
-   - Navigate to the root directory of your project.
+   - Navigate to the root directory of the cloned Labbook repository, which contains the `docker-compose.yml` file
    - Type the following command to start the app in Docker: `docker-compose up`
    - Open your web browser and visit http://127.0.0.1:8000/
 
