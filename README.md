@@ -14,19 +14,19 @@ So far, we have used the lab book in the following scientific papers:
 
 In these papers, we recorded videos and loaded them into our database, connecting the video files to all the details of the experiment, such as information about the sample, the liquid used, or the atmospheric conditions during the experiment. From within the lab book, we started the analysis, which allowed us to save analysis parameters for potential reruns. The results of this analysis were also stored in the lab book, enabling us to perform a meta-analysis of these results using the Jupyter Notebook.
 
-For more details on the concept see our [paper](https://arxiv.org/abs/2205.01058).
+For more details on the concept, see our [paper](https://arxiv.org/abs/2205.01058).
 
 
 # Getting Started using Docker
 
 1. **Run the App in Docker**:
-   - Install the latest Version of [Docker](https://docs.docker.com/engine/install/)
+   - Install the latest version of [Docker](https://docs.docker.com/engine/install/)
    - Open your terminal or command prompt.
    - Navigate to the root directory of the cloned Labbook repository, which contains the `docker-compose.yml` file
-   - Type the following command to start the app in Docker: `docker-compose up`
+   - Type the following command to start the app in Docker: `docker compose up`
    - Open your web browser and visit http://127.0.0.1:8000/
 
-This command will build and run the necessary containers defined in your `docker-compose.yml` file.
+This command will build and run the containers defined in your `docker-compose.yml` file.
 
 That's it! You're now ready to explore the lab book within a Docker environment.
 
