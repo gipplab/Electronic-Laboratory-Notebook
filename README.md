@@ -54,7 +54,7 @@ We'll cover how to explore experiments, group them, focus on specific experiment
 - In this experiment, we recorded a drop and analyzed a video to extract the contact angle. The contact angle data is saved in a text file.
 
 ## 4. Visualizing Data
-- Click on the eye of the **OCA experiment (AA_01_OCA-200)**.
+- Click on the eye of the **OCA experiment (AA_01_OCA-200)**. [local link](http://localhost:8000/Dash/OCA/17)
 - You'll notice an option to view a plot (Link to plot). However, the default representation of contact angle over time may not be ideal for our needs.
 
 ![Experiments](https://github.com/ag-gipp/Electronic-Laboratory-Notebook/blob/master/Readme_img/CA_time.png)
