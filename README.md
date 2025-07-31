@@ -14,7 +14,7 @@ So far, we have used the lab book in the following scientific papers:
 
 In these papers, we recorded videos and loaded them into our database, connecting the video files to all the details of the experiment, such as information about the sample, the liquid used, or the atmospheric conditions during the experiment. From within the lab book, we started the analysis, which allowed us to save analysis parameters for potential reruns. The results of this analysis were also stored in the lab book, enabling us to perform a meta-analysis of these results using the Jupyter Notebook.
 
-For more details on the concept, see our [paper](https://arxiv.org/abs/2205.01058).
+For more details on the concept, see our [paper](https://doi.org/10.5334/jors.391).
 
 
 # Getting Started using Docker
