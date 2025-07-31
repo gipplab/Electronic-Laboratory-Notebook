@@ -1,0 +1,68 @@
+{
+  "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
+  "@type": "SoftwareSourceCode",
+  "name": "Electronic-Laboratory-Notebook",
+  "author": [
+    {
+      "@id": "https://orcid.org/0000-0001-8659-7132",
+      "@type": "Person",
+      "affiliation": {
+        "@type": "Organization",
+        "name": "Leibniz-Institut für Polymerforschung Dresden e.V.; Technische Universität Dresden"
+      },
+      "familyName": "Schubotz",
+      "givenName": "Simon"
+    },
+    {
+      "@id": "https://orcid.org/0000-0001-7141-4997",
+      "@type": "Person",
+      "affiliation": {
+        "@type": "Organization",
+        "name": "FIZ Karlsruhe - Leibniz Institute for Information Infrastructure"
+      },
+      "familyName": "Schubotz",
+      "givenName": "Moritz"
+    },
+    {
+      "@id": "https://orcid.org/0000-0003-1515-0143",
+      "@type": "Person",
+      "affiliation": {
+        "@type": "Organization",
+        "name": "Leibniz-Institut für Polymerforschung Dresden e.V."
+      },
+      "familyName": "Auernhammer",
+      "givenName": "Günter K."
+    }
+  ],
+  "codeRepository": "https://github.com/gipplab/Electronic-Laboratory-Notebook",
+  "datePublished": "2025-03-15",
+  "keywords": [
+    "Electronic Laboratory Notebook",
+    "Data management",
+    "Research data management",
+    "Scientific software",
+    "Automated data processing"
+  ],
+  "license": "https://spdx.org/licenses/Apache-2.0",
+  "version": "1.0.0",
+  "citation": {
+    "@type": "ScholarlyArticle",
+    "name": "Electronic Laboratory Notebook: An Adaptable Solution",
+    "identifier": "https://doi.org/10.5334/jors.391",
+    "isPartOf": {
+      "@type": "Periodical",
+      "name": "Journal of Open Research Software"
+    },
+    "author": [
+       {
+        "@id": "https://orcid.org/0000-0001-8659-7132"
+      },
+      {
+        "@id": "https://orcid.org/0000-0001-7141-4997"
+      },
+      {
+        "@id": "https://orcid.org/0000-0003-1515-0143"
+      }
+    ]
+  }
+}

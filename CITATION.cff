@@ -1,27 +1,48 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite it as below."
+message: "If you use this software, please cite it using the metadata in this file, or the preferred-citation."
+# This section describes the software itself
+title: "Electronic-Laboratory-Notebook"
 authors:
   - family-names: "Schubotz"
     given-names: "Simon"
-    affiliation: "Leibniz-Institut für Polymerforschung Dresden e.V., Hohe Straße 6, Dresden, 01069, Germany; Technische Universität Dresden, Helmholtztraße 10, Dresden, 01062, Germany"
+    affiliation: "Leibniz-Institut für Polymerforschung Dresden e.V.; Technische Universität Dresden"
     orcid: "https://orcid.org/0000-0001-8659-7132"
   - family-names: "Schubotz"
     given-names: "Moritz"
-    affiliation: "FIZ Karlsruhe, Franklinstraße 11, Berlin, 10587, Germany"
+    affiliation: "FIZ Karlsruhe - Leibniz Institute for Information Infrastructure"
     orcid: "https://orcid.org/0000-0001-7141-4997"
   - family-names: "Auernhammer"
     given-names: "Günter K."
-    affiliation: "Leibniz-Institut für Polymerforschung Dresden e.V., Hohe Straße 6, Dresden, 01069, Germany"
+    affiliation: "Leibniz-Institut für Polymerforschung Dresden e.V."
     orcid: "https://orcid.org/0000-0003-1515-0143"
-title: "Electronic Laboratory Notebook: An Adaptable Solution"
-doi: "10.5334/jors.391"
+version: 1.0.0
 date-released: 2025-03-15
 repository-code: "https://github.com/gipplab/Electronic-Laboratory-Notebook"
-journal: "Journal of Open Research Software"
+license: "Apache-2.0"
 keywords:
   - "Electronic Laboratory Notebook"
   - "Data management"
   - "Research data management"
   - "Scientific software"
   - "Automated data processing"
-license: "Apache-2.0"
+
+# This section describes the associated academic paper
+preferred-citation:
+  type: article
+  authors:
+    - family-names: "Schubotz"
+      given-names: "Simon"
+      affiliation: "Leibniz-Institut für Polymerforschung Dresden e.V.; Technische Universität Dresden"
+      orcid: "https://orcid.org/0000-0001-8659-7132"
+    - family-names: "Schubotz"
+      given-names: "Moritz"
+      affiliation: "FIZ Karlsruhe - Leibniz Institute for Information Infrastructure"
+      orcid: "https://orcid.org/0000-0001-7141-4997"
+    - family-names: "Auernhammer"
+      given-names: "Günter K."
+      affiliation: "Leibniz-Institut für Polymerforschung Dresden e.V."
+      orcid: "https://orcid.org/0000-0003-1515-0143"
+  title: "Electronic Laboratory Notebook: An Adaptable Solution"
+  journal: "Journal of Open Research Software"
+  doi: "10.5334/jors.391"
+  year: 2025
