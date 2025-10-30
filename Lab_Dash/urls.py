@@ -31,6 +31,7 @@ urlpatterns = [
     path("SFG/<str:pk>", views.SFG_graph, name="SFG_graph"),
     #path("DRP/<str:pk>", views.DRP_graph, name="DRP_graph"),#TODO Add Model path to the plot
     path("RSD/<str:pk>", views.RSD_Graph, name="RSD_Graph"),
+    path("RSD/compare/<str:pk>", views.RSD_compare_Graph, name="RSD_compare_Graph"),
     path("GRV/<str:pk>", views.GRV_Graph, name="GRV_Graph"),
     path("LMP/<str:pk>", views.LMP_Graph, name="LMP_Graph"),
     path("SEL/compare/<str:pk>", views.SEL_compare_graph, name="SEL_compare_graph"),

@@ -33,6 +33,7 @@ urlpatterns = [
     path('Exp/', include('Exp_Main.urls')),
     path('ExpSub/', include('Exp_Sub.urls')),
     path('Analysis/', include('Analysis.urls')),
+    path('ai/', include('AI_Assistant.urls')),
     path('create/<str:group>/<str:model>/<str:pk>', Create_new_entry.as_view(), name='create_entry'),
     path('update/<str:group>/<str:model>/<str:pk>', Update_entry.as_view(), name='update_entry'),
     path('update_Dash/<str:model><int:pk>', Update_dash.as_view(), name='update_dash'),

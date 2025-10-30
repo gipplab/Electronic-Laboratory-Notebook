@@ -1,0 +1,313 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{#
+  This block adds the specific CSS for our chat interface.
+  `{{ block.super }}` is important because it includes all the original
+  stylesheets from your base.html file first.
+#}
+{% block stylesheets %}
+  {{ block.super }}
+  <style>
+    /* ADDED: Styles for the main page text outside the chat box */
+    .container h3 {
+        font-size: 1.5rem; /* Larger title */
+    }
+    .container p {
+        font-size: 1.1rem; /* Slightly larger descriptive text */
+    }
+
+    /* We style the container, not the whole body, to fit into your page */
+    #chat-container {
+      width: 100%;
+      max-width: 800px; /* You can adjust this width */
+      height: 100%; /* You can adjust this height */
+      margin: 20px auto; /* Center the container on the page */
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      background: white;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    #chat-box {
+      flex-grow: 1;
+      padding: 20px;
+      overflow-y: auto;
+      border-bottom: 1px solid #ccc;
+    }
+    .message {
+      max-width: 80%;
+      padding: 10px 15px;
+      border-radius: 18px;
+      margin-bottom: 10px;
+      line-height: 1.5; /* Slightly increased line height for readability */
+      display: flex;
+      flex-direction: column;
+      /* CHANGED: Added font-size for all chat messages */
+      font-size: 24px; 
+    }
+    .user-message {
+      background-color: #007bff;
+      color: white;
+      align-self: flex-end;
+      margin-left: 20%;
+    }
+    .assistant-message {
+      background-color: #e9e9eb;
+      color: #333;
+      align-self: flex-start;
+      margin-right: 20%;
+    }
+    #result-box {
+      background-color: #f5f5f5;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      padding: 10px;
+      margin-top: 10px;
+      font-family: 'Courier New', Courier, monospace;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      /* CHANGED: Added font-size for the result box */
+      font-size: 24px;
+    }
+    /* ADDED: A specific rule for the generated code view */
+    .message pre, .message code {
+        font-size: 15px;
+    }
+    #user-input-area {
+      display: flex;
+      padding: 10px;
+    }
+    #user-input {
+      flex-grow: 1;
+      border: 1px solid #ccc;
+      border-radius: 18px;
+      padding: 10px 15px;
+      /* CHANGED: Increased font size for the input field */
+      font-size: 20px;
+    }
+    #send-button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 44px;  /* Slightly larger button to match font */
+      height: 44px; /* Slightly larger button to match font */
+      margin-left: 10px;
+      cursor: pointer;
+      /* CHANGED: Increased font size for the arrow icon */
+      font-size: 24px;
+      flex-shrink: 0; /* Prevents the button from shrinking */
+    }
+    #send-button:hover {
+      background-color: #0056b3;
+    }
+    #loading-indicator {
+      text-align: center;
+      padding: 10px;
+      color: #888;
+      display: none;
+      /* CHANGED: Added font-size for the loading text */
+      font-size: 20px;
+    }
+  </style>
+{% endblock stylesheets %}
+
+
+{#
+  This is the main content block. It contains the visible HTML
+  structure for the chat interface. Your header.html will be
+  automatically included above this by base.html.
+#}
+{% block content %}
+  <div class="container mt-4">
+    <h3>AI Lab Book Assistant</h3>
+  </div>
+
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+  <div id="chat-container">
+    <div id="chat-box">
+      <div class="message assistant-message">
+        <span>Hello! How can I help you query the Lab Book data today?</span>
+      </div>
+    </div>
+    <div id="loading-indicator">Thinking...</div>
+    <div id="user-input-area">
+      <input type="text" id="user-input" placeholder="e.g., what is the name of id 5?">
+      <button id="send-button">➤</button>
+    </div>
+  </div>
+{% endblock content %}
+
+
+{#
+  This block is for our JavaScript. We use `extrascripts` as defined
+  in your base.html to ensure all the base libraries like jQuery and
+  Bootstrap are loaded first.
+#}
+{% block extrascripts %}
+  {{ block.super }} {# Good practice to include parent block content #}
+  
+  <script>
+    // Get references to the DOM elements we will interact with
+    const chatBox = document.getElementById('chat-box');
+    const userInput = document.getElementById('user-input');
+    const sendButton = document.getElementById('send-button');
+    const loadingIndicator = document.getElementById('loading-indicator');
+
+    // This will store the conversation ID for the current session
+    let threadId = null;
+
+    // A standard Django helper function to get the CSRF token for POST requests
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    const csrftoken = getCookie('csrftoken');
+
+    // --- THE ONE AND ONLY `displayMessage` FUNCTION ---
+    function displayMessage(response, sender) {
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('message', `${sender}-message`);
+
+        // This block handles messages FROM THE USER.
+        // In this case, 'response' is just the text the user typed.
+        if (sender === 'user') {
+            messageElement.textContent = response;
+        } 
+        // This block handles ALL messages FROM THE ASSISTANT.
+        // In this case, 'response' is the full JSON object from the server.
+        else if (sender === 'assistant') {
+            
+            // Check if the server's response type is 'plot'
+            if (response.type === 'plot') {
+                const code = response.generated_code;
+                const plotJson = JSON.parse(response.data); // The plot data
+
+                const plotId = `plot-${Date.now()}`; // Create a unique ID for the plot div
+
+                // Set the HTML for a message containing a plot
+                messageElement.innerHTML = `
+                    <span>I generated this plot for you:</span>
+                    <div class="result-box" style="padding: 5px; margin-top: 10px; min-height: 400px;">
+                        <div id="${plotId}"></div> <!-- Use the unique ID -->
+                    </div>
+                    <details style="margin-top: 5px; cursor: pointer;">
+                        <summary>Show Generated Code</summary>
+                        <pre style="white-space: pre-wrap; background: #f0f0f0; padding: 10px; border-radius: 5px; margin-top: 5px;"><code></code></pre>
+                    </details>
+                `;
+                // Safely insert the code into the <pre><code> block
+                messageElement.querySelector('code').textContent = code;
+
+                // After preparing the HTML, add the message to the chat box
+                chatBox.appendChild(messageElement);
+
+                // Now that the plot's div is on the page, find it and render the graph
+                const plotDiv = document.getElementById(plotId);
+                Plotly.newPlot(plotDiv, plotJson.data, plotJson.layout, { responsive: true });
+
+                // We return here to skip the final auto-scroll, because we've already done everything.
+                chatBox.scrollTop = chatBox.scrollHeight;
+                return;
+
+            } else {
+                // This handles all other assistant responses (e.g., 'text' type)
+                const code = response.generated_code || "N/A";
+                const result = response.data || response.execution_result || "No result found.";
+
+                messageElement.innerHTML = `
+                    <span>I have the following result:</span>
+                    <div class="result-box" style="margin-top: 10px;">
+                        <strong>Result:</strong> ${result}
+                    </div>
+                    <details style="margin-top: 5px; cursor: pointer;">
+                        <summary>Show Generated Code</summary>
+                        <pre style="white-space: pre-wrap; background: #f0f0f0; padding: 10px; border-radius: 5px; margin-top: 5px;"><code></code></pre>
+                    </details>
+                `;
+                messageElement.querySelector('code').textContent = code;
+            }
+        }
+        
+        // Append the message element (unless it was a plot, which returned early)
+        chatBox.appendChild(messageElement);
+        // Auto-scroll the chat box to the newest message
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // This function starts a new conversation thread with the backend
+    async function startNewChat() {
+        const response = await fetch('/ai/api/start_chat/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrftoken },
+        });
+        const data = await response.json();
+        threadId = data.thread_id;
+    }
+
+    // This is the main function that runs when the user sends a message
+    async function handleSendMessage() {
+        const messageText = userInput.value.trim();
+        if (!messageText) return;
+
+        displayMessage(messageText, 'user');
+        userInput.value = '';
+        loadingIndicator.style.display = 'block';
+
+        // Start a new chat session if this is the first message
+        if (!threadId) {
+            await startNewChat();
+        }
+
+        // Send the message to the backend
+        const response = await fetch('/ai/api/ask/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken,
+            },
+            body: JSON.stringify({
+                thread_id: threadId,
+                message: messageText,
+            }),
+        });
+        
+        loadingIndicator.style.display = 'none';
+        const data = await response.json();
+
+        // Display the response from the AI, whether it's a success or an error
+        if (data.error) {
+            // Create a consistent error object for displayMessage to handle
+            const errorResponse = {
+                type: 'text',
+                generated_code: 'Error',
+                data: data.error
+            };
+            displayMessage(errorResponse, 'assistant');
+        } else {
+            displayMessage(data, 'assistant');
+        }
+    }
+
+    // Attach the event listeners to the input field and button
+    sendButton.addEventListener('click', handleSendMessage);
+    userInput.addEventListener('keypress', (event) => {
+        if (event.key === 'Enter') {
+            handleSendMessage();
+        }
+    });
+  </script>
+{% endblock extrascripts %}

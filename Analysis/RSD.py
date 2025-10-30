@@ -4,6 +4,7 @@ import pandas as pd
 from Lab_Misc.General import get_LastIndex
 from Exp_Main.models import RSD as RSD_model
 from datetime import timedelta
+import numpy as np
 
 class RSD():
     def __init__(self, pk):
@@ -71,32 +72,62 @@ class RSD():
             self.RSD_data.loc[self.RSD_data['Drop_Number']==drop_nr,'speed_right']= speed_right
 
 
-            avg_right = self.RSD_data[self.RSD_data['Drop_Number']==drop_nr].rolling(nr_rol).mean()['speed_right']
+            avg_right = self.RSD_data[self.RSD_data['Drop_Number']==drop_nr]['speed_right'].rolling(nr_rol).mean()
             self.RSD_data.loc[self.RSD_data['Drop_Number']==drop_nr,'speed_right_avg'] = avg_right
             self.RSD_data.loc[self.RSD_data['Drop_Number'] == drop_nr, 'speed_right_avg'] = self.RSD_data.loc[self.RSD_data['Drop_Number'] == drop_nr, 'speed_right_avg'].shift(-int((nr_rol)/2))
             
-            avg_left = self.RSD_data[self.RSD_data['Drop_Number']==drop_nr].rolling(nr_rol).mean()['speed_left']
+            avg_left = self.RSD_data[self.RSD_data['Drop_Number']==drop_nr]['speed_left'].rolling(nr_rol).mean()
             self.RSD_data.loc[self.RSD_data['Drop_Number']==drop_nr,'speed_left_avg'] = avg_left
             self.RSD_data.loc[self.RSD_data['Drop_Number'] == drop_nr, 'speed_left_avg'] = self.RSD_data.loc[self.RSD_data['Drop_Number'] == drop_nr, 'speed_left_avg'].shift(-int((nr_rol)/2))
             
 
-    def Merge_LSP(self):
+    def Merge_LSP(self, interval=2):
         indices = [i for i, s in enumerate(list(self.Sub_RSD_data)) if 'LSP' in s]
 
-        #self.RSD_data = self.RSD_data.dropna()
-        '''for index in indices:
-            lsp_name = list(self.Sub_RSD_data)[index]
-            self.Sub_RSD_data[lsp_name] = self.Sub_RSD_data[lsp_name][self.Sub_RSD_data[lsp_name]['time_loc']>min(self.RSD_data['time_loc'])]'''
-
-        if len(indices)==2:
-            lsp_dict = {'time_loc': self.Sub_RSD_data[list(self.Sub_RSD_data)[indices[0]]]['time_loc'], 
-                    'flowrate':self.Sub_RSD_data[list(self.Sub_RSD_data)[indices[0]]]['Current flow rate']+self.Sub_RSD_data[list(self.Sub_RSD_data)[indices[1]]]['Current flow rate']}
+        if len(indices) == 2:
+            lsp_dict = {
+                'time_loc': self.Sub_RSD_data[list(self.Sub_RSD_data)[indices[0]]]['time_loc'],
+                'flowrate': self.Sub_RSD_data[list(self.Sub_RSD_data)[indices[0]]]['Current flow rate'] +
+                            self.Sub_RSD_data[list(self.Sub_RSD_data)[indices[1]]]['Current flow rate']
+            }
         else:
             print('Wrong amount of LSPs!')
+            return
 
         lsp_dict = pd.DataFrame(lsp_dict)
 
-        self.merged = pd.merge_asof(self.RSD_data.sort_values('time_loc'), lsp_dict, on = 'time_loc')
+        # Calculate the ratio
+        lsp_dict['time_diff'] = lsp_dict['time_loc'].diff().dt.total_seconds().fillna(0)
+        lsp_dict['flow_diff'] = lsp_dict['flowrate'].diff().fillna(0)
+        lsp_dict['ratio'] = lsp_dict['flow_diff'] / lsp_dict['time_diff']
+
+        # Add time steps every n seconds if the time diff is larger than n seconds
+        new_rows = []
+        for i in range(len(lsp_dict) - 1):
+            new_rows.append(lsp_dict.iloc[i])
+            time_diff = (lsp_dict.iloc[i + 1]['time_loc'] - lsp_dict.iloc[i]['time_loc']).total_seconds()
+            if time_diff > interval:
+                num_steps = int(time_diff // interval)
+                for step in range(1, num_steps + 1):
+                    new_time = lsp_dict.iloc[i]['time_loc'] + pd.Timedelta(seconds=step * interval)
+                    new_row = lsp_dict.iloc[i].copy()
+                    new_row['time_loc'] = new_time
+                    if pd.notna(lsp_dict.iloc[i + 1]['ratio']):
+                        new_row['flowrate'] += step * lsp_dict.iloc[i + 1]['ratio'] * interval
+                    new_row['time_diff'] = np.nan
+                    new_row['flow_diff'] = np.nan
+                    new_row['ratio'] = np.nan
+                    new_rows.append(new_row)
+        new_rows.append(lsp_dict.iloc[-1])
+        lsp_with_steps = pd.DataFrame(new_rows).reset_index(drop=True)
+
+        # Check for null values in the 'time_loc' column
+        if self.RSD_data['time_loc'].isnull().any():
+            print("Null values found in 'time_loc' column of RSD_data")
+            # Handle null values, e.g., by filling them or dropping rows with null values
+            self.RSD_data = self.RSD_data.dropna(subset=['time_loc'])
+
+        self.merged = pd.merge_asof(self.RSD_data.sort_values('time_loc'), lsp_with_steps, on='time_loc')
 
     def Merge_MFR(self):
         indices = [i for i, s in enumerate(list(self.Sub_RSD_data)) if 'MFR' in s]
@@ -119,7 +150,10 @@ class RSD():
 
         MFR_merge = MFR_merge.rename(columns = {'sccm':'sccm_'+str(first_item)})
         MFR_merge_max = MFR_merge.drop(columns='time_loc')
-        MFRs_data = {'time_loc':MFR_merge['time_loc'],'gas':MFR_merge_max.idxmax(axis=1).str.replace('sccm_', '')}
+        MFRs_data = {
+            'time_loc': MFR_merge['time_loc'],
+            'gas': MFR_merge_max.idxmax(axis=1).astype(str).str.replace('sccm_', '')
+        }
         MFRs_data = pd.DataFrame(MFRs_data)
 
         self.merged = pd.merge_asof(self.merged, MFRs_data, on = 'time_loc')
@@ -161,3 +195,67 @@ class RSD():
         indices = [i for i, s in enumerate(list(self.Sub_RSD_data)) if 'TCM' in s]
         if len(indices)!=0:
             self.Merge_TCM()
+
+
+    def _determine_contact_angle_types(self):
+        self.RSD_data['CA_L_type'] = np.where(self.RSD_data['speed_left'] > 0.000002, 'advancing', 
+                                              np.where(self.RSD_data['speed_left'] < -0.000002, 'receding', 'stationary'))
+        self.RSD_data['CA_R_type'] = np.where(self.RSD_data['speed_right'] > 0.000002, 'advancing', 
+                                              np.where(self.RSD_data['speed_right'] < -0.000002, 'receding', 'stationary'))
+
+    """ def correlate_contact_angles(self, position_col, ca_col, ca_type_col, threshold=0.1):
+        df = self.RSD_data
+        df_shifted = df.copy()
+        df_shifted['Drop_Number'] = df_shifted['Drop_Number'].shift(-1)
+        
+        merged_df = df.merge(df_shifted, on='Drop_Number', suffixes=('', '_next'))
+        
+        mask = (
+            (merged_df[position_col] >= merged_df[position_col + '_next'] - threshold) &
+            (merged_df[position_col] <= merged_df[position_col + '_next'] + threshold) &
+            (merged_df[ca_type_col] == 'receding') &
+            (merged_df[ca_type_col + '_next'] == 'advancing')
+        )
+        
+        correlations = merged_df[mask][['Drop_Number', position_col, ca_col, ca_col + '_next']]
+        correlations.columns = ['Drop_Number', 'Position', 'Receding_CA', 'Advancing_CA']
+        
+        return correlations """
+    def correlate_contact_angles(self, position_col, ca_col, ca_type_col, threshold=0.1):
+        correlations = []
+        drop_numbers = self.RSD_data['Drop_Number'].unique()
+        
+        for i in range(len(drop_numbers) - 1):
+            drop_num1 = drop_numbers[i]
+            drop_num2 = drop_numbers[i + 1]
+            
+            drop1 = self.RSD_data[self.RSD_data['Drop_Number'] == drop_num1]
+            drop2 = self.RSD_data[self.RSD_data['Drop_Number'] == drop_num2]
+            
+            for pos in drop1[position_col].unique():
+                receding_ca = drop1[
+                    (drop1[position_col] >= pos - threshold) & 
+                    (drop1[position_col] <= pos + threshold) & 
+                    (drop1[ca_type_col] == 'receding')
+                ][ca_col].mean()
+                
+                advancing_ca = drop2[
+                    (drop2[position_col] >= pos - threshold) & 
+                    (drop2[position_col] <= pos + threshold) & 
+                    (drop2[ca_type_col] == 'advancing')
+                ][ca_col].mean()
+                
+                if not pd.isna(receding_ca) and not pd.isna(advancing_ca):
+                    correlations.append((drop_num1, pos, receding_ca, advancing_ca))
+        
+        return correlations
+
+    def get_correlations(self):
+        self._determine_contact_angle_types()
+        correlations_left = self.correlate_contact_angles('BI_left', 'CA_L', 'CA_L_type')
+        correlations_right = self.correlate_contact_angles('BI_right', 'CA_R', 'CA_R_type')
+        
+        correlations_left_df = pd.DataFrame(correlations_left, columns=['Drop_Number', 'Position', 'Receding_CA', 'Advancing_CA'])
+        correlations_right_df = pd.DataFrame(correlations_right, columns=['Drop_Number', 'Position', 'Receding_CA', 'Advancing_CA'])
+        
+        return correlations_left_df, correlations_right_df

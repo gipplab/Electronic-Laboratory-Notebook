@@ -18,6 +18,7 @@ from Analysis.models import GrvAnalysisJoin as GrvAnalysis_Main
 from Analysis.models import DafAnalysis as DafAnalysis_Main
 from Lab_Dash.dash_plot_SEL import Gen_dash
 from Lab_Dash.dash_plot_RSD import Gen_dash as Gen_dash_RSD
+from Lab_Dash.dash_plot_RSD_compare import Gen_dash as Gen_dash_RSD_compare
 #from Lab_Dash.dash_plot_DRP import Gen_dash as Gen_dash_DRP#TODO Add Model
 from Lab_Dash.dash_plot_GRV import Gen_dash as Gen_dash_GRV
 from Lab_Dash.dash_plot_LMP import Gen_dash as Gen_dash_LMP
@@ -49,6 +50,18 @@ def RSD_Graph(request, pk):
     Name_dash_app = 'dash_RSD_' + str(pk)
     context['Name_dash_app'] = Name_dash_app
     Gen_dash_RSD(Name_dash_app)#Creates a new app for every pk so the data will not corrupt
+    context['dash_context'] = {'target_id': {'value': pk}}
+    return render(request, "plot.html", context)
+
+def RSD_compare_Graph(request, pk):
+    entry = RSD_Main.objects.get(id = pk)
+    context = {'stuff': 'somestuff'}
+    context['Experiment_Name'] = entry.Name
+    context['pk_dash'] = entry.Dash.pk # '-' is theseperator defined in url
+    context['model_name'] = 'RSD'
+    Name_dash_app = 'dash_RSD_' + str(pk)
+    context['Name_dash_app'] = Name_dash_app
+    Gen_dash_RSD_compare(Name_dash_app)#Creates a new app for every pk so the data will not corrupt
     context['dash_context'] = {'target_id': {'value': pk}}
     return render(request, "plot.html", context)
 

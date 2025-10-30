@@ -109,6 +109,7 @@ class LMPCosolventAnalysis(models.Model):
     Anz_H2O = models.FloatField(blank=True, null=True)
     Anz_EtOH = models.FloatField(blank=True, null=True)
     Height = models.FloatField(blank=True, null=True)
+    Height_Err = models.FloatField(blank=True, null=True)
     Link_Hist_Mono = models.TextField(blank=True, null=True)
     Link_Hist_H2O = models.TextField(blank=True, null=True)    
     Link_Hist_EtOH = models.TextField(blank=True, null=True)

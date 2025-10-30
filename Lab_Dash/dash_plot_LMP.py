@@ -41,7 +41,9 @@ def Gen_dash(dash_name):
 
         def CA_time(self):
             fig = go.Figure()
-            fig.add_trace(go.Scattergl(x=self.data['Mono']['bins'], y=self.data['Mono']['counts'],
+            fig.add_trace(go.Scattergl(x=self.data['Mono']['Position'], y=self.data['Mono']['#_counts'],error_y=dict(type='data',
+                                                                                                                     #color = colors, 
+                                                                                                                     array=self.data['Mono']['Error'], visible=True),
                         mode='markers',
                         name='counts')
             )
@@ -51,7 +53,9 @@ def Gen_dash(dash_name):
 
         def CA_CLPos(self):
             fig = go.Figure()
-            fig.add_trace(go.Scattergl(x=self.data['H2O']['bins'], y=self.data['H2O']['counts'],
+            fig.add_trace(go.Scattergl(x=self.data['H2O']['Position'], y=self.data['H2O']['#_counts'],error_y=dict(type='data',
+                                                                                                                     #color = colors, 
+                                                                                                                     array=self.data['H2O']['Error'], visible=True),
                         mode='markers',
                         name='counts')
             )
@@ -61,7 +65,9 @@ def Gen_dash(dash_name):
 
         def With_sub_data(self):
             fig = go.Figure()
-            fig.add_trace(go.Scattergl(x=self.data['EtOH']['bins'], y=self.data['EtOH']['counts'],
+            fig.add_trace(go.Scattergl(x=self.data['EtOH']['Position'], y=self.data['EtOH']['#_counts'],error_y=dict(type='data',
+                                                                                                                     #color = colors, 
+                                                                                                                     array=self.data['EtOH']['Error'], visible=True),
                         mode='markers',
                         name='counts')
             )

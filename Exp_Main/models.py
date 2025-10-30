@@ -173,6 +173,14 @@ class LMP(ExpBase):
     Chem_H2O = models.FloatField(blank=True, null=True)
     Distance_s = models.FloatField(blank=True, null=True)#distance between grafting sites
     N_Monomers = models.FloatField(blank=True, null=True)#number of monomers
+    w_pp = models.FloatField(blank=True, null=True)#interaction polymer polymer
+    w_pw = models.FloatField(blank=True, null=True)#interaction polymer water
+    w_pc = models.FloatField(blank=True, null=True)#interaction polymer cosolvent
+    w_cc = models.FloatField(blank=True, null=True)#interaction cosolvent cosolvent
+    w_cw = models.FloatField(blank=True, null=True)#interaction cosolvent water
+    w_ww = models.FloatField(blank=True, null=True)#interaction water water
+    N_ETOH = models.FloatField(blank=True, null=True)#number of ethanol
+    N_H2O = models.FloatField(blank=True, null=True)#number of water
     Dash = models.ForeignKey(LMP_dash, on_delete=models.CASCADE, blank=True, null=True)
     Sub_Exp = models.ManyToManyField(SubExp_base, blank=True)
     def __str__(self):

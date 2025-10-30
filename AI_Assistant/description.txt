@@ -1,0 +1,92 @@
+Implementation of an Advanced AI Assistant for an Electronic Lab Book
+
+This document outlines the architecture and implementation of a sophisticated AI assistant integrated into a Django-based Electronic Lab Book. The assistant is designed to help researchers query and visualize complex experimental data using natural language, dramatically lowering the barrier to entry for data exploration.
+
+The system is built on a two-tiered, multi-agent architecture that employs a "fast and cheap" primary agent and a powerful "specialist" debugger agent, creating a robust, self-correcting workflow.
+1. High-Level Architecture: A Two-Agent System
+
+The core of the system consists of two distinct OpenAI Assistants, each with a specialized role, model, and instruction set:
+
+    CodeGenerator_Assistant (The "Coder"):
+
+        Model: gpt-4o-mini
+
+        Role: The primary, user-facing agent. It is optimized for speed and low cost. Its main task is to analyze a user's natural language prompt and generate a Python script to fulfill the request on the first attempt.
+
+        Capabilities: It is instructed to handle two types of tasks:
+
+            Simple Data Retrieval: For direct questions (e.g., "what is the name of experiment X?"), it generates a single-line Django ORM query.
+
+            Data Visualization: For plotting requests (e.g., "plot contact angle vs. time"), it generates a multi-line Python script using pandas and plotly.graph_objects.
+
+    Debugger_Assistant (The "Debugger"):
+
+        Model: gpt-4o
+
+        Role: A specialist agent invoked only when the Coder's generated script fails during execution. It is optimized for high-level reasoning and problem-solving.
+
+        Capabilities: It operates in a methodical, investigative loop to diagnose and fix errors in the failed code. It does not fix the code directly but proposes a series of diagnostic Python commands (dir(), type(), hasattr()) to understand the state of the program. Once it gathers enough information, it generates a final, corrected script.
+
+2. The Execution Workflow: A Self-Correcting Loop
+
+The backend logic, implemented in a Django view (ask_assistant_view), orchestrates the interaction between these two agents.
+
+    User Request: A user submits a natural language query (e.g., "plot the advancing angle for experiment 4730") via a web-based chat interface.
+
+    Initial Attempt (Coder):
+
+        The request is sent to the CodeGenerator_Assistant.
+
+        The assistant analyzes the prompt and generates a Python script intended to fulfill the request.
+
+        A pre-execution validation step checks if the assistant's response is actual code or a simple error message. If it's not valid code, the process stops and returns a user-friendly error.
+
+    Execution and Verification:
+
+        The backend executes the generated script in a secure, pre-configured sandbox environment using a custom execute_dynamic_script function. This environment has necessary libraries (pandas, plotly) and custom data classes (RSD) pre-imported.
+
+        If the script executes successfully:
+
+            The result (either a simple text value or a Plotly figure serialized to JSON) is captured.
+
+            The result is sent to the frontend, which dynamically renders the text or the interactive plot. The workflow ends here.
+
+    Escalation to Debugger (If Execution Fails):
+
+        If the script from the Coder fails with a runtime error (e.g., AttributeError, NameError, KeyError), the except block is triggered.
+
+        The system invokes the run_investigative_debugger function, passing it a "debugging task" containing the user's original goal, the failed code, and the precise Python error message.
+
+    Investigative Loop (Debugger):
+
+        The Debugger_Assistant receives the task. Its instructions require it to respond in a strict JSON format: {"action": "INVESTIGATE" | "SOLVE", "code": "..."}.
+
+        The Debugger proposes its first diagnostic command (e.g., dir(RSD(4730))) with action: "INVESTIGATE".
+
+        The backend executes this command in a separate, safe execute_investigative_code environment that is pre-populated with the relevant classes and introspection tools.
+
+        The result of the investigation is sent back to the Debugger.
+
+        This loop continues for up to five steps, allowing the Debugger to build a complete picture of the problem.
+
+        Once it has enough information, it changes its action to SOLVE and provides the final, corrected script.
+
+    Final Attempt:
+
+        The backend executes the corrected script from the Debugger.
+
+        If successful, the result is sent to the frontend. If it fails again, a final error message is returned.
+
+3. Key Technical Implementations
+
+    Frontend: A dynamic chat interface built with HTML, CSS, and vanilla JavaScript. It uses the fetch API to communicate with the Django backend and the Plotly.js library to render interactive plots on-the-fly from JSON data.
+
+    Backend: A dedicated Django app (AI_Assistant) with API endpoints to handle chat sessions. It uses the OpenAI Python library to interact with the Assistants API.
+
+    Sandboxed Execution: Custom Python functions (execute_dynamic_script, execute_investigative_code) use Python's exec() and eval() within a carefully controlled dictionary (execution_context) to run the AI-generated code. This prevents the AI from executing dangerous commands like file system operations or arbitrary imports.
+
+    Knowledge Management: The primary method for informing the AI is through File Search (Retrieval-Augmented Generation). Key Python source files (e.g., RSD.py) are uploaded directly to the Assistant, allowing it to read the actual source code to understand available methods and data structures. This is supplemented by clear, high-level instructions in the system prompt.
+
+    Resilient Parsing: The backend includes helper functions to clean the AI's output, such as stripping markdown code blocks, to ensure reliable parsing of its responses, especially before JSON Mode was fully implemented for the Debugger.
+
+This sophisticated architecture results in an AI assistant that is not only capable of performing its primary tasks but is also remarkably resilient, with the ability to autonomously diagnose and correct its own errors.

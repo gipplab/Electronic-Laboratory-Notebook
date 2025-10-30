@@ -218,6 +218,23 @@ def Gen_dash(dash_name):
             fig.update_yaxes(title_text='Flowrate gas [%]', secondary_y=True)
             return fig
 
+        def plot_correlations(self):
+            correlations_left_df, correlations_right_df = self.entry.get_correlations()
+            fig = go.Figure()
+
+            for i, drop_num in enumerate(correlations_left_df['Drop_Number'].unique()):
+                subset_left = correlations_left_df[correlations_left_df['Drop_Number'] == drop_num]
+                subset_right = correlations_right_df[correlations_right_df['Drop_Number'] == drop_num]
+                fig.add_trace(go.Scatter(x=subset_left['Receding_CA'], y=subset_left['Advancing_CA'],
+                                        mode='markers', marker=dict(color=self.colours[i % len(self.colours)]),
+                                        name=f'Drop {drop_num} (Left)'))
+                fig.add_trace(go.Scatter(x=subset_right['Receding_CA'], y=subset_right['Advancing_CA'],
+                                        mode='markers', marker=dict(color=self.colours[i % len(self.colours)], symbol='x'),
+                                        name=f'Drop {drop_num} (Right)'))
+
+            fig.update_layout(xaxis_title='Receding Contact Angle',
+                            yaxis_title='Advancing Contact Angle',)
+            return fig
 
         def Analysis_plot(self):
             entry = General.get_in_full_model(self.entry.pk)
@@ -316,6 +333,7 @@ def Gen_dash(dash_name):
                                                                         {'label': 'CL_Speed', 'value': 'CL_Speed'},
                                                                         {'label': 'CA / CL_Speed', 'value': 'CA_CLSpeed'},
                                                                         {'label': 'With sub data:', 'value': 'With_sub_data'},
+                                                                        {'label': 'Correlations', 'value': 'Correlations'},
                                                                         {'label': 'Analysis', 'value': 'Analysis'},
                                                                     ],
                                                             value='Lineplot',
@@ -356,6 +374,8 @@ def Gen_dash(dash_name):
             fig = GenFig.CA_CLSpeed()
         elif Graph_select == 'With_sub_data':
             fig = GenFig.With_sub_data()
+        elif Graph_select == 'Correlations':
+            fig = GenFig.plot_correlations()
         elif Graph_select == 'Analysis':
             fig = GenFig.Analysis_plot()
         return fig

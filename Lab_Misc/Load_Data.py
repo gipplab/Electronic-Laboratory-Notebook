@@ -136,6 +136,21 @@ def GRV_diff(pk):
     except:
         return Load_GRV(pk)
 
+def Load_GRV_processed_side(pk):
+    entry = General.get_in_full_model(pk)
+    Folder = os.path.join( rel_path, entry.Link_Data_processed)
+    os.chdir(Folder)
+    df = pd.read_excel('Analysis_side.xlsx')
+    df = df.rename(columns={"Type": "type", "Position": "position", "Value": "value", "Error": "error"})
+    df.index = [df['type'], df['position']]
+    scale = 1/148/2
+    def conv_val(ss, val1, out):
+        plate_w1 = (df.loc[ss,'height_beaker']['value']-df.loc[ss, val1]['value'])*scale
+        df.loc[(ss,out), 'value'] = np.mean([plate_w1])
+
+    conv_val('steady', 'height_ridge', 'height_ridge_diff')
+    return df
+
 def Load_GRV_processed(pk):
     entry = General.get_in_full_model(pk)
     Folder = os.path.join( rel_path, entry.Link_Data_processed)
