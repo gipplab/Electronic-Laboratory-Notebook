@@ -1,4 +1,5 @@
-"""Labbook URL Configuration
+"""
+"Labbook URL Configuration
 
 The `urlpatterns` list routes URLs to views. For more information please see:
     https://docs.djangoproject.com/en/3.0/topics/http/urls/
@@ -15,6 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.http import HttpResponse
 from Exp_Main import views as Exp_Main_views
 from Exp_Main.views import Create_new_entry, Update_entry, Read_entry, Delete_entry, Samples_table_view
 from Lab_Dash import dash_plot_SEL, dash_plot_SEL_compare, dash_plot_SFG
@@ -24,7 +26,11 @@ from Lab_Dash.views import Update_dash
 from django.conf import settings
 from django.conf.urls.static import static
 
+def healthz(request):
+    return HttpResponse("ok", status=200)
+
 urlpatterns = [
+    path('healthz/', healthz),
     path('admin/', admin.site.urls),
     path('django_plotly_dash/', include('django_plotly_dash.urls')),
     path('', include('Lab_Misc.urls')),
