@@ -43,7 +43,7 @@ INSTALLED_APPS = [
     'Lab_Dash.apps.LabDashConfig',
     'Lab_Misc.apps.LabMiscConfig',
     'Analysis.apps.AnalysisConfig',
-    'AI_Assistant.apps.AIAssistantConfig',
+    'AI_Assistant.apps.AiAssistantConfig',
 
     'django_tables2',# For tables
     'django_filters',

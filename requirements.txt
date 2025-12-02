@@ -32,3 +32,4 @@ Werkzeug==2.0.0
 openpyxl
 datatable
 opencv-python==4.9.0.80
+openai
