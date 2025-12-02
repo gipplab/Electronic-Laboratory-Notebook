@@ -9,7 +9,6 @@ https://docs.djangoproject.com/en/3.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.0/ref/settings/
 """
-
 import os
 
 
@@ -103,11 +102,16 @@ MEDIA_ROOT = ""
 CRISPY_TEMPLATE_PACK = 'bootstap4'
 
 ASGI_APPLICATION = 'Lab_Dash.Route.application'
+
+# Channels / Redis configuration — make host/port configurable via environment variables for CI
+REDIS_HOST = os.environ.get('REDIS_HOST', '127.0.0.1')
+REDIS_PORT = int(os.environ.get('REDIS_PORT', 6379))
+
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            'hosts': [('127.0.0.1', 6379),],
+            'hosts': [(REDIS_HOST, REDIS_PORT)],
         }
     }
 }
