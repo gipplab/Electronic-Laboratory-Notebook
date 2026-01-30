@@ -8,6 +8,7 @@ from Lab_Dash.models import LMP as LMP_dash
 from Lab_Dash.models import RSD as RSD_dash
 from Lab_Dash.models import SFG as SFG_dash
 from Lab_Dash.models import DAF as DAF_dash
+from Lab_Dash.models import MFP as MFP_dash
 from Exp_Main.models import Group as Group_Model
 from Lab_Misc.Generate import CreateAndUpdate as CreateAndUpdate_Misc
 import pytz
@@ -179,6 +180,9 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
         if Exp.Abbrev == 'DAF':
             self.add_DAF_files(file, entry)
             entry.save()
+        if Exp.Abbrev == 'MFP':
+            self.add_MFP_files(file, entry)
+            entry.save()
         if Exp.Abbrev == 'GRV':
             self.add_GRV_files(entry)
             entry.save()
@@ -332,6 +336,25 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
             entry to which the file was added
         """
         entry_dash = RSD_dash()
+        entry_dash.save()
+        entry.Dash = entry_dash
+        self.f.write(' and add dash.</p>\n')
+        entry.save()
+
+    def add_MFP_files(self, file, entry):
+        """
+        add_Gas Adds the correct gas to the entry
+
+        Looks in the file name for gases. If a gas is found it is added to the entry
+
+        Parameters
+        ----------
+        file : string
+            filename with possible infomation about the gas used
+        entry : [type]
+            entry to which the file was added
+        """
+        entry_dash = MFP_dash()
         entry_dash.save()
         entry.Dash = entry_dash
         self.f.write(' and add dash.</p>\n')

@@ -39,6 +39,7 @@ from bootstrap_modal_forms.generic import (BSModalLoginView,
                                            BSModalReadView,
                                            BSModalDeleteView)
 
+
 def index(request):
     return render(request, 'templates/albums.html')
 
@@ -248,23 +249,52 @@ class Update_entry(BSModalUpdateView):
 
 class Read_entry(BSModalReadView):
     template_name = 'Modal/read_entry.html'
-    curr_entry = ExpBase.objects.first()
+    try:
+        curr_entry = ExpBase.objects.first()
+    except:
+        curr_entry = None
     context_object_name = 'ExpBase'
     model = ExpBase
 
-    def get_context_data(self,*args, **kwargs):
-        context = super(Read_entry, self).get_context_data(*args,**kwargs)
+    def get_context_data(self, *args, **kwargs):
+        context = super(Read_entry, self).get_context_data(*args, **kwargs)
         pk = self.kwargs['pk']
         entry = General.get_in_full_model(pk)
+
+        # --- FIX FÜR MFP ---
+        is_mfp = False
         try:
-            if entry.Device.Abbrev == 'RSD':
-                Drops = range(1,entry.Script.number_of_cycles+1)
+            if hasattr(entry, 'Device') and str(entry.Device.Abbrev) == 'MFP':
+                is_mfp = True
+        except:
+            pass
+
+        if is_mfp:
+            from Analysis.models import MFPAnalysis
+            from Lab_Dash.models import MFP  # <--- WICHTIG: Importieren
+            
+            # TRICK: Wir holen uns das Objekt nochmal explizit als MFP-Typ
+            # Das beruhigt Django, weil der Typ dann exakt stimmt.
+            mfp_instance = MFP.objects.get(id=entry.id)
+            
+            # Jetzt benutzen wir 'mfp_instance' statt 'entry'
+            analysis, created = MFPAnalysis.objects.get_or_create(Entry=mfp_instance)
+            
+            context['Analysis'] = analysis
+            context['Session_Key'] = '{"MFP_id": ' + str(entry.id) + '}'
+        # -------------------
+
+        # Dein alter Code für RSD (bleibt erhalten)
+        try:
+            if hasattr(entry, 'Device') and entry.Device.Abbrev == 'RSD':
+                Drops = range(1, entry.Script.number_of_cycles + 1)
                 Drop_names = ['All']
                 for Drop in Drops:
-                    Drop_names.append('Drop_'+str(Drop))
+                    Drop_names.append('Drop_' + str(Drop))
                 context['Drops'] = Drop_names
         except:
             context['Drops'] = ['only']
+            
         return context
 
     def get_model_name(self, group_name, model_name, pk):

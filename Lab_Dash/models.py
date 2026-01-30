@@ -79,6 +79,31 @@ class RSD(models.Model):
             self.Name = None
         super(RSD, self).save(*args, **kwargs)
 
+class MFP(models.Model):
+    """MFP Saves all dash properties of the MFP measurements
+
+    Parameters
+    ----------
+    models : [type]
+        [description]
+    """    
+    Name = models.TextField(unique=True, blank=True, null=True)
+    CA_high_degree = models.FloatField(blank=True, null=True)
+    CA_low_degree = models.FloatField(blank=True, null=True)
+    BD_high_mm = models.FloatField(blank=True, null=True)
+    BD_low_mm = models.FloatField(blank=True, null=True)
+    Time_high_sec = models.FloatField(blank=True, null=True)
+    Time_low_sec = models.FloatField(blank=True, null=True)
+    Time_diff_pump = models.FloatField(blank=True, null=True)
+    Time_diff_vid = models.FloatField(blank=True, null=True)
+    Residual = models.FloatField(blank=True, null=True)
+    def __str__(self):
+        return str(self.Name)
+    def save(self, *args, **kwargs):#saves '' as none
+        if not self.Name:
+            self.Name = None
+        super(MFP, self).save(*args, **kwargs)
+
 
 '''class DRP(models.Model):#TODO Add Model
     """DRP Saves all dash properties of the DRP measurements

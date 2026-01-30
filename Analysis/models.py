@@ -3,7 +3,7 @@ from Lab_Dash.models import Comparison as Comparison_dash
 from Lab_Dash.models import GrvAnalysis as GrvAnalysis_dash
 from Lab_Dash.models import OszAnalysis as OszAnalysis_dash
 from Lab_Dash.models import DafAnalysis as DafAnalysis_dash
-from Exp_Main.models import ExpBase, DAF
+from Exp_Main.models import ExpBase, DAF, MFP
 
 # Create your models here.
 class Comparison(models.Model):
@@ -134,6 +134,25 @@ class OszAnalysisJoin(models.Model):
          if not self.Name:
               self.Name = None
          super(OszAnalysisJoin, self).save(*args, **kwargs)
+
+class MFPAnalysis(models.Model):
+    Entry = models.OneToOneField('Lab_Dash.MFP', on_delete=models.CASCADE, related_name='Analysis')
+    
+    # Tuning-Parameter
+    Particle_Diameter = models.IntegerField(default=11)
+    Min_Dist = models.FloatField(default=70.0, verbose_name="Min Distance (px)")
+    Threshold = models.FloatField(default=10.0)
+    # In class MFPAnalysis:
+    Noise_Size = models.FloatField(default=3.0, verbose_name="Noise Size (px)")
+    
+    # NEU: Der ausgewählte Kanal
+    Detect_Channel = models.IntegerField(default=0) 
+    
+    # Ergebnis-Pfad
+    Result_Path = models.TextField(blank=True, null=True)
+    
+    def __str__(self):
+        return f"Analyse Parameter für {self.Entry}"
 
 class DafAnalysis(models.Model):
     Name = models.TextField(unique=True, blank=True, null=True)

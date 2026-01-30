@@ -262,76 +262,88 @@ class CreateAndUpdate():
     def get_SampleName(self, FolderName):
         """
         get_SampleName Tries to extract the sample Name out of the Folder Name
-
-        Tries to extract the sample Name out of the Folder Name
-
-        Parameters
-        ----------
-        FolderName : string
-            Name of folder which contains the name of the sample
-
-        Returns
-        -------
-        string
-            None / name of the sample
         """        
         if FolderName == None:
             SampleName = None
         elif FolderName.find('Probe_') == -1:
             try:
                 SampleName = FolderName[:5]
+                # Testen ob das Sample existiert
                 SampleBase.objects.get(Name=FolderName[:5])
             except:
                 SampleName = None
         else:
             try:
                 SampleName = FolderName[6:11]
+                # Testen ob das Sample existiert
                 SampleBase.objects.get(Name=FolderName[6:11])
             except:
                 SampleName = None
+        
+        # --- HIER IST DIE ÄNDERUNG ---
         if SampleName == None:
-            self.TotalErrors += 1
-            self.f.write('<p class="text-danger">Error!<br>')
-            self.f.write('For the folder ' + str(FolderName) + ' no sample in the sample database was found.</p>\n')
+            try:
+                # Versuchen, das "Misc" Sample zu finden
+                SampleBase.objects.get(Name='Misc')
+                SampleName = 'Misc'
+                # Optional: Eine Warnung schreiben, damit man es im Report sieht
+                self.TotalWarnings += 1
+                self.f.write('<em class="text-warning">Warning: No sample found for folder ' + str(FolderName) + '. Used "Misc" instead.</em> <br>\n')
+            except:
+                # Nur wenn "Misc" AUCH NICHT existiert, kommt der Error
+                self.TotalErrors += 1
+                self.f.write('<p class="text-danger">Error!<br>')
+                self.f.write('For the folder ' + str(FolderName) + ' no sample in the sample database was found (and fallback "Misc" missing).</p>\n')
+        
         return SampleName
 
     def Add_EntryToDB(self, date, file, Exp, sample=None, Group=None):
         """
         Add_EntryToDB adds an entry to the database
-
-        Adds an entry with its path to the database.
-
-        Parameters
-        ----------
-        date : string
-            Folder name in form of a date with the format %Y%m%d
-        file : string
-            Name of the file with time in the front with the format %H%M%S
-        Exp : Model
-            Model in ExpPath
         """
         entries_added = False
         date_time = datetime.datetime.strptime(date[0:-1] + '_' + file[0:6], '%Y%m%d_%H%M%S')
         path_to_file = self.get_FullPath(file)
         model = apps.get_model(self.Exp_Category, str(Exp.Abbrev))
+        
+        # --- TEIL 1: Sample Objekt bestimmen ---
+        TargetSample = None
+        
         if sample == None:
-            entry = model(Date_time = date_time, Device = self.ExpPath_curr.objects.get(Abbrev=str(Exp.Abbrev)),
-                        Link = path_to_file)
+            # Fall A: Datei liegt direkt im Datumsordner (kein Unterordner)
+            # -> Wir erzwingen die Zuordnung zu "Misc"
+            try:
+                TargetSample = SampleBase.objects.get(Name='Misc')
+            except:
+                self.TotalErrors += 1
+                self.f.write('<p class="text-danger">Critical Error! File found in root folder, but Sample "Misc" does not exist in Database.</p>\n')
+                return # Abbrechen, sonst stürzt es wieder ab
+        else:
+            # Fall B: Datei liegt im Unterordner
+            # Wir nutzen deine get_SampleName Funktion (die hat ja schon den Fallback)
+            SampleName = self.get_SampleName(sample)
+            if SampleName:
+                TargetSample = SampleBase.objects.get(Name=SampleName)
+
+        # --- TEIL 2: Eintrag erstellen (nur wenn Sample gefunden) ---
+        if TargetSample:
+            # Hier übergeben wir jetzt IMMER das 'Sample_name', egal ob Fall A oder B
+            entry = model(Date_time = date_time, 
+                          Device = self.ExpPath_curr.objects.get(Abbrev=str(Exp.Abbrev)),
+                          Link = path_to_file,
+                          Sample_name = TargetSample) # <--- Das ist der entscheidende Fix!
             entries_added = True
         else:
-            SampleName = self.get_SampleName(sample)
-            if SampleName == None:
-                pass
-            else:
-                entry = model(Date_time = date_time, Device = self.ExpPath_curr.objects.get(Abbrev=str(Exp.Abbrev)),
-                                Sample_name = SampleBase.objects.get(Name=SampleName))
-                entries_added = True
+            # Falls kein Sample gefunden wurde (auch kein Misc), machen wir nichts
+            return
+
+        # --- TEIL 3: Speichern und Verknüpfen ---
         if entries_added:
             self.entries_added = True
             entry.save()
             self.f.write('The file  ' + file + ' created the entry with the id ' + str(entry.id) + ' <br>\n')
-            self.entries_added = True
             self.ModelSpecificChanges(date, file, Exp, entry, sample)
+            
         if not Group == None:
             Group.ExpBase.add(entry.id)
             entry_dash = GRP_dash()

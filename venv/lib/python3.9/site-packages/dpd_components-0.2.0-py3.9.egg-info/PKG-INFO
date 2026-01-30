@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: dpd-components
+Version: 0.2.0
+Summary: React components for Django-Plotly-Dash
+Home-page: UNKNOWN
+Author: Gibbs Consulting <dpd.components@gibbsconsulting.ca>
+License: MIT
+Platform: UNKNOWN
+Classifier: Framework :: Dash
+License-File: LICENSE
+
+UNKNOWN
+

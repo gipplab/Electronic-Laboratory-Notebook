@@ -1,0 +1,22 @@
+<tr>
+    <th style="vertical-align: top; padding-top: 10px;">Analysis:</th>
+    <th>
+        <a href="/django_plotly_dash/app/MFP_Tuning/?id={{ ExpBase.id }}" 
+            target="_blank" 
+            class="btn btn-primary btn-sm">
+                <i class="fa fa-sliders"></i> Open Parameter Tuner & Run
+        </a>
+            
+        <br><br>
+        
+        {% if ExpBase.Dash %}
+            <a href="/django_plotly_dash/app/MFP_Dashboard/?session_state={{ Session_Key }}" 
+               target="_blank" 
+               class="btn btn-success btn-sm">
+                <i class="fa fa-bar-chart"></i> Show Results (Dashboard)
+            </a>
+        {% else %}
+            <span class="text-muted"><small>(Noch keine Ergebnisse)</small></span>
+        {% endif %}
+    </th>
+</tr>

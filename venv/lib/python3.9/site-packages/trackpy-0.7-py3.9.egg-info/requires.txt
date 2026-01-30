@@ -1,0 +1,9 @@
+numpy>=1.18
+scipy>=1.4
+pandas>=1
+pyyaml
+matplotlib
+looseversion>=1.0.1
+
+[test]
+pytest

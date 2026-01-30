@@ -1,0 +1,8 @@
+nd2
+numpy
+pandas
+trackpy
+scipy
+matplotlib
+plotly
+dash

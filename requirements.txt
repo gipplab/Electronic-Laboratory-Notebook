@@ -1,3 +1,4 @@
+# --- Core Django & UI ---
 Django==3.2.25
 django-tables2==2.3.1
 django-bootstrap3==14.1.0
@@ -5,31 +6,39 @@ django-filter==2.4.0
 django-tables2-column-shifter==0.5.2
 django-bootstrap-modal-forms==1.5.0
 django-widget-tweaks==1.4.8
-django-plotly-dash==1.4.2
-channels==2.4.0
+django-extensions
+django-datatables-view
+django-mptt==0.11.0
 bootstrap4==0.1.0
+
+# --- Dash & Plotly ---
+django-plotly-dash==1.4.2
 dash==1.15.0
 dash-renderer==1.7.0
 dash-html-components==1.1.0
 dash-core-components==1.11.0
 plotly==4.9.0
-numpy
-pandas
+kaleido>=0.2.1
+
+# --- Channels & Async ---
+channels==2.4.0
 daphne==2.5.0
 redis==3.5.3
 django-redis==4.12.1
 channels-redis==3.0.1
-django-mptt==0.11.0
+Werkzeug==2.0.0
+
+# --- Data Science & Processing ---
+numpy
+pandas
+scipy
+openpyxl
 xlrd==1.2.0
 dbfread==2.0.7
-kaleido==0.1.0
-django-datatables-view
-jupyter 
-ipython
-django-extensions
-scipy
-Werkzeug==2.0.0
-openpyxl
-datatable
-opencv-python==4.9.0.80
+opencv-python-headless
+
+# --- Jupyter Environment ---
+jupyterlab
+
+# --- AI ---
 openai

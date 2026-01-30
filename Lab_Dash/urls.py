@@ -16,6 +16,8 @@ Including another URLconf
 from django.urls import include, path
 from .views import Generic
 from . import views
+import Lab_Dash.dash_apps.MFP_Tuning
+import Lab_Dash.dash_apps.MFP_Dashboard
 
 app_name = 'Lab_Dash'
 
