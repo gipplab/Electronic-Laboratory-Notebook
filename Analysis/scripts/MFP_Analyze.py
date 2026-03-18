@@ -5,7 +5,7 @@ import pandas as pd
 import os
 import pickle
 from tqdm import tqdm
-
+from Analysis.scripts.MFP_Tracking_Logic import process_single_frame, find_edge_in_channel0
 from Lab_Misc.General import get_BasePath
 
 # --- KORREKTE IMPORTS (Ganz oben!) ---
@@ -100,16 +100,31 @@ def run_full_analysis(analysis_obj):
         if n_total > 0: ratio = (n_valid / n_total) * 100
         print(f"Qualität: {ratio:.1f}% valid radii")
 
-    # 6. MESSEN
-    print("Messe Intensitäten...")
+    # 6. MESSEN (Intensität & Brightfield Radius)
+    print("Messe Intensitäten und Brightfield-Radien...")
     intensities = []
+    bf_radii = []
+    bf_valid_list = []
     
     for idx, row in tqdm(tracks.iterrows(), total=tracks.shape[0], desc="Measuring", unit="spot"):
+        # 6a. Intensität messen (wie bisher)
         r_to_measure = row['real_size'] * 0.5
-        val = measure_intensity_robust(vid_measure[int(row['frame'])], row['x'], row['y'], r_to_measure)
+        frame_idx = int(row['frame'])
+        val = measure_intensity_robust(vid_measure[frame_idx], row['x'], row['y'], r_to_measure)
         intensities.append(val)
+        
+        # 6b. NEU: Brightfield Kante (Radius) messen
+        # Wir nutzen den MEASURE_CH (Kanal 0, Brightfield) dafür
+        # Wir übergeben die `real_size` (Fluo-Sigma) als Start-Schätzung
+        bf_img = vid_measure[frame_idx] 
+        r_bf, bf_valid = find_edge_in_channel0(bf_img, row['x'], row['y'], row['real_size'])
+        
+        bf_radii.append(r_bf)
+        bf_valid_list.append(bf_valid)
 
     tracks['intensity_measure'] = intensities
+    tracks['radius_brightfield'] = bf_radii
+    tracks['radius_brightfield_valid'] = bf_valid_list
 
     # 7. SPEICHERN
     base_dir = os.path.dirname(file_path)
@@ -130,8 +145,13 @@ def run_full_analysis(analysis_obj):
     with open(output_file, 'wb') as f:
         pickle.dump(export_data, f)
 
-    analysis_obj.Result_Path = output_file
-    analysis_obj.save()
+    # Optional: Speichere auch als CSV für einfache Durchsicht
+    csv_output = os.path.join(analysis_dir, "tracking_data.csv")
+    tracks.to_csv(csv_output, index=False)
+    print(f"Zusätzlich als CSV gespeichert: {csv_output}")
+
+    # analysis_obj.Result_Path = output_file # Auskommentiert, falls du es nicht in der DB brauchst, sonst drinnen lassen
+    # analysis_obj.save()
     
     return True, f"Erfolg! {tracks['particle'].nunique()} Spuren."
 

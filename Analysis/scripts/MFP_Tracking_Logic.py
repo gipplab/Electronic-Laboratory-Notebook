@@ -2,6 +2,7 @@ import numpy as np
 import trackpy as tp
 import pandas as pd
 from scipy.optimize import curve_fit
+from scipy.ndimage import gaussian_filter1d
 
 # --- MATHEMATIK ---
 
@@ -113,3 +114,65 @@ def process_single_frame(frame, diameter, threshold, min_dist, noise_size=3.0):
     df_merged['valid_fit'] = fit_status # Speichern in DataFrame
     
     return candidates, df_merged, processed_frame
+
+def get_radial_profile(image, center, max_r):
+    """ Erstellt ein Durchschnittsprofil der Helligkeit vom Zentrum nach außen. """
+    y, x = np.indices((image.shape))
+    r = np.sqrt((x - center[0])**2 + (y - center[1])**2)
+    r = r.astype(int)
+    
+    tbin = np.bincount(r.ravel(), image.ravel())
+    nr = np.bincount(r.ravel())
+    radialprofile = tbin / nr
+    
+    return radialprofile[:int(max_r)]
+
+def find_edge_in_channel0(image, x, y, approx_radius):
+    """
+    Sucht im Kanal 0 (Brightfield) nach der physischen Kante 
+    in einem stark erweiterten Suchbereich.
+    Returns: (Gefundener_Radius, Success_Boolean)
+    """
+    if approx_radius <= 0 or np.isnan(approx_radius):
+        return 10.0, False # Fallback
+
+    # 1. ROI ausschneiden (4x Radius)
+    margin = int(approx_radius * 4.0) 
+    if margin < 30: margin = 30 # Mindestgröße garantieren
+    
+    y_int, x_int = int(y), int(x)
+    
+    y_min, y_max = max(0, y_int - margin), min(image.shape[0], y_int + margin)
+    x_min, x_max = max(0, x_int - margin), min(image.shape[1], x_int + margin)
+    
+    roi = image[y_min:y_max, x_min:x_max]
+    
+    if roi.size < 50: return approx_radius, False # ROI zu klein am Bildrand
+    
+    # Lokales Zentrum im ROI
+    local_x = x - x_min
+    local_y = y - y_min
+    
+    # 2. Radiales Profil erstellen
+    try:
+        profile = get_radial_profile(roi, (local_x, local_y), margin)
+    except:
+        return approx_radius, False 
+    
+    # 3. Kante finden
+    smooth_profile = gaussian_filter1d(profile, sigma=2)
+    gradient = np.gradient(smooth_profile)
+    
+    # Suchfenster (20% bis 250% des erwarteten Radius)
+    search_min = int(approx_radius * 0.2)
+    search_max = int(min(len(gradient), approx_radius * 2.5))
+    
+    if search_max <= search_min: return approx_radius, False
+    
+    roi_gradient = np.abs(gradient[search_min:search_max])
+    
+    if len(roi_gradient) == 0: return approx_radius, False
+    
+    edge_idx = np.argmax(roi_gradient) + search_min
+    
+    return float(edge_idx), True
