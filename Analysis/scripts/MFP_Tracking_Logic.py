@@ -116,63 +116,77 @@ def process_single_frame(frame, diameter, threshold, min_dist, noise_size=3.0):
     return candidates, df_merged, processed_frame
 
 def get_radial_profile(image, center, max_r):
-    """ Erstellt ein Durchschnittsprofil der Helligkeit vom Zentrum nach außen. """
     y, x = np.indices((image.shape))
     r = np.sqrt((x - center[0])**2 + (y - center[1])**2)
     r = r.astype(int)
-    
     tbin = np.bincount(r.ravel(), image.ravel())
     nr = np.bincount(r.ravel())
     radialprofile = tbin / nr
-    
     return radialprofile[:int(max_r)]
 
-def find_edge_in_channel0(image, x, y, approx_radius):
+def find_edge_dynamic_roi(bf_image, fluo_image, x, y, approx_radius):
     """
-    Sucht im Kanal 0 (Brightfield) nach der physischen Kante 
-    in einem stark erweiterten Suchbereich.
-    Returns: (Gefundener_Radius, Success_Boolean)
+    Sucht die Brightfield-Kante. Das Suchfenster wird dynamisch über
+    den Gradienten-Abfall des Fluoreszenz-Signals (Steilheit & Knick) bestimmt.
+    Returns: (Radius_Value, Is_Valid_Fit)
     """
     if approx_radius <= 0 or np.isnan(approx_radius):
-        return 10.0, False # Fallback
+        return 10.0, False
 
-    # 1. ROI ausschneiden (4x Radius)
-    margin = int(approx_radius * 4.0) 
-    if margin < 30: margin = 30 # Mindestgröße garantieren
+    margin = int(approx_radius * 5.0) 
+    if margin < 50: margin = 50
     
     y_int, x_int = int(y), int(x)
+    y_min, y_max = max(0, y_int - margin), min(bf_image.shape[0], y_int + margin)
+    x_min, x_max = max(0, x_int - margin), min(bf_image.shape[1], x_int + margin)
     
-    y_min, y_max = max(0, y_int - margin), min(image.shape[0], y_int + margin)
-    x_min, x_max = max(0, x_int - margin), min(image.shape[1], x_int + margin)
+    roi_bf = bf_image[y_min:y_max, x_min:x_max]
+    roi_fluo = fluo_image[y_min:y_max, x_min:x_max]
     
-    roi = image[y_min:y_max, x_min:x_max]
+    if roi_bf.size < 50 or roi_fluo.size < 50: 
+        return approx_radius, False
     
-    if roi.size < 50: return approx_radius, False # ROI zu klein am Bildrand
+    local_x, local_y = x - x_min, y - y_min
     
-    # Lokales Zentrum im ROI
-    local_x = x - x_min
-    local_y = y - y_min
-    
-    # 2. Radiales Profil erstellen
     try:
-        profile = get_radial_profile(roi, (local_x, local_y), margin)
+        prof_bf = get_radial_profile(roi_bf, (local_x, local_y), margin)
+        prof_fluo = get_radial_profile(roi_fluo, (local_x, local_y), margin)
     except:
         return approx_radius, False 
     
-    # 3. Kante finden
-    smooth_profile = gaussian_filter1d(profile, sigma=2)
-    gradient = np.gradient(smooth_profile)
+    # --- 1. Fluo "Knick" über Gradient berechnen ---
+    smooth_fluo = gaussian_filter1d(prof_fluo, sigma=2)
+    grad_fluo = np.gradient(smooth_fluo)
     
-    # Suchfenster (20% bis 250% des erwarteten Radius)
-    search_min = int(approx_radius * 0.2)
-    search_max = int(min(len(gradient), approx_radius * 2.5))
+    # Steilsten Abfall suchen (Start ab Pixel 5, um das Zentrum zu ignorieren)
+    start_search = min(5, len(grad_fluo)-1)
+    steepest_idx = np.argmin(grad_fluo[start_search:]) + start_search
+    max_slope = grad_fluo[steepest_idx] # Stark negativer Wert
     
-    if search_max <= search_min: return approx_radius, False
+    # Knick finden (15% der maximalen Steilheit)
+    flat_threshold = max_slope * 0.15 
+    drop_radius = steepest_idx
+    for r in range(steepest_idx, len(grad_fluo)):
+        if grad_fluo[r] > flat_threshold: 
+            drop_radius = r
+            break
+            
+    # --- 2. Suchfenster definieren ---
+    search_min = int(steepest_idx * 0.5) 
+    search_max = min(drop_radius + 15, len(prof_bf) - 1) 
     
-    roi_gradient = np.abs(gradient[search_min:search_max])
+    if search_max <= search_min + 2: 
+        search_max = search_min + 10 # Fallback
     
-    if len(roi_gradient) == 0: return approx_radius, False
+    # --- 3. Brightfield Kante finden ---
+    smooth_bf = gaussian_filter1d(prof_bf, sigma=2)
+    gradient = np.abs(np.gradient(smooth_bf))
     
+    roi_gradient = gradient[search_min:search_max]
+    
+    if len(roi_gradient) == 0: 
+        return float(drop_radius), False # Fallback: Wir nehmen den Knick
+        
     edge_idx = np.argmax(roi_gradient) + search_min
     
     return float(edge_idx), True

@@ -13,7 +13,7 @@ import json
 import traceback
 from urllib.parse import parse_qs, unquote
 
-from Lab_Misc.Load_Data import Load_MFP 
+from Lab_Misc.Load_Data import Load_MFP, Load_MFP_Video
 from Lab_Misc.General import get_BasePath
 
 from Analysis.models import MFPAnalysis
@@ -27,12 +27,11 @@ app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
     dcc.Store(id='entry-id'),
     
-    # WICHTIG: Der "Kickstarter" bleibt drin, weil er funktioniert!
+    # Kickstarter
     dcc.Interval(id='kickstarter', interval=500, max_intervals=1),
 
     html.H2("MFP Analysis Dashboard", style={'textAlign': 'center', 'fontFamily': 'sans-serif'}),
     
-    # Kleiner Status-Bereich statt blauer Box
     html.Div([
         html.Button("🔄 Reload", id='reload-btn', n_clicks=0, className="btn btn-sm btn-outline-primary"),
         html.Span(id='loading-status', style={'marginLeft': '15px', 'fontWeight': 'bold', 'color': '#333'})
@@ -45,13 +44,21 @@ app.layout = html.Div([
                 html.Div([
                     html.Div([
                         html.Label("Channel:", style={'fontWeight': 'bold'}),
-                        dcc.RadioItems(id='channel-selector', options=[{'label': 'Detection', 'value': 'detect'}, {'label': 'Measure', 'value': 'measure'}], value='detect', labelStyle={'display': 'inline-block', 'marginRight': '10px'}),
+                        dcc.RadioItems(
+                            id='channel-selector', 
+                            options=[
+                                {'label': ' Detection', 'value': 'detect'}, 
+                                {'label': ' Measure', 'value': 'measure'},
+                                {'label': ' Brightfield', 'value': 'bf'} # NEU: Brightfield Option
+                            ], 
+                            value='detect', 
+                            labelStyle={'display': 'inline-block', 'marginRight': '10px'}
+                        ),
                         dcc.Checklist(id='show-markers-toggle', options=[{'label': ' Markers', 'value': 'show'}], value=['show'], style={'display': 'inline-block', 'marginLeft': '10px'}),
                     ], style={'marginBottom': '5px'}),
                     
                     dcc.Graph(id='image-plot', style={'height': '65vh'}),
                     
-                    # Slider (Marks={} verhindert JS Fehler)
                     dcc.Slider(id='frame-slider', min=0, max=100, value=0, step=1, marks={0:'0'}, tooltip={"placement": "bottom", "always_visible": True})
                 ], style={'width': '55%', 'display': 'inline-block', 'verticalAlign': 'top', 'padding': '10px'}),
                 
@@ -59,7 +66,24 @@ app.layout = html.Div([
                 html.Div([
                     html.Label("Particle ID:", style={'fontWeight': 'bold'}),
                     dcc.Dropdown(id='particle-dropdown', options=[], value=None, clearable=False),
-                    dcc.Graph(id='single-intensity-graph', style={'height': '50vh'}),
+                    
+                    # --- NEU: Schalter für die Y-Achse ---
+                    html.Div([
+                        html.Label("Plot Y-Axis:", style={'fontWeight': 'bold', 'marginTop': '10px', 'marginRight': '10px'}),
+                        dcc.RadioItems(
+                            id='y-axis-selector', 
+                            options=[
+                                {'label': ' Intensity', 'value': 'intensity_measure'}, 
+                                {'label': ' BF Radius', 'value': 'radius_brightfield'},
+                                {'label': ' Fluo Radius', 'value': 'real_size'}
+                            ], 
+                            value='radius_brightfield', # Start-Einstellung
+                            labelStyle={'display': 'inline-block', 'marginRight': '15px'}
+                        )
+                    ], style={'marginBottom': '5px'}),
+                    # ------------------------------------
+
+                    dcc.Graph(id='single-intensity-graph', style={'height': '45vh'}),
                     html.Div(id='debug-info', style={'color': 'gray', 'fontSize': '0.8em', 'marginTop': '5px'})
                 ], style={'width': '40%', 'display': 'inline-block', 'verticalAlign': 'top', 'padding': '10px'})
             ])
@@ -88,69 +112,34 @@ def get_data(entry_id):
     if entry_id in DATA_CACHE: return DATA_CACHE[entry_id]
 
     try:
-        # 1. TABELLE LADEN (via dein Load_Data Skript)
+        # 1. TABELLE LADEN
         tracks = Load_MFP(entry_id)
-        
         if tracks.empty: 
-            print(f"Load_MFP returned empty for {entry_id}")
             return None
 
-        # Index Fix für Dash
         tracks = tracks.reset_index(drop=True)
 
-        # 2. VIDEO LADEN
-        # Wir holen den Pfad aus den Tracks (Load_MFP speichert 'Source_File')
-        # oder Fallback über das Model
-        source_file = None
+        # 2. VIDEO LADEN (Nutzt jetzt die neue Funktion in Load_Data.py)
+        video_data = Load_MFP_Video(entry_id)
         
-        if 'Source_File' in tracks.columns:
-            rel_link = tracks.iloc[0]['Source_File']
-            source_file = os.path.join(get_BasePath(), rel_link)
-        else:
-            # Fallback falls Source_File fehlt
-            try: 
-                analysis = MFPAnalysis.objects.get(Entry_id=entry_id)
-            except: 
-                analysis = MFPAnalysis.objects.get(pk=entry_id)
-            source_file = os.path.join(get_BasePath(), analysis.Entry.Link)
-
-        vid_detect = None
-        vid_measure = None
-
-        if source_file and os.path.exists(source_file):
-            import nd2
-            # Kanal-Infos brauchen wir trotzdem aus dem Analysis Model
-            try:
-                analysis = MFPAnalysis.objects.get(Entry_id=entry_id)
-            except:
-                analysis = MFPAnalysis.objects.get(pk=entry_id)
-                
-            detect_ch = getattr(analysis, 'Detect_Channel', 0)
-            measure_ch = 1 if detect_ch == 2 else 0 
-            
-            with nd2.ND2File(source_file) as f:
-                arr = f.asarray()
-                if arr.ndim == 5: 
-                    vid_detect = np.max(arr[:, :, detect_ch, :, :], axis=1)
-                    vid_measure = np.max(arr[:, :, measure_ch, :, :], axis=1)
-                elif arr.ndim == 4:
-                    vid_detect = arr[:, detect_ch, :, :]
-                    vid_measure = arr[:, measure_ch, :, :]
-                else:
-                    vid_detect = arr
-                    vid_measure = arr
-        else:
-            print(f"Video file missing: {source_file}")
+        if not video_data:
+            print(f"Video data could not be loaded for {entry_id}")
+            return None
         
-        # Alles zusammenpacken
+        # Alles zusammenpacken für den Cache
         data = {
             'tracks': tracks,
-            'vid_detect': vid_detect,
-            'vid_measure': vid_measure
+            'vid_detect': video_data['detect'],
+            'vid_measure': video_data['measure'],
+            'vid_bf': video_data['brightfield']
         }
         
         DATA_CACHE[entry_id] = data
         return data
+
+    except Exception as e:
+        print(f"Error in get_data: {e}")
+        return None
 
     except Exception as e:
         print(f"Error in get_data: {e}")
@@ -161,7 +150,6 @@ def get_data(entry_id):
 # CALLBACKS
 # =========================================================
 
-# 1. INIT (Exakt die Logik vom Debug-Code, nur andere Outputs)
 @app.callback(
     [Output('entry-id', 'data'), Output('loading-status', 'children'),
      Output('particle-dropdown', 'options'), Output('particle-dropdown', 'value'),
@@ -171,26 +159,20 @@ def get_data(entry_id):
 )
 def init_dashboard(search, n, clicks):
     entry_id = None
-    
-    # URL Parsing (Das hat funktioniert!)
     if search:
         try:
             decoded = unquote(search)
             qs = parse_qs(decoded.lstrip('?'))
-            if 'id' in qs: 
-                entry_id = qs['id'][0]
+            if 'id' in qs: entry_id = qs['id'][0]
             elif 'session_state' in qs:
                 state = json.loads(qs['session_state'][0])
                 entry_id = state.get('MFP_id') or state.get('id')
         except: pass
 
-    # Wenn keine ID da ist -> Fehler anzeigen
-    if not entry_id:
-        return None, "❌ Keine ID gefunden.", [], None, [], 100, {0:'0'}
+    if not entry_id: return None, "❌ Keine ID gefunden.", [], None, [], 100, {0:'0'}
 
     data = get_data(entry_id)
-    if not data:
-        return entry_id, f"❌ Keine Daten für ID {entry_id} (Bitte 'RUN ANALYSIS' wiederholen).", [], None, [], 100, {0:'0'}
+    if not data: return entry_id, f"❌ Keine Daten für ID {entry_id}", [], None, [], 100, {0:'0'}
     
     tracks = data['tracks']
     if tracks.empty: return entry_id, "⚠️ 0 Partikel gefunden.", [], None, [], 100, {0:'0'}
@@ -205,54 +187,66 @@ def init_dashboard(search, n, clicks):
     return entry_id, f"✅ ID {entry_id} geladen ({len(all_particles)} Partikel).", options, first_val, options, mf, marks
 
 
-# 2. VIEW UPDATE (MIT SHAPES FÜR KORREKTEN RADIUS)
 @app.callback(
     [Output('image-plot', 'figure'), Output('single-intensity-graph', 'figure'), Output('debug-info', 'children')],
     [Input('frame-slider', 'value'), Input('channel-selector', 'value'), 
-     Input('particle-dropdown', 'value'), Input('show-markers-toggle', 'value')],
+     Input('particle-dropdown', 'value'), Input('show-markers-toggle', 'value'),
+     Input('y-axis-selector', 'value')], # <--- NEU HINZUGEFÜGT
     [State('entry-id', 'data')]
 )
-def update_view(frame, channel, pid, markers, entry_id):
+def update_view(frame, channel, pid, markers, y_metric, entry_id): # <--- y_metric hinzugefügt!
     if not entry_id: return go.Figure(), go.Figure(), ""
     data = get_data(entry_id)
-    if not data: return go.Figure(), go.Figure(), ""
-    
-    # Video Check
-    if data['vid_detect'] is None: 
+    if not data or data['vid_detect'] is None: 
         return go.Figure(layout={'title': "Video not found"}), go.Figure(), "Video Missing"
 
-    vid = data['vid_measure'] if channel == 'measure' else data['vid_detect']
     tracks = data['tracks']
+    
+    # NEU: Video und Colormap anhand des gewählten Kanals bestimmen
+    if channel == 'bf':
+        vid = data.get('vid_bf', data['vid_detect']) # Fallback falls bf fehlt
+        cmap = 'gray'
+    elif channel == 'measure':
+        vid = data['vid_measure']
+        cmap = 'inferno'
+    else:
+        vid = data['vid_detect']
+        cmap = 'viridis'
     
     if frame >= len(vid): frame = len(vid)-1
     
     # --- 1. BILD (HEATMAP) ---
     fig_img = go.Figure()
-    fig_img.add_trace(go.Heatmap(z=vid[frame], colorscale='gray' if channel=='detect' else 'inferno', showscale=False, hoverinfo='skip'))
+    fig_img.add_trace(go.Heatmap(z=vid[frame], colorscale=cmap, showscale=False, hoverinfo='skip'))
     
-    # --- 2. KREISE (SHAPES) ---
+    # --- 2. KREISE (SHAPES) & TEXT-LABELS ---
     try:
         shapes = []
+        scatter_x = []
+        scatter_y = []
+        scatter_text = []
+        scatter_hover = []
+        scatter_colors = []
+
         if 'show' in markers:
             df = tracks[tracks['frame'] == frame]
             if not df.empty:
                 for _, row in df.iterrows():
-                    # RADIUS HOLEN
-                    # Wir nutzen 'real_size' direkt als Radius.
-                    # (Falls du den Durchmesser meinst, nimm * 0.5 oder * 1.0 je nach Definition in deiner Analyse)
-                    r_px = row.get('real_size', 5.0) 
-                    if pd.isna(r_px): r_px = 5.0
+                    p_id = int(row['particle'])
+                    is_sel = (pid is not None) and (p_id == int(pid))
                     
-                    # Ist dieser Punkt ausgewählt?
-                    is_sel = (pid is not None) and (int(row['particle']) == int(pid))
-                    is_valid = row.get('valid_fit', True)
-                    
-                    # Stil definieren
+                    if 'radius_brightfield' in row and pd.notna(row['radius_brightfield']):
+                        r_px = row['radius_brightfield']
+                        is_valid = row.get('radius_brightfield_valid', True)
+                    else:
+                        r_px = row.get('real_size', 5.0) 
+                        is_valid = row.get('valid_fit', True)
+
                     col = '#00FFFF' if is_sel else ('red' if is_valid else 'orange')
                     lw = 3 if is_sel else 1.5
                     style = 'solid' if is_valid else 'dot'
 
-                    # Shape definieren (X0, Y0 = Oben Links | X1, Y1 = Unten Rechts)
+                    # Shapes dem Layout hinzufügen (mit explizitem xref/yref)
                     shapes.append(dict(
                         type="circle",
                         xref="x", yref="y",
@@ -262,18 +256,46 @@ def update_view(frame, channel, pid, markers, entry_id):
                         y1 = row['y'] + r_px,
                         line = dict(color=col, width=lw, dash=style)
                     ))
+                    
+                    # Daten für Text/Hover sammeln
+                    scatter_x.append(row['x'])
+                    scatter_y.append(row['y'])
+                    scatter_text.append(f"<b>{p_id}</b>")
+                    scatter_hover.append(f"ID: {p_id}<br>Radius: {r_px:.1f}px")
+                    scatter_colors.append(col)
         
-        # Shapes dem Layout hinzufügen
+        # 1. Shapes ins Layout packen
         fig_img.update_layout(shapes=shapes)
+
+        # 2. Text und Hover-Layer als unsichtbaren Scatter hinzufügen
+        if scatter_x:
+            fig_img.add_trace(go.Scatter(
+                x=scatter_x,
+                y=scatter_y,
+                mode='text',
+                text=scatter_text,
+                textposition='top right',
+                textfont=dict(color=scatter_colors, size=14),
+                hoverinfo='text',
+                hovertext=scatter_hover,
+                showlegend=False
+            ))
 
     except Exception as e:
         print(f"Shape Error: {e}")
+        traceback.print_exc() # Gibt uns mehr Infos in der Konsole, falls es kracht
+        
+    # --- BILD-PROPORTIONEN FIXIEREN ---
+    img_height, img_width = vid[frame].shape
 
-    # Layout fixieren (Damit Zoom funktioniert & Koordinaten stimmen)
     fig_img.update_layout(
-        margin=dict(l=0,r=0,t=30,b=0), height=600, title=f"Frame {frame}",
-        xaxis=dict(visible=False, scaleanchor="y"), # Quadratische Pixel
-        yaxis=dict(visible=False, autorange='reversed'), # (0,0) ist oben links
+        margin=dict(l=0, r=0, t=30, b=0), 
+        height=600, 
+        title=f"Frame {frame}",
+        # Achsen passend zum Bild definieren
+        xaxis=dict(range=[0, img_width], showgrid=False, zeroline=False, visible=False), 
+        # autorange='reversed' ist oft sicherer als [img_height, 0], um Konflikte mit Heatmap/Scatter zu vermeiden!
+        yaxis=dict(autorange='reversed', scaleanchor="x", scaleratio=1, showgrid=False, zeroline=False, visible=False),
         clickmode='event+select'
     )
     
@@ -286,21 +308,43 @@ def update_view(frame, channel, pid, markers, entry_id):
         except: pass
         
         t_data = tracks[tracks['particle'] == pid].sort_values('frame')
-        fig_graph.add_trace(go.Scatter(x=t_data['frame'], y=t_data['intensity_measure'].fillna(0), mode='lines+markers', name=f"ID {pid}"))
+        
+        # Den ausgewählten Y-Wert auslesen (Intensität oder Radius)
+        y_values = t_data[y_metric].fillna(0)
+        
+        # Schönere Namen für die Achsenbeschriftung
+        metric_labels = {
+            'intensity_measure': 'Intensity (A.U.)',
+            'radius_brightfield': 'Brightfield Radius (px)',
+            'real_size': 'Fluorescence Radius (px)'
+        }
+        y_label = metric_labels.get(y_metric, 'Value')
+        
+        # Den Hauptgraphen zeichnen
+        fig_graph.add_trace(go.Scatter(x=t_data['frame'], y=y_values, mode='lines+markers', name=f"ID {pid}"))
         
         curr = t_data[t_data['frame'] == frame]
         if not curr.empty:
-             val = curr['intensity_measure'].fillna(0).values[0]
-             r_val = curr['real_size'].values[0] if 'real_size' in curr else 0
-             txt = f"ID {pid} | Int: {val:.1f} | Radius: {r_val:.2f}px"
+             # Den roten Punkt für den aktuellen Frame setzen
+             val = curr[y_metric].fillna(0).values[0]
+             
+             # Info Text dynamisch zusammenbauen (zeigt immer alles an)
+             int_val = curr.get('intensity_measure', [0]).values[0]
+             r_fluo = curr.get('real_size', [0]).values[0]
+             r_bf = curr.get('radius_brightfield', [0]).values[0]
+             
+             txt = f"ID {pid} | Int: {int_val:.0f} | BF-Rad: {r_bf:.1f}px | Fluo-Rad: {r_fluo:.1f}px"
+                 
              fig_graph.add_trace(go.Scatter(x=curr['frame'], y=[val], mode='markers', marker=dict(color='red', size=12), name="Current"))
+        
+        # Die Y-Achse beschriften
+        fig_graph.update_layout(yaxis_title=y_label)
     
     fig_graph.update_layout(template="plotly_white", margin=dict(l=40, r=20, t=40, b=20), title=txt)
     
     return fig_img, fig_graph, txt
     
 
-# 3. GLOBAL STATS
 @app.callback(
     [Output('global-spaghetti', 'figure'), Output('global-heatmap', 'figure')],
     [Input('global-id-filter', 'value'), Input('tabs', 'value')],

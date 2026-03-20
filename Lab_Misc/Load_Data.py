@@ -13,6 +13,7 @@ from Analysis.models import OszAnalysis
 from Analysis.models import DafAnalysis
 from Exp_Sub.models import LSP, MFR, CAP
 from Lab_Misc import General
+import nd2
 
 # --- OPTIONALER IMPORT FÜR DATATABLE ---
 try:
@@ -108,6 +109,56 @@ def Load_MFP_Path(pk):
             return full_path
     
     return None
+
+def Load_MFP_Video(pk):
+    """
+    Lädt das ND2-Video für eine MFP-Analyse-ID.
+    Nutzt Load_MFP_Path() für höchste Sicherheit beim Pfad.
+    Geht direkt von 4D-Daten (Time, Channel, Y, X) aus.
+    """
+    from Analysis.models import MFPAnalysis
+    
+    # 1. Pfad mit deiner extrem sicheren Funktion holen!
+    source_file = Load_MFP_Path(pk)
+    
+    if not source_file:
+        print(f"❌ Video-Datei für ID {pk} konnte nicht ermittelt werden.")
+        return None
+        
+    # 2. Analyse-Objekt für die Kanal-Einstellungen holen
+    try:
+        analysis = MFPAnalysis.objects.get(Entry_id=pk)
+        detect_ch = getattr(analysis, 'Detect_Channel', 0)
+    except Exception as e:
+        print(f"⚠️ Keine Analyse-Settings für ID {pk} gefunden, nutze Standard. ({e})")
+        detect_ch = 0
+        analysis = None
+        
+    measure_ch = 1 if detect_ch == 2 else 0 
+    bf_ch = 0 # Brightfield ist Kanal 0
+    
+    # 3. ND2 Datei laden (ohne 5D-Z-Stack-Logik!)
+    with nd2.ND2File(source_file) as f:
+        arr = f.asarray()
+        
+        # Standard-Fall: 4D (Time, Channel, Y, X)
+        if arr.ndim == 4: 
+            vid_detect = arr[:, detect_ch, :, :]
+            vid_measure = arr[:, measure_ch, :, :]
+            vid_bf = arr[:, bf_ch, :, :]
+        # Fallback
+        else: 
+            vid_detect = arr
+            vid_measure = arr
+            vid_bf = arr
+            
+    return {
+        'detect': vid_detect,
+        'measure': vid_measure,
+        'brightfield': vid_bf,
+        'path': source_file,
+        'analysis_obj': analysis
+    }
 
 def Load_MFP(pk):
     """
