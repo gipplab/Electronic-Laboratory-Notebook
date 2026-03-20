@@ -1,12 +1,28 @@
 import os
-import pickle
-import numpy as np
-import pandas as pd
-import trackpy as tp
-from tqdm import tqdm
+import sys
+import concurrent.futures
+import multiprocessing
 
-from Lab_Misc.General import get_BasePath
-from Lab_Misc.Load_Data import Load_MFP_Path, Load_MFP_Video
+# --- 1. DJANGO INITIALISIERUNG GANZ OBEN ---
+# Wir setzen die Umgebungsvariable
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Private.settings')
+
+import django
+from django.apps import apps # WICHTIG: Wir müssen 'apps' explizit importieren!
+
+# Jetzt können wir gefahrlos fragen, ob Django schon wach ist
+if not apps.ready:
+    django.setup()
+# -------------------------------------------
+
+import pandas as pd
+import numpy as np
+from tqdm import tqdm
+import trackpy as tp
+
+# --- 2. DEINE NORMALEN IMPORTE ---
+from Lab_Misc.Load_Data import Load_MFP_Video
+
 from Analysis.scripts.MFP_Tracking_Logic import process_single_frame, find_edge_dynamic_roi
 
 # =========================================================
@@ -26,27 +42,66 @@ def measure_intensity_robust(image, x, y, radius):
     return np.mean(image[mask])
 
 
-def perform_tracking(vid_detect, diameter, threshold, min_dist, noise_size):
-    """Modul 1: Findet die Positionen und optimiert die Mitte in jedem Frame."""
-    all_frames_features = []
-    print(f"Starte Tracking auf {len(vid_detect)} Frames...")
-    
-    for t, frame in enumerate(tqdm(vid_detect, desc="Tracking", unit="frame")):
-        _, df_final, _ = process_single_frame(
-            frame, 
-            diameter=diameter, 
-            threshold=threshold, 
-            min_dist=min_dist, 
-            noise_size=noise_size
-        )
-        if not df_final.empty:
-            df_final['frame'] = t
-            all_frames_features.append(df_final)
+# --- HILFSFUNKTION FÜR DIE ARBEITER (WORKER) ---
+# Diese Funktion läuft parallel auf verschiedenen Kernen.
+# Sie bekommt ein "Paket" (args) mit allen Infos für EIN Frame.
+def _process_single_frame_worker(args):
+    # 1. DJANGO INITIALISIEREN (Das ist der Lebensretter für Multiprocessing!)
+    import os
+    import django
+    # Tausche "Private.settings" aus, falls dein Projektordner anders heißt
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Private.settings') 
+    django.setup()
 
-    if not all_frames_features:
-        return pd.DataFrame()
+    # 2. Argumente auspacken
+    f_idx, frame_img, diameter, threshold, min_dist, noise_size = args
+    
+    # 3. Import MUSS hier drinnen bleiben (nach django.setup!)
+    from Analysis.scripts.MFP_Tracking_Logic import process_single_frame
+    
+    # 4. Die eigentliche Arbeit
+    _, df, _ = process_single_frame(
+        frame_img, 
+        diameter=diameter, 
+        threshold=threshold, 
+        min_dist=min_dist, 
+        noise_size=noise_size
+    )
+    
+    if not df.empty:
+        df['frame'] = f_idx
         
-    return pd.concat(all_frames_features, ignore_index=True)
+    return df
+
+# --- DAS NEUE PARALLELE MODUL 1 ---
+def perform_tracking_parallel(vid_detect, diameter, threshold, min_dist, noise_size):
+    num_cores = multiprocessing.cpu_count()
+    print(f"🚀 Starte paralleles Tracking auf {num_cores} CPU-Kernen...")
+    
+    # 1. Arbeitspakete schnüren (Für jedes Frame im Video ein Paket)
+    # Wir übergeben den Index und das exakte Bild
+    tasks = [
+        (i, vid_detect[i], diameter, threshold, min_dist, noise_size) 
+        for i in range(len(vid_detect))
+    ]
+    
+    all_features = []
+    
+    # 2. Die CPU-Kerne zünden!
+    with concurrent.futures.ProcessPoolExecutor(max_workers=num_cores) as executor:
+        # map() wirft alle Pakete in den Pool und verteilt sie auf freie Kerne.
+        # list() sammelt die Ergebnisse in der richtigen Reihenfolge wieder ein.
+        results = list(tqdm(executor.map(_process_single_frame_worker, tasks), total=len(tasks), desc="Tracking (Parallel)"))
+        
+    # 3. Ergebnisse zusammenbauen
+    for df in results:
+        if not df.empty:
+            all_features.append(df)
+            
+    if not all_features:
+        return pd.DataFrame() # Leer zurückgeben, falls nichts gefunden wurde
+        
+    return pd.concat(all_features, ignore_index=True)
 
 
 def perform_linking(features, debug_mode):
@@ -145,8 +200,8 @@ def run_full_analysis(analysis_obj):
 
     # --- DIE MODULARE PIPELINE ---
     
-    # Schritt A: Tracking
-    features = perform_tracking(vid_detect, DIAMETER, THRESHOLD, MIN_DIST, NOISE_SIZE)
+    # Schritt A: Tracking (JETZT PARALLEL!)
+    features = perform_tracking_parallel(vid_detect, DIAMETER, THRESHOLD, MIN_DIST, NOISE_SIZE)
     if features.empty:
         return False, "Keine Partikel gefunden."
 
