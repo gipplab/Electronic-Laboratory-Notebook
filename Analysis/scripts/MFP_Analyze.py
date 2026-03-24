@@ -19,6 +19,7 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 import trackpy as tp
+import pickle
 
 # --- 2. DEINE NORMALEN IMPORTE ---
 from Lab_Misc.Load_Data import Load_MFP_Video
@@ -29,18 +30,31 @@ from Analysis.scripts.MFP_Tracking_Logic import process_single_frame, find_edge_
 # HELPER / MODULE
 # =========================================================
 
-def measure_intensity_robust(image, x, y, radius):
-    """Berechnet die mittlere Intensität innerhalb eines Radius."""
-    if radius < 0.5: return np.nan
+def measure_intensity_robust_fast(image, x, y, radius):
+    """Berechnet die mittlere Intensität innerhalb eines Radius (High-Speed mit Bounding Box)."""
+    if radius < 0.5 or np.isnan(radius): 
+        return np.nan
+        
     h, w = image.shape
-    if x < radius or x > w - radius or y < radius or y > h - radius:
+    r_int = int(np.ceil(radius))
+    x_int, y_int = int(x), int(y)
+    
+    # 1. Bounding Box (winziges Fenster) berechnen
+    x_min, x_max = max(0, x_int - r_int), min(w, x_int + r_int + 1)
+    y_min, y_max = max(0, y_int - r_int), min(h, y_int + r_int + 1)
+    
+    # 2. Nur diesen winzigen Ausschnitt laden!
+    roi = image[y_min:y_max, x_min:x_max]
+    
+    if roi.size == 0: 
         return np.nan
     
-    Y, X = np.ogrid[:h, :w]
-    dist_from_center = np.sqrt((X - x)**2 + (Y - y)**2)
-    mask = dist_from_center <= radius
-    return np.mean(image[mask])
-
+    # 3. Den Kreis NUR in diesem kleinen Fenster berechnen
+    Y, X = np.ogrid[:roi.shape[0], :roi.shape[1]]
+    loc_x, loc_y = x - x_min, y - y_min
+    mask = (X - loc_x)**2 + (Y - loc_y)**2 <= radius**2
+    
+    return np.mean(roi[mask])
 
 # --- HILFSFUNKTION FÜR DIE ARBEITER (WORKER) ---
 # Diese Funktion läuft parallel auf verschiedenen Kernen.
@@ -132,24 +146,33 @@ def perform_linking(features, debug_mode):
 def perform_measurements(tracks, vid_measure, vid_detect, diameter):
     """Modul 3: Misst Intensitäten und findet den dynamischen Rand im Brightfield."""
     print("Messe Intensitäten und dynamische Brightfield-Radien...")
+    
+    # Sicherheits-Check, falls die Tabelle leer ist
+    if tracks is None or tracks.empty:
+        return pd.DataFrame()
+        
     results = []
     
-    for idx, row in tqdm(tracks.iterrows(), total=len(tracks), desc="Measuring", unit="spot"):
-        frame_idx = int(row['frame'])
+    for row in tqdm(tracks.itertuples(), total=len(tracks), desc="Measuring", unit="spot"):
+        # PUNKT-NOTATION STATT KLAMMERN
+        frame_idx = int(row.frame)
         curr_bf_img = vid_measure[frame_idx]
         curr_fluo_img = vid_detect[frame_idx] 
         
-        # Intensität messen
-        r_mask = row['real_size'] * 0.5
-        intensity = measure_intensity_robust(curr_bf_img, row['x'], row['y'], r_mask)
+        # Intensität messen (Punkte statt Klammern!)
+        r_mask = row.real_size * 0.5
+        intensity = measure_intensity_robust_fast(curr_bf_img, row.x, row.y, r_mask)
         
         # Brightfield Kante finden
-        start_radius = row['real_size']
-        if not row.get('valid_fit', True) or start_radius < (diameter * 0.2):
+        start_radius = row.real_size
+        
+        # Bei Tuples nimmt man getattr() statt .get()
+        valid = getattr(row, 'valid_fit', True) 
+        if not valid or start_radius < (diameter * 0.2):
             start_radius = diameter / 2.0
 
         # Unsere neue V2 Logik
-        r_bf, bf_valid = find_edge_dynamic_roi(curr_bf_img, curr_fluo_img, row['x'], row['y'], start_radius)
+        r_bf, bf_valid = find_edge_dynamic_roi(curr_bf_img, curr_fluo_img, row.x, row.y, start_radius)
         
         results.append({
             'intensity_measure': intensity,

@@ -89,13 +89,13 @@ def process_single_frame(frame, diameter, threshold, min_dist, noise_size=3.0):
     if len(candidates) == 0: return pd.DataFrame(), pd.DataFrame(), processed_frame
 
     refined_pos = []
-    for _, row in candidates.iterrows():
-        fit = fit_spot_position_strict(frame, row['x'], row['y'], radius=int(diameter/2)+5)
+    for row in candidates.itertuples():
+        fit = fit_spot_position_strict(frame, row.x, row.y, radius=int(diameter/2)+5)
         if fit: 
             refined_pos.append(fit)
         else:
             # Fallback Position
-            refined_pos.append({'x': row['x'], 'y': row['y'], 'amplitude': frame[int(row['y']), int(row['x'])]})
+            refined_pos.append({'x': row.x, 'y': row.y, 'amplitude': frame[int(row.y), int(row.x)]})
     
     if not refined_pos: return candidates, pd.DataFrame(), processed_frame
     
@@ -105,8 +105,8 @@ def process_single_frame(frame, diameter, threshold, min_dist, noise_size=3.0):
     real_radii = []
     fit_status = [] # Neue Liste für True/False
     
-    for _, row in df_merged.iterrows():
-        r_px, success = measure_radius_at_fixed_pos(frame, row['x'], row['y'], guess_diameter=diameter)
+    for row in df_merged.itertuples():
+        r_px, success = measure_radius_at_fixed_pos(frame, row.x, row.y, guess_diameter=diameter)
         real_radii.append(r_px)
         fit_status.append(success)
     
