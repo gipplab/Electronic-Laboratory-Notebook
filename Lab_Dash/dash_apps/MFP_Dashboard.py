@@ -15,6 +15,8 @@ from urllib.parse import parse_qs, unquote
 
 from Lab_Misc.Load_Data import Load_MFP, Load_MFP_Video
 from Lab_Misc.General import get_BasePath
+from Lab_Misc import General
+
 
 from Analysis.models import MFPAnalysis
 
@@ -235,31 +237,44 @@ def update_view(frame, channel, pid, markers, y_metric, entry_id): # <--- y_metr
                     p_id = int(row['particle'])
                     is_sel = (pid is not None) and (p_id == int(pid))
                     
+                    # --- NEU: ZENTRUM UND RADIUS DYNAMISCH WÄHLEN ---
+                    # Wenn wir den Brightfield-Radius haben, nutzen wir auch das 
+                    # korrigierte Brightfield-Zentrum (falls vorhanden)
                     if 'radius_brightfield' in row and pd.notna(row['radius_brightfield']):
                         r_px = row['radius_brightfield']
                         is_valid = row.get('radius_brightfield_valid', True)
+                        
+                        # Nutze bf_center_x/y wenn vorhanden, sonst nimm das alte Fluo-Zentrum (x/y)
+                        center_x = row.get('bf_center_x', row['x'])
+                        center_y = row.get('bf_center_y', row['y'])
+                        
+                        # Sicherheitscheck für NaN-Werte im Zentrum
+                        if pd.isna(center_x) or pd.isna(center_y):
+                            center_x, center_y = row['x'], row['y']
                     else:
                         r_px = row.get('real_size', 5.0) 
                         is_valid = row.get('valid_fit', True)
+                        center_x = row['x']
+                        center_y = row['y']
 
                     col = '#00FFFF' if is_sel else ('red' if is_valid else 'orange')
                     lw = 3 if is_sel else 1.5
                     style = 'solid' if is_valid else 'dot'
 
-                    # Shapes dem Layout hinzufügen (mit explizitem xref/yref)
+                    # Shapes dem Layout hinzufügen (mit den neuen Zentren!)
                     shapes.append(dict(
                         type="circle",
                         xref="x", yref="y",
-                        x0 = row['x'] - r_px,
-                        y0 = row['y'] - r_px,
-                        x1 = row['x'] + r_px,
-                        y1 = row['y'] + r_px,
+                        x0 = center_x - r_px,
+                        y0 = center_y - r_px,
+                        x1 = center_x + r_px,
+                        y1 = center_y + r_px,
                         line = dict(color=col, width=lw, dash=style)
                     ))
                     
-                    # Daten für Text/Hover sammeln
-                    scatter_x.append(row['x'])
-                    scatter_y.append(row['y'])
+                    # Daten für Text/Hover sammeln (auch auf neuem Zentrum)
+                    scatter_x.append(center_x)
+                    scatter_y.append(center_y)
                     scatter_text.append(f"<b>{p_id}</b>")
                     scatter_hover.append(f"ID: {p_id}<br>Radius: {r_px:.1f}px")
                     scatter_colors.append(col)
@@ -283,7 +298,7 @@ def update_view(frame, channel, pid, markers, y_metric, entry_id): # <--- y_metr
 
     except Exception as e:
         print(f"Shape Error: {e}")
-        traceback.print_exc() # Gibt uns mehr Infos in der Konsole, falls es kracht
+        traceback.print_exc()
         
     # --- BILD-PROPORTIONEN FIXIEREN ---
     img_height, img_width = vid[frame].shape
@@ -304,15 +319,27 @@ def update_view(frame, channel, pid, markers, y_metric, entry_id): # <--- y_metr
     txt = "Select a particle..."
     
     if pid is not None:
-        try: pid=int(pid)
+        try: pid = int(pid)
         except: pass
         
+        # Daten für das gewählte Partikel holen
         t_data = tracks[tracks['particle'] == pid].sort_values('frame')
         
-        # Den ausgewählten Y-Wert auslesen (Intensität oder Radius)
+        # 1. ZENTRALE SKALIERUNG BERECHNEN
+        # Wir rufen die Funktion für den ganzen Datensatz auf, um die Einheit (t_unit) zu bestimmen
+        time_vals, t_unit = General.get_smart_time(t_data['time'])
+        
+        # Den Skalierungsfaktor manuell festlegen, damit wir ihn auf Einzelwerte anwenden können
+        if t_unit == "h":
+            scale_factor = 3600.0
+        elif t_unit == "min":
+            scale_factor = 60.0
+        else:
+            scale_factor = 1.0
+            
         y_values = t_data[y_metric].fillna(0)
         
-        # Schönere Namen für die Achsenbeschriftung
+        # Achsen-Labels
         metric_labels = {
             'intensity_measure': 'Intensity (A.U.)',
             'radius_brightfield': 'Brightfield Radius (px)',
@@ -320,27 +347,38 @@ def update_view(frame, channel, pid, markers, y_metric, entry_id): # <--- y_metr
         }
         y_label = metric_labels.get(y_metric, 'Value')
         
-        # Den Hauptgraphen zeichnen
-        fig_graph.add_trace(go.Scatter(x=t_data['frame'], y=y_values, mode='lines+markers', name=f"ID {pid}"))
+        # Die Linie plotten (mit den bereits skalierten time_vals)
+        fig_graph.add_trace(go.Scatter(x=time_vals, y=y_values, mode='lines+markers', name=f"ID {pid}"))
         
+        # 2. ROTER PUNKT (CURRENT FRAME)
         curr = t_data[t_data['frame'] == frame]
         if not curr.empty:
-             # Den roten Punkt für den aktuellen Frame setzen
-             val = curr[y_metric].fillna(0).values[0]
-             
-             # Info Text dynamisch zusammenbauen (zeigt immer alles an)
-             int_val = curr.get('intensity_measure', [0]).values[0]
-             r_fluo = curr.get('real_size', [0]).values[0]
-             r_bf = curr.get('radius_brightfield', [0]).values[0]
-             
-             txt = f"ID {pid} | Int: {int_val:.0f} | BF-Rad: {r_bf:.1f}px | Fluo-Rad: {r_fluo:.1f}px"
-                 
-             fig_graph.add_trace(go.Scatter(x=curr['frame'], y=[val], mode='markers', marker=dict(color='red', size=12), name="Current"))
+            val = curr[y_metric].fillna(0).values[0]
+            
+            # HIER WAR DER FEHLER: Wir erzwingen den gleichen Skalierungsfaktor wie oben!
+            c_time_raw = curr['time'].values[0]
+            c_time_scaled = c_time_raw / scale_factor
+            
+            # Info Text zusammenbauen
+            int_val = curr.get('intensity_measure', [0]).values[0]
+            r_bf = curr.get('radius_brightfield', [0]).values[0]
+            txt = f"ID {pid} | {c_time_scaled:.2f} {t_unit} | Int: {int_val:.0f} | BF-Rad: {r_bf:.1f}px"
+            
+            # Jetzt wird der Punkt exakt auf der skalierten X-Achse gezeichnet
+            fig_graph.add_trace(go.Scatter(
+                x=[c_time_scaled], 
+                y=[val], 
+                mode='markers', 
+                marker=dict(color='red', size=12, line=dict(color='white', width=2)), 
+                name="Current"
+            ))
         
-        # Die Y-Achse beschriften
-        fig_graph.update_layout(yaxis_title=y_label)
-    
-    fig_graph.update_layout(template="plotly_white", margin=dict(l=40, r=20, t=40, b=20), title=txt)
+        fig_graph.update_layout(
+            yaxis_title=y_label, 
+            xaxis_title=f"Time ({t_unit})",
+            template="plotly_white",
+            title=txt
+        )
     
     return fig_img, fig_graph, txt
     
@@ -354,20 +392,50 @@ def update_glob(sel, tab, eid):
     if tab != 'tab-global' or not eid: return dash.no_update, dash.no_update
     data = get_data(eid)
     if not data: return go.Figure(), go.Figure()
+    
     tracks = data['tracks']
     df = tracks[tracks['particle'].isin(sel)] if sel else tracks
+    
+    # Einheit für die gesamte Gruppe bestimmen
+    _, t_unit = General.get_smart_time(df['time'])
     
     fig_s = go.Figure()
     uids = df['particle'].unique()
     limit = 100 if not sel else 9999
-    for p in uids[:limit]:
-        d = df[df['particle'] == p]
-        fig_s.add_trace(go.Scatter(x=d['frame'], y=d['intensity_measure'].fillna(0), mode='lines', opacity=0.3 if not sel else 1.0, name=f"{p}"))
-    avg = df.groupby('frame')['intensity_measure'].mean().fillna(0)
-    fig_s.add_trace(go.Scatter(x=avg.index, y=avg.values, mode='lines', line=dict(color='blue', width=3, dash='dash'), name="AVG"))
-    fig_s.update_layout(template="plotly_white", title="Intensity Traces")
     
+    for p in uids[:limit]:
+        d = df[df['particle'] == p].sort_values('time')
+        # Zeit für dieses Partikel skalieren
+        t_vals, _ = General.get_smart_time(d['time'])
+        
+        fig_s.add_trace(go.Scatter(
+            x=t_vals, 
+            y=d['intensity_measure'].fillna(0), 
+            mode='lines', 
+            opacity=0.3 if not sel else 1.0, 
+            name=f"{p}"
+        ))
+    
+    # Durchschnittslinie (AVG)
+    # Hier gruppieren wir nach gerundeten Zeiten oder wir nutzen weiterhin Frames für die Berechnung
+    avg = df.groupby('frame').agg({'time': 'first', 'intensity_measure': 'mean'})
+    avg_t, _ = General.get_smart_time(avg['time'])
+    
+    fig_s.add_trace(go.Scatter(
+        x=avg_t, y=avg['intensity_measure'], 
+        mode='lines', line=dict(color='black', width=3, dash='dash'), name="AVG"
+    ))
+    
+    fig_s.update_layout(
+        template="plotly_white", 
+        title=f"Intensity Traces ({t_unit})",
+        xaxis_title=f"Time ({t_unit})",
+        yaxis_title="Intensity (A.U.)"
+    )
+    
+    # Heatmap (Hier bleiben wir bei Frames auf der X-Achse, da sie ein fixes Raster brauchen)
     hm = df.pivot(index='particle', columns='frame', values='intensity_measure').fillna(0)
     fig_h = go.Figure(data=go.Heatmap(z=hm.values, x=hm.columns, y=hm.index, colorscale='Viridis'))
-    fig_h.update_layout(template="plotly_white", title="Heatmap")
+    fig_h.update_layout(template="plotly_white", title="Heatmap (by Frame)", xaxis_title="Frame Number")
+    
     return fig_s, fig_h

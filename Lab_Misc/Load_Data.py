@@ -192,13 +192,39 @@ def Load_MFP(pk):
         tracks = data_dict.get('tracks', pd.DataFrame())
         
         if not tracks.empty:
-            fps = getattr(entry, 'Frame_rate', 1.0) 
-            if fps and fps > 0:
-                tracks['time'] = tracks['frame'] / fps
-            
-            # WICHTIG: Pfad speichern, damit das Dashboard das Video findet
+            source_file = None
             if getattr(entry, 'Link', None):
+                source_file = os.path.join(General.get_BasePath(), entry.Link)
                 tracks['Source_File'] = entry.Link
+
+            # --- NEU: Exakte Hardware-Zeitstempel aus der ND2-Datei lesen ---
+            times_mapped = False
+            if source_file and os.path.exists(source_file):
+                import nd2
+                try:
+                    with nd2.ND2File(source_file) as f:
+                        # Alle Frames sammeln, die in unserer Tabelle vorkommen
+                        frames = tracks['frame'].unique()
+                        time_map = {}
+                        for idx in frames:
+                            try:
+                                # Nikon speichert die relative Zeit in Millisekunden
+                                t_ms = f.frame_metadata(int(idx)).channels[0].time.relativeTimeMs
+                                time_map[int(idx)] = t_ms / 1000.0  # Umrechnung in Sekunden
+                            except:
+                                pass # Wenn für ein Frame die Zeit fehlt, überspringen
+                        
+                        if time_map:
+                            tracks['time'] = tracks['frame'].map(time_map)
+                            times_mapped = True
+                except Exception as e:
+                    print(f"⚠️ Konnte ND2-Zeiten nicht lesen, nutze Fallback: {e}")
+
+            # Fallback: Falls die ND2 Datei kaputt ist, nutze die alte fps-Methode
+            if not times_mapped:
+                fps = getattr(entry, 'Frame_rate', 1.0) 
+                if fps and fps > 0:
+                    tracks['time'] = tracks['frame'] / fps
 
         return tracks
 

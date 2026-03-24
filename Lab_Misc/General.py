@@ -40,6 +40,24 @@ def is_linux():
     else:
         return False
 
+def get_smart_time(time_seconds):
+    """
+    Wandelt Sekunden in eine sinnvolle Einheit um (s, min, h).
+    Gibt (skalierte_zeiten, einheit) zurück.
+    Funktioniert für einzelne Zahlen oder Pandas-Serien.
+    """
+    import numpy as np
+    
+    # Bestimme das Maximum, um die Einheit zu wählen
+    max_t = np.max(time_seconds)
+    
+    if max_t > 7200:      # > 2 Stunden
+        return time_seconds / 3600.0, "h"
+    elif max_t > 120:     # > 2 Minuten
+        return time_seconds / 60.0, "min"
+    else:                 # Standard: Sekunden
+        return time_seconds, "s"
+
 def is_AppendableTime(file_name):
     try:
         is_date = datetime.datetime.strptime(file_name[0:6], '%H%M%S')

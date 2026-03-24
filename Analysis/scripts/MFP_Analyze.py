@@ -4,13 +4,11 @@ import concurrent.futures
 import multiprocessing
 
 # --- 1. DJANGO INITIALISIERUNG GANZ OBEN ---
-# Wir setzen die Umgebungsvariable
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Private.settings')
 
 import django
-from django.apps import apps # WICHTIG: Wir müssen 'apps' explizit importieren!
+from django.apps import apps 
 
-# Jetzt können wir gefahrlos fragen, ob Django schon wach ist
 if not apps.ready:
     django.setup()
 # -------------------------------------------
@@ -23,8 +21,15 @@ import pickle
 
 # --- 2. DEINE NORMALEN IMPORTE ---
 from Lab_Misc.Load_Data import Load_MFP_Video
+from Analysis.scripts.MFP_Tracking_Logic import process_single_frame
 
-from Analysis.scripts.MFP_Tracking_Logic import process_single_frame, find_edge_dynamic_roi
+from skimage.segmentation import active_contour
+from skimage.filters import gaussian, sobel
+from scipy.ndimage import center_of_mass
+
+from skimage.filters import gaussian
+from skimage.feature import canny
+from skimage.transform import hough_circle, hough_circle_peaks
 
 # =========================================================
 # HELPER / MODULE
@@ -39,155 +44,215 @@ def measure_intensity_robust_fast(image, x, y, radius):
     r_int = int(np.ceil(radius))
     x_int, y_int = int(x), int(y)
     
-    # 1. Bounding Box (winziges Fenster) berechnen
     x_min, x_max = max(0, x_int - r_int), min(w, x_int + r_int + 1)
     y_min, y_max = max(0, y_int - r_int), min(h, y_int + r_int + 1)
     
-    # 2. Nur diesen winzigen Ausschnitt laden!
     roi = image[y_min:y_max, x_min:x_max]
     
     if roi.size == 0: 
         return np.nan
     
-    # 3. Den Kreis NUR in diesem kleinen Fenster berechnen
     Y, X = np.ogrid[:roi.shape[0], :roi.shape[1]]
     loc_x, loc_y = x - x_min, y - y_min
     mask = (X - loc_x)**2 + (Y - loc_y)**2 <= radius**2
     
     return np.mean(roi[mask])
 
-# --- HILFSFUNKTION FÜR DIE ARBEITER (WORKER) ---
-# Diese Funktion läuft parallel auf verschiedenen Kernen.
-# Sie bekommt ein "Paket" (args) mit allen Infos für EIN Frame.
+
 def _process_single_frame_worker(args):
-    # 1. DJANGO INITIALISIEREN (Das ist der Lebensretter für Multiprocessing!)
     import os
     import django
-    # Tausche "Private.settings" aus, falls dein Projektordner anders heißt
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Private.settings') 
     django.setup()
 
-    # 2. Argumente auspacken
     f_idx, frame_img, diameter, threshold, min_dist, noise_size = args
-    
-    # 3. Import MUSS hier drinnen bleiben (nach django.setup!)
     from Analysis.scripts.MFP_Tracking_Logic import process_single_frame
     
-    # 4. Die eigentliche Arbeit
     _, df, _ = process_single_frame(
-        frame_img, 
-        diameter=diameter, 
-        threshold=threshold, 
-        min_dist=min_dist, 
-        noise_size=noise_size
+        frame_img, diameter=diameter, threshold=threshold, 
+        min_dist=min_dist, noise_size=noise_size
     )
     
     if not df.empty:
         df['frame'] = f_idx
-        
     return df
 
-# --- DAS NEUE PARALLELE MODUL 1 ---
+# --- MODUL 1: PARALLELES TRACKING ---
 def perform_tracking_parallel(vid_detect, diameter, threshold, min_dist, noise_size):
     num_cores = multiprocessing.cpu_count()
     print(f"🚀 Starte paralleles Tracking auf {num_cores} CPU-Kernen...")
     
-    # 1. Arbeitspakete schnüren (Für jedes Frame im Video ein Paket)
-    # Wir übergeben den Index und das exakte Bild
-    tasks = [
-        (i, vid_detect[i], diameter, threshold, min_dist, noise_size) 
-        for i in range(len(vid_detect))
-    ]
-    
+    tasks = [(i, vid_detect[i], diameter, threshold, min_dist, noise_size) for i in range(len(vid_detect))]
     all_features = []
     
-    # 2. Die CPU-Kerne zünden!
     with concurrent.futures.ProcessPoolExecutor(max_workers=num_cores) as executor:
-        # map() wirft alle Pakete in den Pool und verteilt sie auf freie Kerne.
-        # list() sammelt die Ergebnisse in der richtigen Reihenfolge wieder ein.
         results = list(tqdm(executor.map(_process_single_frame_worker, tasks), total=len(tasks), desc="Tracking (Parallel)"))
         
-    # 3. Ergebnisse zusammenbauen
     for df in results:
         if not df.empty:
             all_features.append(df)
             
     if not all_features:
-        return pd.DataFrame() # Leer zurückgeben, falls nichts gefunden wurde
-        
+        return pd.DataFrame() 
     return pd.concat(all_features, ignore_index=True)
 
 
+# --- MODUL 2: LINKING ---
 def perform_linking(features, debug_mode):
-    """Modul 2: Verknüpft die Partikel über die Frames hinweg zu Pfaden."""
     print(f"\nLinking {len(features)} Features...")
-    
     if debug_mode == 0:
-        # Erlaubt dem Partikel, sich bis zu 50 Pixel pro Frame zu bewegen
-        # memory=3 bedeutet: Es darf auch mal für 3 Frames dunkel sein, ohne dass die Spur reißt
         tracks = tp.link(features, search_range=50, memory=3)
-        
-        # Behalte alle Partikel, die in mindestens 2 oder 3 Bildern existieren (statt 5)
         tracks = tp.filter_stubs(tracks, threshold=3)
     else:
         print("⚠️ DEBUG-MODUS: Überspringe Tracking-Links (nur 1 Frame vorhanden).")
         features['particle'] = np.arange(len(features))
         tracks = features
     
-    # Qualitäts-Statistik ausgeben
     if 'valid_fit' in tracks.columns and len(tracks) > 0:
         ratio = (tracks['valid_fit'].sum() / len(tracks)) * 100
         print(f"Qualität: {ratio:.1f}% valid radii")
-        
     return tracks
 
-
-# Die Parameter-Liste anpassen (vid_detect hinzufügen!)
-def perform_measurements(tracks, vid_measure, vid_detect, diameter):
-    """Modul 3: Misst Intensitäten und findet den dynamischen Rand im Brightfield."""
-    print("Messe Intensitäten und dynamische Brightfield-Radien...")
+def _measure_frame_worker(args):
+    """
+    Diese Funktion läuft parallel auf mehreren Kernen. 
+    Sie übernimmt ein einzelnes Frame und misst alle Partikel darauf.
+    """
+    frame_idx, rows_df, img_bf, img_measure = args
     
-    # Sicherheits-Check, falls die Tabelle leer ist
+    import numpy as np
+    from skimage.filters import gaussian
+    from skimage.feature import canny
+    from skimage.transform import hough_circle, hough_circle_peaks
+    
+    frame_results = {}
+    
+    for row in rows_df.itertuples():
+        # --- 1. INTENSITÄT (Fluo-Kanal) ---
+        radius = row.real_size * 0.5
+        x, y = row.x, row.y
+        
+        if radius < 0.5 or np.isnan(radius): 
+            intensity = np.nan
+        else:
+            h, w = img_measure.shape
+            r_int = int(np.ceil(radius))
+            x_int, y_int = int(x), int(y)
+            
+            x_min_f, x_max_f = max(0, x_int - r_int), min(w, x_int + r_int + 1)
+            y_min_f, y_max_f = max(0, y_int - r_int), min(h, y_int + r_int + 1)
+            
+            roi_f = img_measure[y_min_f:y_max_f, x_min_f:x_max_f]
+            if roi_f.size == 0: 
+                intensity = np.nan
+            else:
+                Y_f, X_f = np.ogrid[:roi_f.shape[0], :roi_f.shape[1]]
+                loc_x_f, loc_y_f = x - x_min_f, y - y_min_f
+                mask_f = (X_f - loc_x_f)**2 + (Y_f - loc_y_f)**2 <= radius**2
+                intensity = np.mean(roi_f[mask_f])
+
+        # --- 2. HOUGH CIRCLE TRANSFORM (Brightfield-Kanal) ---
+        orig_radius = row.real_size
+        box_r = int(orig_radius * 2.5) 
+        
+        y_int_b, x_int_b = int(row.y), int(row.x)
+        y_min, y_max = max(0, y_int_b - box_r), min(img_bf.shape[0], y_int_b + box_r)
+        x_min, x_max = max(0, x_int_b - box_r), min(img_bf.shape[1], x_int_b + box_r)
+        
+        roi_bf = img_bf[y_min:y_max, x_min:x_max]
+        
+        if roi_bf.size == 0 or roi_bf.max() == roi_bf.min():
+            frame_results[row.Index] = {
+                'intensity_measure': intensity, 'radius_brightfield': orig_radius,
+                'radius_brightfield_valid': False, 'bf_center_x': row.x, 'bf_center_y': row.y
+            }
+            continue
+
+        try:
+            roi_norm = (roi_bf - roi_bf.min()) / (roi_bf.max() - roi_bf.min() + 1e-8)
+            roi_smooth = gaussian(roi_norm, sigma=1.5)
+            edges = canny(roi_smooth, sigma=1.5, low_threshold=0.1, high_threshold=0.3)
+
+            r_start = max(1, int(orig_radius * 0.8))
+            r_end = int(orig_radius * 2.5)
+            hough_radii = np.arange(r_start, r_end, 1)
+            if len(hough_radii) == 0: hough_radii = np.array([max(1, int(orig_radius))])
+
+            hough_res = hough_circle(edges, hough_radii)
+            accums, cx_hough, cy_hough, radii_hough = hough_circle_peaks(hough_res, hough_radii, total_num_peaks=5)
+
+            if len(radii_hough) > 0:
+                Y_bf, X_bf = np.ogrid[:roi_bf.shape[0], :roi_bf.shape[1]]
+                best_cx, best_cy, best_r = cx_hough[0], cy_hough[0], radii_hough[0]
+                min_int_val = float('inf')
+
+                for cx_val, cy_val, r_val in zip(cx_hough, cy_hough, radii_hough):
+                    ring_mask = np.abs(np.sqrt((X_bf - cx_val)**2 + (Y_bf - cy_val)**2) - r_val) < 1.0
+                    if ring_mask.sum() > 0:
+                        val = np.mean(roi_smooth[ring_mask])
+                        if val < min_int_val:
+                            min_int_val = val
+                            best_cx, best_cy, best_r = cx_val, cy_val, r_val
+                
+                global_cx = best_cx + x_min
+                global_cy = best_cy + y_min
+                bf_valid = True
+            else:
+                best_r = orig_radius
+                global_cx, global_cy = row.x, row.y
+                bf_valid = False
+                
+        except Exception:
+            best_r = orig_radius
+            global_cx, global_cy = row.x, row.y
+            bf_valid = False
+
+        # Speichert das Ergebnis unter dem originalen Index der Tabelle
+        frame_results[row.Index] = {
+            'intensity_measure': intensity,
+            'radius_brightfield': best_r,
+            'radius_brightfield_valid': bf_valid,
+            'bf_center_x': global_cx,
+            'bf_center_y': global_cy
+        }
+        
+    return frame_results
+
+def perform_measurements(tracks, vid_bf, vid_measure, diameter):
+    """Modul 3: Misst Intensitäten und findet Brightfield-Radien (PARALLEL!)."""
+    print("Messe Intensitäten und finde robuste Brightfield-Radien (Hough Parallel)...")
+    
     if tracks is None or tracks.empty:
         return pd.DataFrame()
         
-    results = []
+    # --- DER FIX: Trackpy-Chaos aufräumen ---
+    tracks = tracks.reset_index(drop=True)
+    # ----------------------------------------
+        
+    # Wir gruppieren die Partikel nach dem Frame. 
+    tasks = []
+    for frame_idx, df_frame in tracks.groupby('frame'):
+        tasks.append((
+            int(frame_idx), 
+            df_frame, 
+            vid_bf[int(frame_idx)], 
+            vid_measure[int(frame_idx)]  # <--- HIER vid_measure ÜBERGEBEN!
+        ))
+        
+    num_cores = multiprocessing.cpu_count()
+    all_results = {}
     
-    for row in tqdm(tracks.itertuples(), total=len(tracks), desc="Measuring", unit="spot"):
-        # PUNKT-NOTATION STATT KLAMMERN
-        frame_idx = int(row.frame)
-        curr_bf_img = vid_measure[frame_idx]
-        curr_fluo_img = vid_detect[frame_idx] 
-        
-        # Intensität messen (Punkte statt Klammern!)
-        r_mask = row.real_size * 0.5
-        intensity = measure_intensity_robust_fast(curr_bf_img, row.x, row.y, r_mask)
-        
-        # Brightfield Kante finden
-        start_radius = row.real_size
-        
-        # Bei Tuples nimmt man getattr() statt .get()
-        valid = getattr(row, 'valid_fit', True) 
-        if not valid or start_radius < (diameter * 0.2):
-            start_radius = diameter / 2.0
-
-        # Unsere neue V2 Logik
-        r_bf, bf_valid = find_edge_dynamic_roi(curr_bf_img, curr_fluo_img, row.x, row.y, start_radius)
-        
-        results.append({
-            'intensity_measure': intensity,
-            'radius_brightfield': r_bf,
-            'radius_brightfield_valid': bf_valid
-        })
-
-    # Ergebnisse zusammenführen
-    res_df = pd.DataFrame(results)
-    return pd.concat([tracks.reset_index(drop=True), res_df], axis=1)
-
-# VERGISS NICHT: Wenn du die Funktion unten im "Koordinator" aufrufst, 
-# musst du `vid_detect` jetzt mit übergeben:
-# final_tracks = perform_measurements(tracks, vid_measure, vid_detect, DIAMETER)
-
+    # 🚀 Hier startet die parallele Rakete!
+    with concurrent.futures.ProcessPoolExecutor(max_workers=num_cores) as executor:
+        for frame_res in tqdm(executor.map(_measure_frame_worker, tasks), total=len(tasks), desc="Measuring (Parallel)", unit="frame"):
+            # Füge die Ergebnisse der einzelnen Bilder in unser Master-Lexikon ein
+            all_results.update(frame_res)
+            
+    # Wir wandeln das Lexikon wieder in eine Tabelle um...
+    res_df = pd.DataFrame.from_dict(all_results, orient='index')
+    
+    # ...und kleben sie exakt passend an unsere originale Tabelle!
+    return pd.concat([tracks, res_df], axis=1)
 
 # =========================================================
 # HAUPT-PIPELINE (Der Koordinator)
@@ -195,7 +260,6 @@ def perform_measurements(tracks, vid_measure, vid_detect, diameter):
 
 def run_full_analysis(analysis_obj):
     DEBUG_MODE = 0
-    
     entry_id = analysis_obj.Entry_id
     print(f"--- STARTE FULL ANALYSE (ID: {entry_id}) ---")
 
@@ -205,46 +269,44 @@ def run_full_analysis(analysis_obj):
         return False, f"Fehler beim Laden der Daten für ID {entry_id}"
     
     vid_detect = video_data['detect']
-    vid_measure = video_data['measure']
+    # KORREKTUR: HIER LADEN WIR DAS RICHTIGE BILD FÜR DIE KANTEN!
+    vid_bf = video_data['brightfield']
+    vid_measure = video_data['measure'] 
     file_path = video_data['path']
     print(f"File geladen: {file_path}")
     
-    # 2. Parameter extrahieren
+    # 2. Parameter
     DIAMETER = analysis_obj.Particle_Diameter
     THRESHOLD = analysis_obj.Threshold
     MIN_DIST = getattr(analysis_obj, 'Min_Dist', 70)
     NOISE_SIZE = getattr(analysis_obj, 'Noise_Size', 3.0)
 
-    # 3. Debug Modus anwenden
-    if DEBUG_MODE == 1:
-        print("⚠️ DEBUG-MODUS AKTIV: Verarbeite nur den ersten Frame!")
-        vid_detect = vid_detect[:1]
-        vid_measure = vid_measure[:1]
-
-    # --- DIE MODULARE PIPELINE ---
-    
-    # Schritt A: Tracking (JETZT PARALLEL!)
+    # 3. Pipeline
     features = perform_tracking_parallel(vid_detect, DIAMETER, THRESHOLD, MIN_DIST, NOISE_SIZE)
-    if features.empty:
-        return False, "Keine Partikel gefunden."
+    if features.empty: return False, "Keine Partikel gefunden."
 
-    # Schritt B: Linking
     tracks = perform_linking(features, DEBUG_MODE)
-    if tracks.empty:
-        return False, "Nach dem Linking blieben keine Partikel übrig."
+    if tracks.empty: return False, "Nach dem Linking blieben keine Partikel übrig."
 
-    # Schritt C: Messen (Brightfield Kanten & Intensität)
-    # Schritt C: Messen (Brightfield Kanten & Intensität)
-    final_tracks = perform_measurements(tracks, vid_measure, vid_detect, DIAMETER)
+    # KORREKTUR: WIR ÜBERGEBEN vid_bf (BRIGHTFIELD) ANSTATT vid_measure
+    final_tracks = perform_measurements(tracks, vid_bf, vid_measure, DIAMETER)
 
-    # -----------------------------
-
-    # 4. Speichern
-    analysis_dir = os.path.join(os.path.dirname(file_path), "Analysis")
+    # --- 4. SPEICHERN (Gespiegelte Struktur) ---
+    # Den originalen Ordner-Pfad holen
+    original_dir = os.path.dirname(file_path)
+    
+    # "01_Videos" im Pfad durch "02_Analysis_Results" austauschen
+    analysis_dir = original_dir.replace('01_Videos', '02_Analysis_Results')
+    
+    # Neuen Ordner (inklusive des Datums-Ordners) erstellen, falls er nicht existiert
     os.makedirs(analysis_dir, exist_ok=True)
+    
+    # Originalen Dateinamen ohne Endung extrahieren (z.B. "120100_20260239_xy14_100aTc")
+    base_filename = os.path.splitext(os.path.basename(file_path))[0]
         
-    output_pkl = os.path.join(analysis_dir, "tracking_data.pkl")
-    output_csv = os.path.join(analysis_dir, "tracking_data.csv")
+    # Die neuen Pfade mit dem exakten Messdateinamen bauen
+    output_pkl = os.path.join(analysis_dir, f"{base_filename}.pkl")
+    output_csv = os.path.join(analysis_dir, f"{base_filename}.csv")
     
     export_data = {
         'tracks': final_tracks, 
