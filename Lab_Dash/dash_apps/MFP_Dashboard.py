@@ -56,7 +56,11 @@ app.layout = html.Div([
                             value='detect', 
                             labelStyle={'display': 'inline-block', 'marginRight': '10px'}
                         ),
+                        # ... bestehender Code ...
                         dcc.Checklist(id='show-markers-toggle', options=[{'label': ' Markers', 'value': 'show'}], value=['show'], style={'display': 'inline-block', 'marginLeft': '10px'}),
+                        
+                        # --- NEU: KI SCHALTER ---
+                        dcc.Checklist(id='show-cellpose-toggle', options=[{'label': ' 🧠 AI Masks', 'value': 'show'}], value=['show'], style={'display': 'inline-block', 'marginLeft': '15px', 'color': 'green', 'fontWeight': 'bold'}),
                     ], style={'marginBottom': '5px'}),
                     
                     dcc.Graph(id='image-plot', style={'height': '65vh'}),
@@ -70,6 +74,7 @@ app.layout = html.Div([
                     dcc.Dropdown(id='particle-dropdown', options=[], value=None, clearable=False),
                     
                     # --- NEU: Schalter für die Y-Achse ---
+                    # --- SCHALTER FÜR DIE Y-ACHSE ---
                     html.Div([
                         html.Label("Plot Y-Axis:", style={'fontWeight': 'bold', 'marginTop': '10px', 'marginRight': '10px'}),
                         dcc.RadioItems(
@@ -77,9 +82,10 @@ app.layout = html.Div([
                             options=[
                                 {'label': ' Intensity', 'value': 'intensity_measure'}, 
                                 {'label': ' BF Radius', 'value': 'radius_brightfield'},
-                                {'label': ' Fluo Radius', 'value': 'real_size'}
+                                {'label': ' Fluo Radius', 'value': 'real_size'},
+                                {'label': ' 🧠 AI Radius', 'value': 'radius_cellpose'} # <--- NEU
                             ], 
-                            value='radius_brightfield', # Start-Einstellung
+                            value='radius_cellpose', # Wir machen es direkt zum Standard!
                             labelStyle={'display': 'inline-block', 'marginRight': '15px'}
                         )
                     ], style={'marginBottom': '5px'}),
@@ -118,22 +124,32 @@ def get_data(entry_id):
         tracks = Load_MFP(entry_id)
         if tracks.empty: 
             return None
-
         tracks = tracks.reset_index(drop=True)
 
-        # 2. VIDEO LADEN (Nutzt jetzt die neue Funktion in Load_Data.py)
+        # 2. VIDEO LADEN
         video_data = Load_MFP_Video(entry_id)
-        
         if not video_data:
-            print(f"Video data could not be loaded for {entry_id}")
             return None
+            
+        # --- 3. NEU: CELLPOSE DATEN LADEN ---
+        cellpose_data = []
+        cp_path = f"/tmp/Cellpose_{entry_id}.pkl"
+        if os.path.exists(cp_path):
+            try:
+                with open(cp_path, 'rb') as f:
+                    cp_dict = pickle.load(f)
+                    cellpose_data = cp_dict.get('polymersomes', [])
+            except Exception as e:
+                print(f"Fehler beim Laden der Cellpose Daten: {e}")
+        # ------------------------------------
         
         # Alles zusammenpacken für den Cache
         data = {
             'tracks': tracks,
             'vid_detect': video_data['detect'],
             'vid_measure': video_data['measure'],
-            'vid_bf': video_data['brightfield']
+            'vid_bf': video_data['brightfield'],
+            'cellpose': cellpose_data # <--- NEU HINZUGEFÜGT
         }
         
         DATA_CACHE[entry_id] = data
@@ -141,13 +157,8 @@ def get_data(entry_id):
 
     except Exception as e:
         print(f"Error in get_data: {e}")
-        return None
-
-    except Exception as e:
-        print(f"Error in get_data: {e}")
         traceback.print_exc()
         return None
-
 # =========================================================
 # CALLBACKS
 # =========================================================
@@ -193,10 +204,11 @@ def init_dashboard(search, n, clicks):
     [Output('image-plot', 'figure'), Output('single-intensity-graph', 'figure'), Output('debug-info', 'children')],
     [Input('frame-slider', 'value'), Input('channel-selector', 'value'), 
      Input('particle-dropdown', 'value'), Input('show-markers-toggle', 'value'),
-     Input('y-axis-selector', 'value')], # <--- NEU HINZUGEFÜGT
+     Input('show-cellpose-toggle', 'value'), # <--- NEU: Der neue Schalter als Input!
+     Input('y-axis-selector', 'value')], 
     [State('entry-id', 'data')]
 )
-def update_view(frame, channel, pid, markers, y_metric, entry_id): # <--- y_metric hinzugefügt!
+def update_view(frame, channel, pid, markers, show_cellpose, y_metric, entry_id): # <--- show_cellpose hinzugefügt
     if not entry_id: return go.Figure(), go.Figure(), ""
     data = get_data(entry_id)
     if not data or data['vid_detect'] is None: 
@@ -226,59 +238,31 @@ def update_view(frame, channel, pid, markers, y_metric, entry_id): # <--- y_metr
         shapes = []
         scatter_x = []
         scatter_y = []
-        scatter_text = []
-        scatter_hover = []
-        scatter_colors = []
-
-        if 'show' in markers:
-            df = tracks[tracks['frame'] == frame]
-            if not df.empty:
-                for _, row in df.iterrows():
-                    p_id = int(row['particle'])
-                    is_sel = (pid is not None) and (p_id == int(pid))
+        # ... [Hier bleibt deine bestehende Logik für die alten 'show' markers] ...
                     
-                    # --- NEU: ZENTRUM UND RADIUS DYNAMISCH WÄHLEN ---
-                    # Wenn wir den Brightfield-Radius haben, nutzen wir auch das 
-                    # korrigierte Brightfield-Zentrum (falls vorhanden)
-                    if 'radius_brightfield' in row and pd.notna(row['radius_brightfield']):
-                        r_px = row['radius_brightfield']
-                        is_valid = row.get('radius_brightfield_valid', True)
-                        
-                        # Nutze bf_center_x/y wenn vorhanden, sonst nimm das alte Fluo-Zentrum (x/y)
-                        center_x = row.get('bf_center_x', row['x'])
-                        center_y = row.get('bf_center_y', row['y'])
-                        
-                        # Sicherheitscheck für NaN-Werte im Zentrum
-                        if pd.isna(center_x) or pd.isna(center_y):
-                            center_x, center_y = row['x'], row['y']
-                    else:
-                        r_px = row.get('real_size', 5.0) 
-                        is_valid = row.get('valid_fit', True)
-                        center_x = row['x']
-                        center_y = row['y']
+        # --- NEU: CELLPOSE KREISE ZEICHNEN ---
+        if 'show' in show_cellpose and data.get('cellpose'):
+            # Filtere alle Cellpose-Punkte für den aktuellen Frame
+            cp_frame_data = [p for p in data['cellpose'] if p.get('frame') == frame]
+            
+            for cp_p in cp_frame_data:
+                is_valid = cp_p['valid']
+                # Grün für perfekt runde Zellen, dunkles Rot für aussortierte "Eier"
+                col = '#00FF00' if is_valid else '#8B0000' 
+                r_px = cp_p['radius']
+                c_x, c_y = cp_p['x'], cp_p['y']
 
-                    col = '#00FFFF' if is_sel else ('red' if is_valid else 'orange')
-                    lw = 3 if is_sel else 1.5
-                    style = 'solid' if is_valid else 'dot'
+                shapes.append(dict(
+                    type="circle",
+                    xref="x", yref="y",
+                    x0 = c_x - r_px,
+                    y0 = c_y - r_px,
+                    x1 = c_x + r_px,
+                    y1 = c_y + r_px,
+                    line = dict(color=col, width=2.5, dash='solid' if is_valid else 'dot')
+                ))
+        # -------------------------------------
 
-                    # Shapes dem Layout hinzufügen (mit den neuen Zentren!)
-                    shapes.append(dict(
-                        type="circle",
-                        xref="x", yref="y",
-                        x0 = center_x - r_px,
-                        y0 = center_y - r_px,
-                        x1 = center_x + r_px,
-                        y1 = center_y + r_px,
-                        line = dict(color=col, width=lw, dash=style)
-                    ))
-                    
-                    # Daten für Text/Hover sammeln (auch auf neuem Zentrum)
-                    scatter_x.append(center_x)
-                    scatter_y.append(center_y)
-                    scatter_text.append(f"<b>{p_id}</b>")
-                    scatter_hover.append(f"ID: {p_id}<br>Radius: {r_px:.1f}px")
-                    scatter_colors.append(col)
-        
         # 1. Shapes ins Layout packen
         fig_img.update_layout(shapes=shapes)
 
@@ -317,71 +301,85 @@ def update_view(frame, channel, pid, markers, y_metric, entry_id): # <--- y_metr
     # --- 3. GRAPH ---
     fig_graph = go.Figure()
     txt = "Select a particle..."
-    
+
     if pid is not None:
         try: pid = int(pid)
         except: pass
         
-        # Daten für das gewählte Partikel holen
         t_data = tracks[tracks['particle'] == pid].sort_values('frame')
-        
-        # 1. ZENTRALE SKALIERUNG BERECHNEN
-        # Wir rufen die Funktion für den ganzen Datensatz auf, um die Einheit (t_unit) zu bestimmen
         time_vals, t_unit = General.get_smart_time(t_data['time'])
         
-        # Den Skalierungsfaktor manuell festlegen, damit wir ihn auf Einzelwerte anwenden können
-        if t_unit == "h":
-            scale_factor = 3600.0
-        elif t_unit == "min":
-            scale_factor = 60.0
-        else:
-            scale_factor = 1.0
+        if t_unit == "h": scale_factor = 3600.0
+        elif t_unit == "min": scale_factor = 60.0
+        else: scale_factor = 1.0
             
-        y_values = t_data[y_metric].fillna(0)
-        
         # Achsen-Labels
         metric_labels = {
             'intensity_measure': 'Intensity (A.U.)',
             'radius_brightfield': 'Brightfield Radius (px)',
-            'real_size': 'Fluorescence Radius (px)'
+            'real_size': 'Fluorescence Radius (px)',
+            'radius_cellpose': 'AI Cellpose Radius (px)' # <--- NEU
         }
         y_label = metric_labels.get(y_metric, 'Value')
+
+        # =========================================================
+        # NEU: DYNAMISCHES MAPPING VON TRACKPY ZU CELLPOSE
+        # =========================================================
+        if y_metric == 'radius_cellpose':
+            cp_radii = []
+            for _, row in t_data.iterrows():
+                f_idx = row['frame']
+                px_val, py_val = row['x'], row['y']
+                best_r = None 
+                
+                if data.get('cellpose'):
+                    # Alle gültigen KI-Masken in diesem Frame suchen
+                    cp_frame = [p for p in data['cellpose'] if p.get('frame') == f_idx and p.get('valid')]
+                    min_dist = 50 # Maximal 50 Pixel Abweichung zwischen Trackpy-Punkt und KI-Maske erlaubt
+                    
+                    for cp in cp_frame:
+                        # Satz des Pythagoras: Wie weit ist die KI-Maske vom Trackpy-Punkt weg?
+                        dist = np.sqrt((cp['x'] - px_val)**2 + (cp['y'] - py_val)**2)
+                        if dist < min_dist:
+                            min_dist = dist
+                            best_r = cp['radius']
+                
+                # Wenn Cellpose wegen Matsch versagt hat, tragen wir None ein (erzeugt eine Lücke im Graphen)
+                cp_radii.append(best_r) 
+            
+            y_values = cp_radii
+        else:
+            y_values = t_data[y_metric].fillna(0)
+        # =========================================================
         
-        # Die Linie plotten (mit den bereits skalierten time_vals)
+        # Die Linie plotten
         fig_graph.add_trace(go.Scatter(x=time_vals, y=y_values, mode='lines+markers', name=f"ID {pid}"))
         
         # 2. ROTER PUNKT (CURRENT FRAME)
         curr = t_data[t_data['frame'] == frame]
         if not curr.empty:
-            val = curr[y_metric].fillna(0).values[0]
+            # Hole den korrekten Wert für den roten Punkt
+            if y_metric == 'radius_cellpose':
+                val = cp_radii[t_data.index.get_loc(curr.index[0])]
+            else:
+                val = curr[y_metric].fillna(0).values[0]
             
-            # HIER WAR DER FEHLER: Wir erzwingen den gleichen Skalierungsfaktor wie oben!
-            c_time_raw = curr['time'].values[0]
-            c_time_scaled = c_time_raw / scale_factor
-            
-            # Info Text zusammenbauen
+            c_time_scaled = curr['time'].values[0] / scale_factor
             int_val = curr.get('intensity_measure', [0]).values[0]
-            r_bf = curr.get('radius_brightfield', [0]).values[0]
-            txt = f"ID {pid} | {c_time_scaled:.2f} {t_unit} | Int: {int_val:.0f} | BF-Rad: {r_bf:.1f}px"
             
-            # Jetzt wird der Punkt exakt auf der skalierten X-Achse gezeichnet
-            fig_graph.add_trace(go.Scatter(
-                x=[c_time_scaled], 
-                y=[val], 
-                mode='markers', 
-                marker=dict(color='red', size=12, line=dict(color='white', width=2)), 
-                name="Current"
-            ))
+            # Info Text (Titel) aktualisieren
+            txt = f"ID {pid} | {c_time_scaled:.2f} {t_unit} | Int: {int_val:.0f} | AI-Rad: {val if val else 0:.1f}px"
+            
+            # Roter Punkt auf Linie
+            if val is not None:
+                fig_graph.add_trace(go.Scatter(
+                    x=[c_time_scaled], y=[val], mode='markers', 
+                    marker=dict(color='red', size=12, line=dict(color='white', width=2)), name="Current"
+                ))
         
-        fig_graph.update_layout(
-            yaxis_title=y_label, 
-            xaxis_title=f"Time ({t_unit})",
-            template="plotly_white",
-            title=txt
-        )
-    
+        fig_graph.update_layout(yaxis_title=y_label, xaxis_title=f"Time ({t_unit})", template="plotly_white", title=txt)
     return fig_img, fig_graph, txt
-    
+
 
 @app.callback(
     [Output('global-spaghetti', 'figure'), Output('global-heatmap', 'figure')],

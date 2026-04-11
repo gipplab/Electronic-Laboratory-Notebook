@@ -76,9 +76,16 @@ app.layout = html.Div([
     # OUTPUT GRAFIK
     dcc.Loading(children=[dcc.Graph(id='preview-image', style={'height': '750px'})], type="circle"),
     html.Br(),
-    # STATUS OUTPUT FÜR SPEICHERN & CELLPOSE
-    html.Div(id='status-output', style={'marginTop': '10px', 'fontWeight': 'bold', 'fontSize': '1.2em'})
-])
+    
+    # 1. STATUS OUTPUT FÜR DAS SPEICHERN (Kurze Meldung)
+    html.Div(id='save-status', style={'marginTop': '10px', 'fontWeight': 'bold', 'fontSize': '1.2em'}),
+    
+    # 2. STATUS OUTPUT FÜR CELLPOSE (Mit Ladekreis für die Wartezeit)
+    dcc.Loading(
+        children=[html.Div(id='cellpose-status', style={'marginTop': '20px'})], 
+        type="default"
+    )
+]) # <--- Hier endet dein app.layout
 
 # =========================================================
 # CALLBACKS
@@ -159,86 +166,74 @@ def update_graph(n_clicks, ch, entry_id, frame, dia, minmass):
             
     except Exception as e: return go.Figure(layout=dict(title=f"Error: {e}"))
 
+# =========================================================
+# CALLBACK 1: SETUP SPEICHERN
+# =========================================================
 @app.callback(
-    Output('status-output', 'children'),
-    [Input('save-btn', 'n_clicks'),
-     Input('cellpose-btn', 'n_clicks')],
-    [State('entry-id', 'data'), 
-     State('frame-slider', 'value'), 
-     State('diameter-input', 'value'), 
-     State('minmass-input', 'value'),
-     State('channel-select', 'value')]
+    Output('save-status', 'children'),
+    [Input('save-btn', 'n_clicks')],
+    [State('diameter-input', 'value'), State('minmass-input', 'value'), 
+     State('channel-select', 'value'), State('entry-id', 'data')]
 )
-def handle_buttons(save_clicks, cellpose_clicks, entry_id, frame, dia, minmass, ch):
-    # Prüfen, ob überhaupt ein Button geklickt wurde
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        return ""
+def save_scout_params(n_clicks, dia, minmass, ch, entry_id):
+    if n_clicks == 0 or not entry_id: return ""
+    try:
+        analysis = MFPAnalysis.objects.get(Entry_id=entry_id)
+        if dia % 2 == 0: dia += 1
         
-    # Herausfinden, WELCHER Button das Event ausgelöst hat
-    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-    
-    if not entry_id: 
+        analysis.Particle_Diameter = dia
+        analysis.Threshold = float(minmass)
+        if hasattr(analysis, 'Detect_Channel'): analysis.Detect_Channel = int(ch)
+        analysis.save()
+        
+        return html.Span("✅ Setup erfolgreich für die KI gespeichert!", style={'color':'green'})
+    except Exception as e:
+        return html.Div(f"Speicherfehler: {str(e)}", style={'color': 'red'})
+
+# =========================================================
+# CALLBACK 2: CELLPOSE ANALYSE (Dein neuer Code)
+# =========================================================
+@app.callback(
+    Output('cellpose-status', 'children'),
+    [Input('cellpose-btn', 'n_clicks')],
+    [State('entry-id', 'data'), State('diameter-input', 'value'), State('minmass-input', 'value')]
+    # WICHTIG: frame-slider und channel-select wurden als State entfernt, weil sie für ALLE Frames irrelevant sind!
+)
+def cellpose_click(n_clicks, entry_id, dia, minmass):
+    """Cellpose Button mit Progress-Anzeige (ALLE FRAMES)"""
+    if n_clicks == 0 or not entry_id:
         return ""
-
-    # ==========================================
-    # LOGIK 1: SETUP SPEICHERN
-    # ==========================================
-    if button_id == 'save-btn':
-        try:
-            analysis = MFPAnalysis.objects.get(Entry_id=entry_id)
-            if dia % 2 == 0: dia += 1
+    
+    try:
+        from Analysis.scripts.Cellpose_Cement import run_cellpose_cement_analysis
+        
+        # Wir rufen direkt die Master-Funktion auf (und übergeben NUR entry_id, dia, minmass)
+        success, progress_message = run_cellpose_cement_analysis(entry_id, dia, minmass, None)
+        
+        # Formatiere die Ausgabe mit Zeilenumbrüchen
+        lines = progress_message.split('\n')
+        output = html.Div([
+            html.Div(line, style={
+                'color': 'green' if '✅' in line else ('red' if '❌' in line else ('orange' if '⚠️' in line else 'black')),
+                'marginBottom': '2px',
+                'fontFamily': 'monospace',
+                'fontSize': '12px'
+            })
+            for line in lines if line.strip()
+        ], style={
+            'whiteSpace': 'pre-wrap', 'backgroundColor': '#f5f5f5', 'padding': '10px',
+            'borderRadius': '5px', 'border': '1px solid #ddd', 'maxHeight': '400px', 'overflowY': 'auto'
+        })
+        
+        return output
             
-            analysis.Particle_Diameter = dia
-            analysis.Threshold = float(minmass)
-            if hasattr(analysis, 'Detect_Channel'): analysis.Detect_Channel = int(ch)
-            analysis.save()
-            
-            return html.Div([
-                html.Span("✅ Scout-Parameter (Diameter & MinMass) erfolgreich gespeichert!", style={'color':'green'})
-            ])
-        except Exception as e:
-            return html.Div(f"Speicherfehler: {str(e)}", style={'color': 'red'})
-
-    # ==========================================
-    # LOGIK 2: CELLPOSE STARTEN
-    # ==========================================
-    elif button_id == 'cellpose-btn':
-        try:
-            from Analysis.scripts.MFP_Tracking_Logic import process_single_frame
-            from Analysis.scripts.Cellpose_Cement import run_cellpose_cement_analysis
-            
-            # Daten laden
-            video_data = Load_MFP_Video(entry_id)
-            if not video_data:
-                return html.Div("❌ Fehler beim Laden der Daten", style={'color': 'red'})
-            
-            # Scout auf Frame durchführen
-            img_detect = video_data['detect'][int(frame)]
-            if dia % 2 == 0: dia += 1
-            
-            _, features, _ = process_single_frame(
-                img_detect, diameter=dia, threshold=minmass, 
-                min_dist=70, noise_size=3.0
-            )
-            
-            if features.empty:
-                return html.Div("❌ Keine Features für Cellpose Analyse gefunden!", style={'color': 'red'})
-            
-            # Cellpose starten
-            success, message = run_cellpose_cement_analysis(entry_id, features, None)
-            
-            if success:
-                return html.Div(message, style={'color': 'green', 'fontWeight': 'bold'})
-            else:
-                return html.Div(message, style={'color': 'red'})
-                
-        except Exception as e:
-            import traceback
-            print(traceback.format_exc())
-            return html.Div(f"❌ Fehler: {str(e)}", style={'color': 'red'})
-
-    return ""
+    except Exception as e:
+        import traceback
+        error_msg = f"❌ Fehler: {str(e)}\n\n{traceback.format_exc()}"
+        return html.Div(error_msg, style={
+            'color': 'red', 'whiteSpace': 'pre-wrap', 'fontFamily': 'monospace',
+            'fontSize': '11px', 'padding': '10px', 'backgroundColor': '#ffe6e6', 'borderRadius': '5px'
+        })
 
 if __name__ == '__main__':
     app.run_server(debug=True)

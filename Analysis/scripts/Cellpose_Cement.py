@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import math
 import pickle
+import trackpy as tp  # <--- NEU: Trackpy ist jetzt direkt hier!
 from scipy.ndimage import center_of_mass
 from cellpose import models
 from skimage import exposure
@@ -18,102 +19,66 @@ from Lab_Misc.Load_Data import Load_MFP_Video
 from Analysis.models import MFPAnalysis
 
 # =========================================================
-# CELLPOSE CEMENT ANALYSE
+# CELLPOSE CEMENT ANALYSE (ALLE FRAMES)
 # =========================================================
 
 class CellposeCementAnalysis:
-    """
-    Führt Cellpose-basierte Polymersom-Analyse durch.
-    Filtert nach Form-Kriterien (Zirkularität, Solidität, Exzentrizität).
-    """
     
-    # --- FILTER PARAMETER ---
     MIN_CIRCULARITY = 0.85  
     MIN_SOLIDITY = 0.96     
     MAX_ECCENTRICITY = 0.45
     
+    # ACHTUNG: frame_idx wurde hier entfernt, da wir jetzt loopen!
     def __init__(self, entry_id, diameter=99):
         self.entry_id = entry_id
         self.diameter = diameter
         self.use_apple_gpu = torch.backends.mps.is_available()
+        self.progress_messages = []
         
-        # Modell laden
-        print("🔬 Lade Cellpose-Modell...")
+        self.log_progress("Lade Cellpose-Modell in den M3-Speicher...")
         model_path = '/Users/simon/01_Experimental/Electronic-Laboratory-Notebook/Private/Cellpose_Trainingsdaten/models/Polymersome_20260411_121237'
         self.model = models.CellposeModel(gpu=self.use_apple_gpu, pretrained_model=model_path)
         
-    def analyze_scout_features(self, features_df, video_data):
-        """
-        Analysiert Trackpy Scout-Features mit Cellpose.
+    def log_progress(self, message):
+        self.progress_messages.append(message)
+        print(f"✓ {message}")
         
-        Args:
-            features_df: DataFrame mit Scout-Ergebnissen (x, y, ...)
-            video_data: Dict mit 'brightfield', 'detect' Videos
-            
-        Returns:
-            dict mit gefilterten Ergebnissen
-        """
-        img_bf = video_data['brightfield'][0]  # Frame 0
-        img_detect = video_data['detect'][0]
+    # ACHTUNG: frame_idx wird jetzt pro Aufruf übergeben!
+    def analyze_scout_features(self, features_df, video_data, frame_idx):
+        img_bf = video_data['brightfield'][frame_idx]
+        img_detect = video_data['detect'][frame_idx]
         h_img, w_img = img_bf.shape
         
         box_r = int(self.diameter * 1.5)
         final_results = []
         
-        print(f"Analysiere {len(features_df)} Scout-Features mit Cellpose...")
-        
-        for row in features_df.itertuples():
+        for idx, row in enumerate(features_df.itertuples()):
             cx, cy = row.x, row.y
             
-            # Bounding-Box berechnen
-            x_min = max(0, int(cx - box_r))
-            x_max = min(w_img, int(cx + box_r))
-            y_min = max(0, int(cy - box_r))
-            y_max = min(h_img, int(cy + box_r))
+            x_min, x_max = max(0, int(cx - box_r)), min(w_img, int(cx + box_r))
+            y_min, y_max = max(0, int(cy - box_r)), min(h_img, int(cy + box_r))
             
             roi_bf = img_bf[y_min:y_max, x_min:x_max]
             roi_detect = img_detect[y_min:y_max, x_min:x_max]
             
             if roi_bf.size == 0 or roi_detect.size == 0:
-                final_results.append({
-                    'x': cx, 'y': cy, 'valid': False,
-                    'radius': None, 'circularity': None, 
-                    'solidity': None, 'eccentricity': None
-                })
                 continue
             
-            # --- NORMALISIERUNG ---
             roi_bf_norm = (roi_bf - roi_bf.min()) / (roi_bf.max() - roi_bf.min() + 1e-8)
             roi_bf_boosted = exposure.equalize_adapthist(roi_bf_norm, clip_limit=0.02)
-            
             roi_det_norm = (roi_detect - roi_detect.min()) / (roi_detect.max() - roi_detect.min() + 1e-8)
             
-            # --- CELLPOSE VORHERSAGE ---
             roi_combined = np.array([roi_bf_boosted, roi_det_norm])
             
             try:
-                masks, _, _ = self.model.eval(
-                    roi_combined,
-                    diameter=self.diameter,
-                    flow_threshold=0.4,
-                    cellprob_threshold=0.0
-                )
-            except Exception as e:
-                print(f"  ⚠️ Cellpose Fehler bei ({cx:.1f}, {cy:.1f}): {e}")
-                final_results.append({
-                    'x': cx, 'y': cy, 'valid': False,
-                    'radius': None, 'circularity': None,
-                    'solidity': None, 'eccentricity': None
-                })
+                masks, _, _ = self.model.eval(roi_combined, diameter=self.diameter, flow_threshold=0.4, cellprob_threshold=0.0)
+            except Exception:
                 continue
             
-            # --- MASKE AUSWERTEN ---
-            local_cx = int(cx - x_min)
-            local_cy = int(cy - y_min)
+            local_cx, local_cy = int(cx - x_min), int(cy - y_min)
             
             if masks.max() > 0:
                 best_mask_id = masks[local_cy, local_cx] if local_cy < masks.shape[0] and local_cx < masks.shape[1] else 0
-                
                 if best_mask_id == 0 and np.any(masks > 0):
                     best_mask_id = np.argmax(np.bincount(masks[masks > 0]))
                 
@@ -121,92 +86,84 @@ class CellposeCementAnalysis:
                     single_mask = (masks == best_mask_id).astype(int)
                     props = regionprops(single_mask)[0]
                     
-                    area = props.area
-                    perimeter = props.perimeter
-                    solidity = props.solidity
-                    eccentricity = props.eccentricity
-                    
+                    area, perimeter = props.area, props.perimeter
                     radius = math.sqrt(area / np.pi)
                     circularity = (4 * np.pi * area) / (perimeter ** 2) if perimeter > 0 else 0.0
                     
-                    is_valid = (circularity >= self.MIN_CIRCULARITY and 
-                               solidity >= self.MIN_SOLIDITY and 
-                               eccentricity <= self.MAX_ECCENTRICITY)
+                    is_valid = (circularity >= self.MIN_CIRCULARITY and props.solidity >= self.MIN_SOLIDITY and props.eccentricity <= self.MAX_ECCENTRICITY)
                     
-                    donut_y_local, donut_x_local = center_of_mass(single_mask)
-                    global_x = donut_x_local + x_min
-                    global_y = donut_y_local + y_min
+                    d_y, d_x = center_of_mass(single_mask)
                     
                     final_results.append({
-                        'x': global_x, 'y': global_y,
-                        'radius': float(radius),
-                        'circularity': float(circularity),
-                        'solidity': float(solidity),
-                        'eccentricity': float(eccentricity),
+                        'frame': frame_idx,  # <--- WICHTIG: Frame-ID mitspeichern!
+                        'x': d_x + x_min, 'y': d_y + y_min,
+                        'radius': float(radius), 'circularity': float(circularity),
+                        'solidity': float(props.solidity), 'eccentricity': float(props.eccentricity),
                         'valid': is_valid
                     })
-                else:
-                    final_results.append({
-                        'x': cx, 'y': cy, 'valid': False,
-                        'radius': None, 'circularity': None,
-                        'solidity': None, 'eccentricity': None
-                    })
-            else:
-                final_results.append({
-                    'x': cx, 'y': cy, 'valid': False,
-                    'radius': None, 'circularity': None,
-                    'solidity': None, 'eccentricity': None
-                })
-        
         return final_results
     
     def save_results(self, final_results, scout_pkl_path):
-        """
-        Speichert Cellpose-Ergebnisse parallel zu Scout-Ergebnissen.
-        """
-        if not scout_pkl_path:
-            return None
-            
-        # Scout PKL ist z.B.: /path/Scout_120100_20260239_xy14_100aTc.pkl
-        # Cellpose speichern als: /path/Cellpose_120100_20260239_xy14_100aTc.pkl
-        
-        base_dir = os.path.dirname(scout_pkl_path)
-        base_name = os.path.basename(scout_pkl_path).replace('Scout_', 'Cellpose_')
+        self.log_progress("Speichere aggregierte Ergebnisse aller Frames...")
+        base_dir = os.path.dirname(scout_pkl_path) if scout_pkl_path else "/tmp"
+        base_name = os.path.basename(scout_pkl_path).replace('Scout_', 'Cellpose_') if scout_pkl_path else f"Cellpose_{self.entry_id}.pkl"
         cellpose_pkl = os.path.join(base_dir, base_name)
         
-        export_data = {
-            'polymersomes': final_results,
-            'num_valid': len([r for r in final_results if r['valid']]),
-            'num_total': len(final_results)
-        }
-        
-        with open(cellpose_pkl, 'wb') as f:
-            pickle.dump(export_data, f)
-        
-        print(f"💾 Cellpose-Ergebnisse gespeichert: {cellpose_pkl}")
+        try:
+            with open(cellpose_pkl, 'wb') as f:
+                pickle.dump({'polymersomes': final_results, 'num_total': len(final_results)}, f)
+            self.log_progress(f"✅ Datei gespeichert: {cellpose_pkl}")
+        except Exception as e:
+            self.log_progress(f"⚠️ Speicherfehler: {str(e)}")
         return cellpose_pkl
 
-def run_cellpose_cement_analysis(entry_id, scout_features_df, scout_pkl_path):
-    """
-    Haupt-Funktion: Wird aus Dash-Callback aufgerufen.
-    """
+# =========================================================
+# DIE NEUE MASTER-FUNKTION (Loop über alle Frames)
+# =========================================================
+def run_cellpose_cement_analysis(entry_id, diameter, minmass, scout_pkl_path=None):
     try:
-        # Daten laden
+        analyzer = CellposeCementAnalysis(entry_id, diameter=diameter)
+        analyzer.log_progress("🚀 Starte Cellpose Bulk-Analyse für ALLE Frames...")
+        
         video_data = Load_MFP_Video(entry_id)
         if not video_data:
-            return False, f"Fehler beim Laden von Entry {entry_id}"
+            analyzer.log_progress("❌ Fehler: Konnte Video-Daten nicht laden")
+            return False, "\n".join(analyzer.progress_messages)
         
-        # Analyse starten
-        analyzer = CellposeCementAnalysis(entry_id, diameter=99)
-        final_results = analyzer.analyze_scout_features(scout_features_df, video_data)
+        num_frames = len(video_data['brightfield'])
+        analyzer.log_progress(f"📹 Video gefunden: {num_frames} Frames werden verarbeitet.")
         
-        # Speichern
-        cellpose_pkl = analyzer.save_results(final_results, scout_pkl_path)
+        all_results = []
         
-        valid_count = len([r for r in final_results if r['valid']])
-        total_count = len(final_results)
+        # --- DIE MASTER-SCHLEIFE ---
+        for frame_idx in range(num_frames):
+            img_detect = video_data['detect'][frame_idx]
+            dia = diameter if diameter % 2 != 0 else diameter + 1
+            
+            # 1. SCOUT (auf dem aktuellen Frame)
+            features = tp.locate(img_detect, diameter=dia, minmass=minmass)
+            
+            if features.empty:
+                analyzer.log_progress(f"   ⚠️ Frame {frame_idx:03d}: Scout fand 0 Punkte.")
+                continue
+                
+            # 2. CELLPOSE (auf dem aktuellen Frame)
+            frame_results = analyzer.analyze_scout_features(features, video_data, frame_idx)
+            all_results.extend(frame_results)
+            
+            # Kurzes Update ins Log
+            valid_in_frame = len([r for r in frame_results if r['valid']])
+            analyzer.log_progress(f"   ✓ Frame {frame_idx:03d}: {valid_in_frame}/{len(features)} gültige Zellen.")
         
-        return True, f"✅ Fertig! {valid_count}/{total_count} gültige Polymersomen gefunden."
+        # Speichern & Abschluss
+        analyzer.save_results(all_results, scout_pkl_path)
+        valid_count = len([r for r in all_results if r['valid']])
+        
+        analyzer.log_progress(f"\n🎉 ALLE FRAMES FERTIG!")
+        analyzer.log_progress(f"✅ Insgesamt {valid_count} perfekte Polymersomen im ganzen Video gefunden.")
+        
+        return True, "\n".join(analyzer.progress_messages)
         
     except Exception as e:
-        return False, f"Fehler bei Cellpose-Analyse: {str(e)}"
+        import traceback
+        return False, f"❌ Fehler: {str(e)}\n{traceback.format_exc()}"
