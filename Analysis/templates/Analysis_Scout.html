@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% load plotly_dash %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>KI Scout Tuner - Experiment {{ entry.Name }}</h2>
+    <a href="{% url 'MFP_Analysis_View' entry.id %}" class="btn btn-secondary mb-3">Zurück zur Übersicht</a>
+    
+    <div class="card shadow">
+        <div class="card-body">
+            {% plotly_app name="MFP_AI_Scout" ratio=1 %}
+        </div>
+    </div>
+</div>
+{% endblock %}

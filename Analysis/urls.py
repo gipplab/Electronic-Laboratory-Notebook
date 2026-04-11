@@ -26,5 +26,9 @@ urlpatterns = [
     path("GrvAnalysis/", views.GrvAnalysis_view, name="GrvAnalysis_view"),
     path("OszAnalysis_table/<str:pk>", views.OszAnalysis_table_view, name="OszAnalysis_table"),
     path("DafAnalysis/<str:pk>", views.DafAnalysis_table_view, name="DafAnalysis_table"),
-    path('', views.index, name='index'),
+    path('', views.index, name='index'),# Pfad für den Dash AI-Scout:
+    path('MFP_Scout/<int:pk>/', views.MFP_Scout_View, name='MFP_Scout_View'),
+    
+    # Pfad für den unsichtbaren KI-API Aufruf:
+    path('api/run_cellpose/', views.api_run_cellpose, name='api_run_cellpose'),
 ]

@@ -139,14 +139,14 @@ class MFPAnalysis(models.Model):
     Entry = models.OneToOneField('Lab_Dash.MFP', on_delete=models.CASCADE, related_name='Analysis')
     
     # Tuning-Parameter
-    Particle_Diameter = models.IntegerField(default=11)
+    Particle_Diameter = models.IntegerField(default=99)
     Min_Dist = models.FloatField(default=70.0, verbose_name="Min Distance (px)")
-    Threshold = models.FloatField(default=10.0)
+    Threshold = models.FloatField(default=100.0)
     # In class MFPAnalysis:
     Noise_Size = models.FloatField(default=3.0, verbose_name="Noise Size (px)")
     
     # NEU: Der ausgewählte Kanal
-    Detect_Channel = models.IntegerField(default=0) 
+    Detect_Channel = models.IntegerField(default=1) 
     
     # Ergebnis-Pfad
     Result_Path = models.TextField(blank=True, null=True)

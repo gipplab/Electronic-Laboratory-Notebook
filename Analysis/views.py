@@ -19,7 +19,61 @@ from .scripts.MFP_Analyze import run_analysis
 from Lab_Dash.models import MFP # Dein Experiment Model
 from .scripts.MFP_Analyze import run_full_analysis
 
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+import json
+# Falls du dein Hybrid-Skript schon gespeichert hast, hier importieren:
+# from .scripts.MFP_Cellpose_Hybrid import run_hybrid_cellpose_test
 
+# =========================================================
+# 1. VIEW FÜR DEN DASH AI-SCOUT TUNER
+# =========================================================
+def MFP_Scout_View(request, pk):
+    entry = MFP.objects.get(id=pk)
+    
+    # Sicherstellen, dass ein Analyse-Objekt existiert
+    analysis, created = MFPAnalysis.objects.get_or_create(Entry=entry)
+    
+    # ID in Session speichern für Dash
+    request.session['django_plotly_dash'] = {'MFP_id': pk}
+
+    # Wir rendern ein neues Template speziell für den Scout
+    return render(request, 'Analysis_Scout.html', {'entry': entry, 'analysis': analysis})
+
+
+# =========================================================
+# 2. API ENDPOINT FÜR DEN KI-BUTTON (Cellpose Background-Task)
+# =========================================================
+@csrf_exempt 
+def api_run_cellpose(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            entry_id = data.get('entry_id')
+            frame = int(data.get('frame', 0))
+            diameter = int(data.get('diameter', 99))
+            minmass = int(data.get('minmass', 100))
+            
+            model_path = '/Users/simon/01_Experimental/Electronic-Laboratory-Notebook/Private/Cellpose_Trainingsdaten/models/Polymersome_20260411_121237'
+
+            # Hier rufst du später deine Cellpose-Funktion auf:
+            # result = run_hybrid_cellpose_test(entry_id, frame, diameter, minmass, model_path)
+            
+            # DUMMY-ANTWORT (Zum Testen, ob der Button im Frontend klappt)
+            result = {
+                "status": "success", 
+                "found_points": 12,
+                "valid_cells": 10,
+                "data": [
+                    {"radius": 50, "circ": 0.95},
+                    {"radius": 52, "circ": 0.91}
+                ]
+            }
+            return JsonResponse(result)
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=400)
+            
+    return JsonResponse({"error": "Only POST allowed"}, status=400)
 
 def MFP_Analysis_View(request, pk):
     entry = MFP.objects.get(id=pk)

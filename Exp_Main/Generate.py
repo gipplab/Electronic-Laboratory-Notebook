@@ -110,7 +110,7 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
             if SampleName == None:
                 pass
             else:
-                if str(Exp.Abbrev) == 'SFG':
+                if str(Exp.Abbrev) == 'SFG' or str(Exp.Abbrev) == 'MFP':
                     file = self.give_file_times(file)
                 model = apps.get_model(self.Exp_Category, str(Exp.Abbrev))
                 if model.objects.all().count() == 0:#if there are no entries
