@@ -10,8 +10,8 @@ import numpy as np
 import trackpy as tp
 from urllib.parse import parse_qs
 
-# IMPORTS (Passe diese an deine Struktur an)
-from Lab_Misc.Load_Data import Load_MFP_Path
+# IMPORTS
+from Lab_Misc.Load_Data import Load_MFP_Path, Load_MFP_Video
 from Analysis.models import MFPAnalysis
 
 app = DjangoDash('MFP_AI_Scout')
@@ -64,9 +64,10 @@ app.layout = html.Div([
             ], style={'width': '30%', 'display': 'inline-block', 'verticalAlign': 'top'}),
         ], style={'padding': '15px'}),
         
-        # ZEILE 3: Buttons
+        # ZEILE 3: Buttons - ERWEITERT
         html.Div([
             html.Button("🔍 Scout-Vorschau aktualisieren", id='preview-btn', n_clicks=0, className="btn btn-info"),
+            html.Button("🧬 Cellpose Analyse", id='cellpose-btn', n_clicks=0, className="btn btn-warning", style={'marginLeft': '10px'}),
             html.Button("💾 Setup für KI speichern", id='save-btn', n_clicks=0, className="btn btn-success", style={'float': 'right'}),
         ], style={'padding': '10px'}),
         
@@ -75,7 +76,7 @@ app.layout = html.Div([
     # OUTPUT GRAFIK
     dcc.Loading(children=[dcc.Graph(id='preview-image', style={'height': '750px'})], type="circle"),
     html.Br(),
-    # STATUS OUTPUT FÜR SPEICHERN
+    # STATUS OUTPUT FÜR SPEICHERN & CELLPOSE
     html.Div(id='status-output', style={'marginTop': '10px', 'fontWeight': 'bold', 'fontSize': '1.2em'})
 ])
 
@@ -101,7 +102,6 @@ def init_app(search, current_id):
 
     try:
         analysis, _ = MFPAnalysis.objects.get_or_create(Entry_id=entry_id)
-        # Wir nutzen die bestehenden DB-Felder
         dia = getattr(analysis, 'Particle_Diameter', 99)
         minmass = getattr(analysis, 'Threshold', 100000) 
         saved_chan = getattr(analysis, 'Detect_Channel', 0)
@@ -140,13 +140,10 @@ def update_graph(n_clicks, ch, entry_id, frame, dia, minmass):
             img = load_img_data(f, frame, ch)
             if img is None: return go.Figure(layout=dict(title="Fehler beim Laden des Bildes"))
             
-            # --- TRACKPY SCOUT LOGIK ---
-            # Trackpy verlangt einen ungeraden Diameter
             if dia % 2 == 0: dia += 1
                 
             features = tp.locate(img, diameter=dia, minmass=minmass)
             
-            # Plotten
             fig = px.imshow(img, color_continuous_scale='gray', origin='upper')
             
             if not features.empty:
@@ -164,29 +161,84 @@ def update_graph(n_clicks, ch, entry_id, frame, dia, minmass):
 
 @app.callback(
     Output('status-output', 'children'),
-    [Input('save-btn', 'n_clicks')],
-    [State('diameter-input', 'value'), State('minmass-input', 'value'), 
-     State('channel-select', 'value'), State('entry-id', 'data')]
+    [Input('save-btn', 'n_clicks'),
+     Input('cellpose-btn', 'n_clicks')],
+    [State('entry-id', 'data'), 
+     State('frame-slider', 'value'), 
+     State('diameter-input', 'value'), 
+     State('minmass-input', 'value'),
+     State('channel-select', 'value')]
 )
-def save_scout_params(n_clicks, dia, minmass, ch, entry_id):
-    if n_clicks == 0 or not entry_id: return ""
-    
-    try:
-        analysis = MFPAnalysis.objects.get(Entry_id=entry_id)
-        if dia % 2 == 0: dia += 1
+def handle_buttons(save_clicks, cellpose_clicks, entry_id, frame, dia, minmass, ch):
+    # Prüfen, ob überhaupt ein Button geklickt wurde
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return ""
         
-        # Speichern der Scout-Parameter in der Datenbank
-        analysis.Particle_Diameter = dia
-        analysis.Threshold = float(minmass) # Wir überschreiben das Threshold-Feld für MinMass
-        if hasattr(analysis, 'Detect_Channel'): analysis.Detect_Channel = int(ch)
-        analysis.save()
-        
-        return html.Div([
-            html.Span("✅ Scout-Parameter (Diameter & MinMass) erfolgreich für die KI gespeichert!", style={'color':'green'})
-        ])
-    except Exception as e:
-        return html.Div(f"Speicherfehler: {str(e)}", style={'color': 'red'})
+    # Herausfinden, WELCHER Button das Event ausgelöst hat
+    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
     
-    # Am Ende der Datei
+    if not entry_id: 
+        return ""
+
+    # ==========================================
+    # LOGIK 1: SETUP SPEICHERN
+    # ==========================================
+    if button_id == 'save-btn':
+        try:
+            analysis = MFPAnalysis.objects.get(Entry_id=entry_id)
+            if dia % 2 == 0: dia += 1
+            
+            analysis.Particle_Diameter = dia
+            analysis.Threshold = float(minmass)
+            if hasattr(analysis, 'Detect_Channel'): analysis.Detect_Channel = int(ch)
+            analysis.save()
+            
+            return html.Div([
+                html.Span("✅ Scout-Parameter (Diameter & MinMass) erfolgreich gespeichert!", style={'color':'green'})
+            ])
+        except Exception as e:
+            return html.Div(f"Speicherfehler: {str(e)}", style={'color': 'red'})
+
+    # ==========================================
+    # LOGIK 2: CELLPOSE STARTEN
+    # ==========================================
+    elif button_id == 'cellpose-btn':
+        try:
+            from Analysis.scripts.MFP_Tracking_Logic import process_single_frame
+            from Analysis.scripts.Cellpose_Cement import run_cellpose_cement_analysis
+            
+            # Daten laden
+            video_data = Load_MFP_Video(entry_id)
+            if not video_data:
+                return html.Div("❌ Fehler beim Laden der Daten", style={'color': 'red'})
+            
+            # Scout auf Frame durchführen
+            img_detect = video_data['detect'][int(frame)]
+            if dia % 2 == 0: dia += 1
+            
+            _, features, _ = process_single_frame(
+                img_detect, diameter=dia, threshold=minmass, 
+                min_dist=70, noise_size=3.0
+            )
+            
+            if features.empty:
+                return html.Div("❌ Keine Features für Cellpose Analyse gefunden!", style={'color': 'red'})
+            
+            # Cellpose starten
+            success, message = run_cellpose_cement_analysis(entry_id, features, None)
+            
+            if success:
+                return html.Div(message, style={'color': 'green', 'fontWeight': 'bold'})
+            else:
+                return html.Div(message, style={'color': 'red'})
+                
+        except Exception as e:
+            import traceback
+            print(traceback.format_exc())
+            return html.Div(f"❌ Fehler: {str(e)}", style={'color': 'red'})
+
+    return ""
+
 if __name__ == '__main__':
     app.run_server(debug=True)
