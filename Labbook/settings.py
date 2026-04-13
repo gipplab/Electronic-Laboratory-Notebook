@@ -47,7 +47,7 @@ INSTALLED_APPS = [
 
     'django_tables2',# For tables
     'django_filters',
-    'bootstrap3',
+    'django_bootstrap5',
     'django_tables2_column_shifter',
 
     'bootstrap_modal_forms',# modal
@@ -127,8 +127,8 @@ ALLOWED_HOSTS = ['*']
 
 PLOTLY_COMPONENTS = [
 
-    'dash_core_components',
-    'dash_html_components',
+    'dash.dcc',
+    'dash.html',
     'dash_renderer',
 
     'dpd_components'

@@ -2,7 +2,7 @@
 
 {% block content %}
 {% include "Modal/_modal.html" %}
-{% load bootstrap3 %}
+{% load django_bootstrap5 %}
 <form method="post" target="print_popup"  onsubmit="window.open('about:blank','print_popup','width=1000,height=800');" novalidate>
   {% csrf_token %}
   {{ form }}

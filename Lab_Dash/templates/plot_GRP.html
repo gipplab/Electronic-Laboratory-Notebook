@@ -2,7 +2,7 @@
 
 {% block content %}
 {% include "Modal/_modal.html" %}
-{% load bootstrap3 %}
+{% load django_bootstrap5 %}
 <button type="button" class="update-properties btn btn-sm btn-primary" data-id="{% url 'update_dash' model_name pk_dash %}">
     <span class="fa fa-pencil"></span>
 </button>
