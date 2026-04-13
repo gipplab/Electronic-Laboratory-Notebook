@@ -39,7 +39,8 @@ jupyterlab>=4.0.0
 # --- Time Zone Support ---
 pytz>=2024.1
 
-dpd-static-support dpd-components
+dpd-static-support 
+dpd-components
 
 # --- AI ---
 openai>=1.0.0
