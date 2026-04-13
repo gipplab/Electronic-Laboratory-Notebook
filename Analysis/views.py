@@ -22,6 +22,8 @@ from .scripts.MFP_Analyze import run_full_analysis
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
+import atexit
+import subprocess
 # Falls du dein Hybrid-Skript schon gespeichert hast, hier importieren:
 # from .scripts.MFP_Cellpose_Hybrid import run_hybrid_cellpose_test
 
@@ -108,6 +110,15 @@ def is_jupyter_running():
     result = sock.connect_ex(('127.0.0.1', 8888))
     sock.close()
     return result == 0
+
+def cleanup_jupyter_on_exit():
+    """Wird automatisch vom System aufgerufen, wenn der Django-Server stoppt."""
+    print("Django fährt herunter. Beende verwaiste Jupyter-Prozesse...")
+    try:
+        # Sucht und beendet alle Hintergrundprozesse, die 'jupyter' im Namen haben
+        subprocess.run(['pkill', '-f', 'jupyter'], check=False)
+    except Exception as e:
+        print(f"Fehler beim Beenden von Jupyter: {e}")
 
 def index(request):
     # Wenn der Button gedrückt wurde
