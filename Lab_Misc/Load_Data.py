@@ -113,40 +113,71 @@ def Load_MFP_Path(pk):
 def Load_MFP_Video(pk):
     """
     Lädt das ND2-Video für eine MFP-Analyse-ID.
-    Nutzt Load_MFP_Path() für höchste Sicherheit beim Pfad.
-    Geht direkt von 4D-Daten (Time, Channel, Y, X) aus.
+    Erkennt Kanäle automatisch anhand der ND2-Metadaten (inkl. 'BF').
     """
     from Analysis.models import MFPAnalysis
+    import nd2
     
-    # 1. Pfad mit deiner extrem sicheren Funktion holen!
+    # 1. Pfad holen
     source_file = Load_MFP_Path(pk)
     
     if not source_file:
         print(f"❌ Video-Datei für ID {pk} konnte nicht ermittelt werden.")
         return None
         
-    # 2. Analyse-Objekt für die Kanal-Einstellungen holen
+    # Standard-Werte aus der Datenbank (als Fallback)
     try:
         analysis = MFPAnalysis.objects.get(Entry_id=pk)
-        detect_ch = getattr(analysis, 'Detect_Channel', 0)
+        db_detect_ch = getattr(analysis, 'Detect_Channel', 0)
+        db_measure_ch = 1 if db_detect_ch == 2 else 0 
+        db_bf_ch = 0 
     except Exception as e:
-        print(f"⚠️ Keine Analyse-Settings für ID {pk} gefunden, nutze Standard. ({e})")
-        detect_ch = 0
+        db_detect_ch, db_measure_ch, db_bf_ch = 0, 1, 0
         analysis = None
-        
-    measure_ch = 1 if detect_ch == 2 else 0 
-    bf_ch = 0 # Brightfield ist Kanal 0
-    
-    # 3. ND2 Datei laden (ohne 5D-Z-Stack-Logik!)
+
+    # 2. ND2 Datei laden und smarte Kanal-Erkennung durchführen
     with nd2.ND2File(source_file) as f:
+        bf_ch = None
+        detect_ch = None
+        measure_ch = None
+        
+        try:
+            channels = f.metadata.channels
+            for i, ch in enumerate(channels):
+                ch_name = ch.channel.name.lower()
+                
+                # 🚨 NEU: 'bf' hinzugefügt!
+                if any(keyword in ch_name for keyword in ['dia', 'brightfield', 'td', 'trans', 'bf']):
+                    bf_ch = i
+                    
+                # DETECTION (z.B. GFP)
+                elif any(keyword in ch_name for keyword in ['fitc', 'gfp', 'alexa 488', 'green']):
+                    detect_ch = i
+                    
+                # MEASURE (z.B. mCherry)
+                elif any(keyword in ch_name for keyword in ['tritc', 'rfp', 'mcherry', 'cy5', 'red']):
+                    measure_ch = i
+                    
+            # Fallback
+            if bf_ch is None: bf_ch = db_bf_ch
+            if detect_ch is None: detect_ch = db_detect_ch
+            if measure_ch is None: measure_ch = db_measure_ch
+            
+        except Exception as e:
+            print(f"⚠️ Konnte Metadaten nicht lesen, nutze Datenbank-Fallback: {e}")
+            bf_ch, detect_ch, measure_ch = db_bf_ch, db_detect_ch, db_measure_ch
+
+        # 3. Daten extrahieren
         arr = f.asarray()
         
-        # Standard-Fall: 4D (Time, Channel, Y, X)
         if arr.ndim == 4: 
             vid_detect = arr[:, detect_ch, :, :]
             vid_measure = arr[:, measure_ch, :, :]
             vid_bf = arr[:, bf_ch, :, :]
-        # Fallback
+        elif arr.ndim == 3: # 3D Fallback (z.B. nur ein Frame)
+            vid_detect = arr[detect_ch, :, :]
+            vid_measure = arr[measure_ch, :, :]
+            vid_bf = arr[bf_ch, :, :]
         else: 
             vid_detect = arr
             vid_measure = arr

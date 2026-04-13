@@ -7,8 +7,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 import nd2
 import numpy as np
-import trackpy as tp
+import pandas as pd
 from urllib.parse import parse_qs
+from scipy.ndimage import gaussian_filter
+from skimage.feature import peak_local_max
 
 # IMPORTS
 from Lab_Misc.Load_Data import Load_MFP_Path, Load_MFP_Video
@@ -35,7 +37,7 @@ app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
     dcc.Store(id='entry-id'), 
     
-    html.H4("KI Scout Tuner (Fluoreszenz / Trackpy)"),
+    html.H4("KI Scout Tuner (Peak Local Max)"),
     
     html.Div([
         # ZEILE 1: Bildauswahl
@@ -55,19 +57,34 @@ app.layout = html.Div([
         html.Div([
             html.Div([
                 html.Label("Expected Diameter (px):", style={'fontWeight': 'bold'}),
-                dcc.Input(id='diameter-input', type='number', value=99, min=3, step=2, style={'width': '100%'}),
+                dcc.Input(id='diameter-input', type='number', value=51, min=3, step=2, style={'width': '100%'}),
+                
+                # NEU: Box-Size Eingabe
+                html.Label("KI Box-Größe (Ausschnitt in px):", style={'fontWeight': 'bold', 'color': 'purple', 'marginTop': '10px'}),
+                dcc.Input(id='box-size-input', type='number', value=100, min=10, step=2, style={'width': '100%'}),
             ], style={'width': '30%', 'display': 'inline-block', 'marginRight': '2%', 'verticalAlign': 'top'}),
             
             html.Div([
-                html.Label("MinMass (Helligkeits-Schwelle):", style={'fontWeight': 'bold', 'color': '#d9534f'}),
-                dcc.Input(id='minmass-input', type='number', value=100000, step=1000, min=0, style={'width': '100%'}),
+                # ANGEPASST: Float-Threshold statt MinMass
+                html.Label("Threshold (Helligkeit 0.01 - 0.50):", style={'fontWeight': 'bold', 'color': '#d9534f'}),
+                dcc.Input(id='minmass-input', type='number', value=0.05, step=0.01, min=0, style={'width': '100%'}),
+                
+                # NEU: Analyse Modus
+                html.Label("KI Modus:", style={'fontWeight': 'bold', 'marginTop': '10px'}),
+                dcc.RadioItems(
+                    id='run-mode-select', 
+                    options=[{'label': ' Nur diesen Frame rechnen', 'value': 'single'}, 
+                             {'label': ' Komplettes Video rechnen', 'value': 'all'}], 
+                    value='single', 
+                    labelStyle={'display': 'block'}
+                )
             ], style={'width': '30%', 'display': 'inline-block', 'verticalAlign': 'top'}),
         ], style={'padding': '15px'}),
         
-        # ZEILE 3: Buttons - ERWEITERT
+        # ZEILE 3: Buttons
         html.Div([
             html.Button("🔍 Scout-Vorschau aktualisieren", id='preview-btn', n_clicks=0, className="btn btn-info"),
-            html.Button("🧬 Cellpose Analyse", id='cellpose-btn', n_clicks=0, className="btn btn-warning", style={'marginLeft': '10px'}),
+            html.Button("🧬 Cellpose Analyse starten", id='cellpose-btn', n_clicks=0, className="btn btn-warning", style={'marginLeft': '10px'}),
             html.Button("💾 Setup für KI speichern", id='save-btn', n_clicks=0, className="btn btn-success", style={'float': 'right'}),
         ], style={'padding': '10px'}),
         
@@ -77,15 +94,13 @@ app.layout = html.Div([
     dcc.Loading(children=[dcc.Graph(id='preview-image', style={'height': '750px'})], type="circle"),
     html.Br(),
     
-    # 1. STATUS OUTPUT FÜR DAS SPEICHERN (Kurze Meldung)
     html.Div(id='save-status', style={'marginTop': '10px', 'fontWeight': 'bold', 'fontSize': '1.2em'}),
     
-    # 2. STATUS OUTPUT FÜR CELLPOSE (Mit Ladekreis für die Wartezeit)
     dcc.Loading(
         children=[html.Div(id='cellpose-status', style={'marginTop': '20px'})], 
         type="default"
     )
-]) # <--- Hier endet dein app.layout
+])
 
 # =========================================================
 # CALLBACKS
@@ -104,13 +119,14 @@ def init_app(search, current_id):
         try: entry_id = parse_qs(search.lstrip('?'))['id'][0]
         except: pass
     if not entry_id: entry_id = current_id
-    def_ret = (10, {}, entry_id, 99, 100000, [], None)
+    def_ret = (10, {}, entry_id, 51, 0.05, [], None)
     if not entry_id: return def_ret
 
     try:
         analysis, _ = MFPAnalysis.objects.get_or_create(Entry_id=entry_id)
-        dia = getattr(analysis, 'Particle_Diameter', 99)
-        minmass = getattr(analysis, 'Threshold', 100000) 
+        dia = getattr(analysis, 'Particle_Diameter', 51)
+        minmass = getattr(analysis, 'Threshold', 0.05) 
+        if minmass >= 1.0: minmass = 0.05 # Korrektur falls alte Trackpy Werte drin stehen
         saved_chan = getattr(analysis, 'Detect_Channel', 0)
 
         path = Load_MFP_Path(entry_id)
@@ -134,9 +150,10 @@ def init_app(search, current_id):
     Output('preview-image', 'figure'),
     [Input('preview-btn', 'n_clicks'), Input('channel-select', 'value')],
     [State('entry-id', 'data'), State('frame-slider', 'value'), 
-     State('diameter-input', 'value'), State('minmass-input', 'value')]
+     State('diameter-input', 'value'), State('minmass-input', 'value'),
+     State('box-size-input', 'value')] # <-- NEU
 )
-def update_graph(n_clicks, ch, entry_id, frame, dia, minmass):
+def update_graph(n_clicks, ch, entry_id, frame, dia, minmass, box_size):
     if not entry_id or ch is None: return go.Figure()
 
     try:
@@ -147,28 +164,46 @@ def update_graph(n_clicks, ch, entry_id, frame, dia, minmass):
             img = load_img_data(f, frame, ch)
             if img is None: return go.Figure(layout=dict(title="Fehler beim Laden des Bildes"))
             
-            if dia % 2 == 0: dia += 1
-                
-            features = tp.locate(img, diameter=dia, minmass=minmass)
+            # --- DIE NEUE PEAK LOCAL MAX METHODE ---
+            img_float = img.astype(float)
+            smart_sigma = max(2, int(dia / 5))
+            img_blur = gaussian_filter(img_float, sigma=smart_sigma)
+            
+            min_dist = max(5, int(dia * 0.4))
+            
+            coordinates = peak_local_max(img_blur, min_distance=min_dist, threshold_rel=float(minmass))
+            if len(coordinates) > 0:
+                features = pd.DataFrame({'x': coordinates[:, 1], 'y': coordinates[:, 0]})
+            else:
+                features = pd.DataFrame(columns=['x', 'y'])
             
             fig = px.imshow(img, color_continuous_scale='gray', origin='upper')
             
             if not features.empty:
+                # 1. Das rote Scout-Kreuz im Zentrum
                 fig.add_trace(go.Scatter(
-                    x=features['x'], y=features['y'], 
-                    mode='markers', 
-                    marker=dict(color='red', symbol='x', size=10, line=dict(width=2)), 
-                    name='Scout Seed'
+                    x=features['x'], y=features['y'], mode='markers', 
+                    marker=dict(color='red', symbol='x', size=8, line=dict(width=2)), name='Scout Seed'
                 ))
 
-            fig.update_layout(title=f"Scout Ergebnis | {len(features)} leuchtende Punkte gefunden", height=750)
+                # 2. NEU: Die lila Boxen einzeichnen!
+                if box_size:
+                    half_b = box_size / 2
+                    shapes = []
+                    for _, row in features.iterrows():
+                        shapes.append(dict(
+                            type="rect",
+                            x0=row['x'] - half_b, y0=row['y'] - half_b,
+                            x1=row['x'] + half_b, y1=row['y'] + half_b,
+                            line=dict(color="purple", width=1.5, dash="dot")
+                        ))
+                    fig.update_layout(shapes=shapes)
+
+            fig.update_layout(title=f"Frame {frame} | Scout Ergebnis: {len(features)} Partikel", height=750)
             return fig
             
     except Exception as e: return go.Figure(layout=dict(title=f"Error: {e}"))
 
-# =========================================================
-# CALLBACK 1: SETUP SPEICHERN
-# =========================================================
 @app.callback(
     Output('save-status', 'children'),
     [Input('save-btn', 'n_clicks')],
@@ -179,61 +214,44 @@ def save_scout_params(n_clicks, dia, minmass, ch, entry_id):
     if n_clicks == 0 or not entry_id: return ""
     try:
         analysis = MFPAnalysis.objects.get(Entry_id=entry_id)
-        if dia % 2 == 0: dia += 1
-        
         analysis.Particle_Diameter = dia
         analysis.Threshold = float(minmass)
         if hasattr(analysis, 'Detect_Channel'): analysis.Detect_Channel = int(ch)
         analysis.save()
-        
-        return html.Span("✅ Setup erfolgreich für die KI gespeichert!", style={'color':'green'})
-    except Exception as e:
-        return html.Div(f"Speicherfehler: {str(e)}", style={'color': 'red'})
+        return html.Span("✅ Setup erfolgreich gespeichert!", style={'color':'green'})
+    except Exception as e: return html.Div(f"Speicherfehler: {str(e)}", style={'color': 'red'})
 
-# =========================================================
-# CALLBACK 2: CELLPOSE ANALYSE (Dein neuer Code)
-# =========================================================
 @app.callback(
     Output('cellpose-status', 'children'),
     [Input('cellpose-btn', 'n_clicks')],
-    [State('entry-id', 'data'), State('diameter-input', 'value'), State('minmass-input', 'value')]
-    # WICHTIG: frame-slider und channel-select wurden als State entfernt, weil sie für ALLE Frames irrelevant sind!
+    # NEU: Wir laden box_size, frame und run_mode mit in den Callback
+    [State('entry-id', 'data'), State('diameter-input', 'value'), State('minmass-input', 'value'),
+     State('box-size-input', 'value'), State('frame-slider', 'value'), State('run-mode-select', 'value')]
 )
-def cellpose_click(n_clicks, entry_id, dia, minmass):
-    """Cellpose Button mit Progress-Anzeige (ALLE FRAMES)"""
+def cellpose_click(n_clicks, entry_id, dia, minmass, box_size, frame, run_mode):
     if n_clicks == 0 or not entry_id:
         return ""
     
     try:
         from Analysis.scripts.Cellpose_Cement import run_cellpose_cement_analysis
         
-        # Wir rufen direkt die Master-Funktion auf (und übergeben NUR entry_id, dia, minmass)
-        success, progress_message = run_cellpose_cement_analysis(entry_id, dia, minmass, None)
+        # Startet die Backend-Funktion mit den neuen Parametern
+        success, progress_message = run_cellpose_cement_analysis(entry_id, dia, minmass, box_size, frame, run_mode, None)
         
-        # Formatiere die Ausgabe mit Zeilenumbrüchen
         lines = progress_message.split('\n')
         output = html.Div([
             html.Div(line, style={
                 'color': 'green' if '✅' in line else ('red' if '❌' in line else ('orange' if '⚠️' in line else 'black')),
-                'marginBottom': '2px',
-                'fontFamily': 'monospace',
-                'fontSize': '12px'
+                'marginBottom': '2px', 'fontFamily': 'monospace', 'fontSize': '12px'
             })
             for line in lines if line.strip()
-        ], style={
-            'whiteSpace': 'pre-wrap', 'backgroundColor': '#f5f5f5', 'padding': '10px',
-            'borderRadius': '5px', 'border': '1px solid #ddd', 'maxHeight': '400px', 'overflowY': 'auto'
-        })
+        ], style={'whiteSpace': 'pre-wrap', 'backgroundColor': '#f5f5f5', 'padding': '10px', 'borderRadius': '5px', 'border': '1px solid #ddd', 'maxHeight': '400px', 'overflowY': 'auto'})
         
         return output
             
     except Exception as e:
         import traceback
-        error_msg = f"❌ Fehler: {str(e)}\n\n{traceback.format_exc()}"
-        return html.Div(error_msg, style={
-            'color': 'red', 'whiteSpace': 'pre-wrap', 'fontFamily': 'monospace',
-            'fontSize': '11px', 'padding': '10px', 'backgroundColor': '#ffe6e6', 'borderRadius': '5px'
-        })
+        return html.Div(f"❌ Fehler: {str(e)}\n\n{traceback.format_exc()}", style={'color': 'red', 'whiteSpace': 'pre-wrap'})
 
 if __name__ == '__main__':
     app.run_server(debug=True)

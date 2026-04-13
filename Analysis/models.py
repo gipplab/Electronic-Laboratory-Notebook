@@ -135,24 +135,74 @@ class OszAnalysisJoin(models.Model):
               self.Name = None
          super(OszAnalysisJoin, self).save(*args, **kwargs)
 
+from django.db import models
+
 class MFPAnalysis(models.Model):
+    # =========================================================
+    # STATUS DEFINITION (Die Auswahlmöglichkeiten auf Englisch)
+    # =========================================================
+    class Status(models.TextChoices):
+        NOT_STARTED = 'not_started', 'Not Started'
+        FAILED = 'failed', 'Failed'
+        IMPLAUSIBLE = 'implausible', 'Is Implausible' # 🚨 NEU: Expliziter Status
+        NEEDS_REVIEW = 'needs_review', 'Needs Review'
+        COMPLETED = 'completed', 'Completed'
+
     Entry = models.OneToOneField('Lab_Dash.MFP', on_delete=models.CASCADE, related_name='Analysis')
     
-    # Tuning-Parameter
+    # =========================================================
+    # PIPELINE & METADATEN
+    # =========================================================
+    status = models.CharField(
+        max_length=20, 
+        choices=Status.choices, 
+        default=Status.NOT_STARTED,
+        verbose_name="Analysis Status"
+    )
+    
+    is_plausible = models.BooleanField(default=True)
+    error_message = models.TextField(blank=True, null=True, verbose_name="Last Error Message")
+    execution_time = models.FloatField(blank=True, null=True, verbose_name="Execution Time (s)")
+    
+    # Automatische Zeitstempel (werden von Django selbst gepflegt)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+    
+    # Schnelle Statistiken für das Dashboard
+    total_particles = models.IntegerField(default=0, blank=True, null=True, verbose_name="Total Particles Found")
+    stable_tracks = models.IntegerField(default=0, blank=True, null=True, verbose_name="Stable Tracks")
+
+    # =========================================================
+    # 🚨 NEU: DATA QUALITY LOGIC (Plausibilitäts-Check)
+    # =========================================================
+    is_plausible = models.BooleanField(
+        default=True, 
+        verbose_name="Result is Plausible"
+    )
+    warning_message = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Warnings / Implausibility Reasons"
+    )
+
+    # =========================================================
+    # TUNING-PARAMETER 
+    # =========================================================
     Particle_Diameter = models.IntegerField(default=99)
     Min_Dist = models.FloatField(default=70.0, verbose_name="Min Distance (px)")
     Threshold = models.FloatField(default=100.0)
-    # In class MFPAnalysis:
     Noise_Size = models.FloatField(default=3.0, verbose_name="Noise Size (px)")
-    
-    # NEU: Der ausgewählte Kanal
     Detect_Channel = models.IntegerField(default=1) 
     
-    # Ergebnis-Pfad
+    # =========================================================
+    # RESULTATE
+    # =========================================================
     Result_Path = models.TextField(blank=True, null=True)
     
     def __str__(self):
-        return f"Analyse Parameter für {self.Entry}"
+        # Zeigt den Status und markiert es extra, falls es unplausibel ist
+        plausible_tag = "" if self.is_plausible else " ⚠️ UNPLAUSIBLE"
+        return f"Analyse Parameter für {self.Entry} ({self.get_status_display()}){plausible_tag}"
 
 class DafAnalysis(models.Model):
     Name = models.TextField(unique=True, blank=True, null=True)
