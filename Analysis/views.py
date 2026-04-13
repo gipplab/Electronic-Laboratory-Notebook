@@ -140,8 +140,9 @@ def index(request):
         else:
             print("--- Jupyter läuft bereits. Leite weiter ... ---")
 
-        # 2. Weiterleitung zum Jupyter Lab
-        return redirect("http://127.0.0.1:8888/lab")
+        # Holt die IP-Adresse oder den Hostnamen, den du im Browser eingegeben hast
+        host = request.get_host().split(':')[0] 
+        return redirect(f"http://{host}:8888/lab")
 
     # Normaler Aufruf der Seite
     return render(request, 'Analysis.html')
