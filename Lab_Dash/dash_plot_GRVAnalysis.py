@@ -1,5 +1,6 @@
 import glob, os
-from dash import dcc, htmlfrom dash.dependencies import Input, Output
+from dash import dcc, html
+from dash.dependencies import Input, Output
 from django_plotly_dash import DjangoDash
 from django.apps import apps
 import plotly.graph_objects as go

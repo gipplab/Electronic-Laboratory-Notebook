@@ -1,6 +1,7 @@
 from django_plotly_dash import DjangoDash
 import dash
-from dash import dcc, htmlfrom dash.dependencies import Input, Output, State
+from dash import dcc, html
+from dash.dependencies import Input, Output, State
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots

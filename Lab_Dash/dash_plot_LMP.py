@@ -2,7 +2,8 @@ import json
 import glob, os
 import dash
 import datetime
-from dash import dcc, htmlfrom dash.dependencies import Input, Output
+from dash import dcc, html
+from dash.dependencies import Input, Output
 import plotly.express as px
 from django_plotly_dash import DjangoDash
 import plotly.graph_objects as go

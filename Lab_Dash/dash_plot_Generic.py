@@ -3,7 +3,8 @@ import glob, os
 import dash
 import plotly.io as pio
 import datetime
-from dash import dcc, htmlfrom dash.dependencies import Input, Output
+from dash import dcc, html
+from dash.dependencies import Input, Output
 import plotly.express as px
 from django_plotly_dash import DjangoDash
 from django.apps import apps

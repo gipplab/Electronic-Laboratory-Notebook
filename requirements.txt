@@ -13,6 +13,8 @@ django-plotly-dash>=2.3.0
 dash>=2.14.0,<3.0
 plotly>=5.17.0
 kaleido>=0.2.1
+django-tables2-column-shifter>=0.5.2
+django-bootstrap-modal-forms>=1.5.0
 
 # --- Channels & Async ---
 channels>=4.0.0
@@ -33,6 +35,11 @@ opencv-python-headless>=4.8.0
 
 # --- Jupyter Environment ---
 jupyterlab>=4.0.0
+
+# --- Time Zone Support ---
+pytz>=2024.1
+
+dpd-static-support dpd-components
 
 # --- AI ---
 openai>=1.0.0

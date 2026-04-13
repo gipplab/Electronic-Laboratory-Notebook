@@ -126,12 +126,8 @@ STATICFILES_FINDERS = [
 ALLOWED_HOSTS = ['*']
 
 PLOTLY_COMPONENTS = [
-
-    'dash.dcc',
-    'dash.html',
-    'dash_renderer',
-
-    'dpd_components'
+    'dpd_components',
+    'dpd_static_support',
 ]
 
 # Database
