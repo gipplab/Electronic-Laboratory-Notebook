@@ -29,6 +29,6 @@ urlpatterns = [
     path('', views.index, name='index'),# Pfad für den Dash AI-Scout:
     path('MFP_Scout/<int:pk>/', views.MFP_Scout_View, name='MFP_Scout_View'),
     
-    # Pfad für den unsichtbaren KI-API Aufruf:
+    # Pfad für den unsichtbaren KI-API Aufruf: 
     path('api/run_cellpose/', views.api_run_cellpose, name='api_run_cellpose'),
 ]
