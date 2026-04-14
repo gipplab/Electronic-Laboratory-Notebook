@@ -5,7 +5,8 @@ import numpy as np
 import torch
 import math
 import pickle
-import concurrent.futures  # 🚨 NEU: Für den 5-Minuten-Timer
+import time
+import psutil
 from scipy.ndimage import center_of_mass
 from cellpose import models
 from skimage import exposure
@@ -19,16 +20,34 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Private.settings')
 if not django.apps.apps.ready:
     django.setup()
 
-from Lab_Misc.Load_Data import Load_MFP_Video
+from Lab_Misc.Load_Data import Load_MFP_Video, Load_MFP_Path
 from Analysis.models import MFPAnalysis
 
 # =========================================================
-# CELLPOSE CEMENT ANALYSE (AI-FIRST PIPELINE)
+# 1. DER SERVER-TÜRSTEHER (Ressourcen-Check)
 # =========================================================
+def wait_for_free_resources(required_ram_gb=10, required_vram_gb=4, max_cpu_percent=85):
+    print("🔍 Prüfe Server-Auslastung vor dem Start...")
+    while True:
+        cpu_usage = psutil.cpu_percent(interval=1)
+        free_ram_gb = psutil.virtual_memory().available / (1024 ** 3)
+        
+        free_vram_gb = 100 
+        if torch.cuda.is_available():
+            free_vram, _ = torch.cuda.mem_get_info()
+            free_vram_gb = free_vram / (1024 ** 3)
+            
+        if cpu_usage < max_cpu_percent and free_ram_gb > required_ram_gb and free_vram_gb > required_vram_gb:
+            print(f"✅ Ressourcen frei! (CPU: {cpu_usage}%, RAM: {free_ram_gb:.1f}GB, VRAM: {free_vram_gb:.1f}GB)")
+            return True 
+        else:
+            print(f"⚠️ Server ausgelastet. Warte 60 Sekunden...")
+            time.sleep(60)
 
+# =========================================================
+# 2. CELLPOSE CEMENT ANALYSE
+# =========================================================
 class CellposeCementAnalysis:
-    
-    # Filter-Parameter
     MIN_CIRCULARITY = 0.70  
     MIN_SOLIDITY = 0.85     
     MAX_ECCENTRICITY = 0.85
@@ -37,22 +56,20 @@ class CellposeCementAnalysis:
         self.entry_id = entry_id
         self.diameter = diameter
         
-        self.use_apple_gpu = torch.backends.mps.is_available()
+        # GPU Limitierung für den Worker (max 15% VRAM pro Prozess)
+        if torch.cuda.is_available():
+            torch.cuda.set_per_process_memory_fraction(0.15)
+        self.use_gpu = torch.cuda.is_available() or torch.backends.mps.is_available()
+        
         self.progress_messages = []
-        self.log_progress(f"Lade Standardmodell (GPU: {self.use_apple_gpu})...")
+        self.log_progress(f"Lade Standardmodell (GPU: {self.use_gpu})...")
         
         model_path = '/Users/simon/01_Experimental/Electronic-Laboratory-Notebook/Private/Cellpose_Trainingsdaten/Super_Training_Mix/models/cellpose_1775998269.051098'
-        self.model = models.CellposeModel(gpu=self.use_apple_gpu, pretrained_model=model_path)
+        self.model = models.CellposeModel(gpu=self.use_gpu, pretrained_model=model_path)
 
     def log_progress(self, message):
         self.progress_messages.append(message)
         print(f"✓ {message}")
-        log_path = f"/tmp/cellpose_progress_{self.entry_id}.txt"
-        try:
-            with open(log_path, 'a', encoding='utf-8') as f:
-                f.write(message + "\n")
-        except Exception:
-            pass
         
     def analyze_whole_frame(self, video_data, frame_idx):
         img_bf = video_data['brightfield'][frame_idx].copy().astype(float)
@@ -63,16 +80,10 @@ class CellposeCementAnalysis:
         
         p_low, p_high = np.percentile(img_detect, (0.5, 99.5))
         img_det_norm = exposure.rescale_intensity(img_detect, in_range=(p_low, p_high), out_range=(0.0, 1.0))
-        
         img_combined = np.array([img_det_norm, img_bf_boosted])
         
         try:
-            masks, _, _ = self.model.eval(
-                img_combined, 
-                diameter=float(self.diameter),
-                flow_threshold=0.7, 
-                cellprob_threshold=-3.0
-            )
+            masks, _, _ = self.model.eval(img_combined, diameter=float(self.diameter), flow_threshold=0.7, cellprob_threshold=-3.0)
         except Exception as e:
             self.log_progress(f"⚠️ Cellpose Fehler in Frame {frame_idx}: {str(e)}")
             return []
@@ -80,9 +91,7 @@ class CellposeCementAnalysis:
         unique_masks = np.unique(masks)[1:] 
         total_found = len(unique_masks)
         
-        # =========================================================
-        # 🚨 NOTBREMSE 1: ZU VIELE OBJEKTE 🚨
-        # =========================================================
+        # NOTBREMSE 1: ZU VIELE OBJEKTE
         if total_found > 100:
             self.log_progress(f"   Frame {frame_idx:03d}: ⚠️ Abbruch! {total_found} Objekte gefunden (Limit: 100). Frame wird ignoriert.")
             return []
@@ -98,92 +107,54 @@ class CellposeCementAnalysis:
             radius = math.sqrt(area / np.pi)
             circularity = (4 * np.pi * area) / (perimeter ** 2) if perimeter > 0 else 0.0
             
-            is_valid = (circularity >= self.MIN_CIRCULARITY and 
-                        props.solidity >= self.MIN_SOLIDITY and 
-                        props.eccentricity <= self.MAX_ECCENTRICITY)
+            is_valid = (circularity >= self.MIN_CIRCULARITY and props.solidity >= self.MIN_SOLIDITY and props.eccentricity <= self.MAX_ECCENTRICITY)
             
             if is_valid:
                 d_y, d_x = center_of_mass(single_mask)
                 valid_in_frame += 1
-                
                 final_results.append({
-                    'frame': frame_idx,
-                    'x': float(d_x), 'y': float(d_y),
+                    'frame': frame_idx, 'x': float(d_x), 'y': float(d_y),
                     'radius': float(radius), 'circularity': float(circularity),
-                    'solidity': float(props.solidity), 'eccentricity': float(props.eccentricity),
-                    'valid': True
+                    'solidity': float(props.solidity), 'eccentricity': float(props.eccentricity), 'valid': True
                 })
         
         self.log_progress(f"   Frame {frame_idx:03d}: {total_found} Objekte gefunden, davon {valid_in_frame} valide.")
         return final_results
-    
-    def save_results(self, final_results, scout_pkl_path):
-        base_dir = os.path.dirname(scout_pkl_path) if scout_pkl_path else "/tmp"
-        base_name = os.path.basename(scout_pkl_path).replace('Scout_', 'Cellpose_') if scout_pkl_path else f"Cellpose_{self.entry_id}.pkl"
-        cellpose_pkl = os.path.join(base_dir, base_name)
-        
-        try:
-            with open(cellpose_pkl, 'wb') as f:
-                pickle.dump({'polymersomes': final_results, 'num_total': len(final_results)}, f)
-            self.log_progress(f"✅ Ergebnisse gespeichert unter: {cellpose_pkl}")
-        except Exception as e:
-            self.log_progress(f"⚠️ Speicherfehler: {str(e)}")
-        return cellpose_pkl
 
 # =========================================================
-# ENTRY POINT FÜR DAS DASHBOARD
+# 3. DER BACKGROUND-WORKER JOB
 # =========================================================
-def run_cellpose_cement_analysis(entry_id, diameter, minmass, box_size, target_frame, run_mode, scout_pkl_path=None):
-    log_path = f"/tmp/cellpose_progress_{entry_id}.txt"
-    if os.path.exists(log_path): os.remove(log_path)
-        
+def run_cellpose_cement_analysis(entry_id, diameter, minmass=None, box_size=None, target_frame=None, run_mode='all', scout_pkl_path=None):
+    """
+    Diese Funktion wird vom Django-Q2 Cluster aufgerufen.
+    """
+    # 🚨 1. TÜRSTEHER FRAGEN BEVOR ES LOSGEHT
+    wait_for_free_resources(required_ram_gb=10, required_vram_gb=4, max_cpu_percent=85)
+    
+    analysis_obj, _ = MFPAnalysis.objects.get_or_create(Entry_id=entry_id)
+    analysis_obj.status = MFPAnalysis.Status.NOT_STARTED # In Processing setzen (falls du den Status hast, sonst lass es so)
+    analysis_obj.save()
+    
     try:
         analyzer = CellposeCementAnalysis(entry_id, diameter=diameter)
         video_data = Load_MFP_Video(entry_id)
         if not video_data:
-            analyzer.log_progress("❌ Fehler: Video-Daten konnten nicht geladen werden.")
-            return False, "\n".join(analyzer.progress_messages)
+            raise ValueError("Video-Daten konnten nicht geladen werden.")
         
         num_frames = len(video_data['brightfield'])
-        
-        if run_mode == 'single':
-            analyzer.log_progress(f"🚀 Starte Test-Analyse für Frame {target_frame}...")
-            frames_to_process = [int(target_frame)]
-        else:
-            analyzer.log_progress(f"🚀 Starte Voll-Analyse ({num_frames} Frames)...")
-            frames_to_process = range(num_frames)
+        frames_to_process = [int(target_frame)] if run_mode == 'single' else range(num_frames)
         
         all_results = []
         for frame_idx in frames_to_process:
-            
-            # =========================================================
-            # 🚨 NOTBREMSE 2: 5-MINUTEN TIMEOUT PRO FRAME 🚨
-            # =========================================================
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                # Wir lagern die Analyse in einen Hintergrund-Job aus
-                future = executor.submit(analyzer.analyze_whole_frame, video_data, frame_idx)
-                
-                try:
-                    # Wir warten maximal 300 Sekunden (5 Minuten)
-                    frame_results = future.result(timeout=300)
-                    all_results.extend(frame_results)
-                    
-                except concurrent.futures.TimeoutError:
-                    # Wenn die Zeit abgelaufen ist, brechen wir ab und machen mit dem nächsten Frame weiter
-                    analyzer.log_progress(f"   Frame {frame_idx:03d}: ⏱️ KRITISCHER ABBRUCH! Zeitlimit von 5 Minuten überschritten.")
-                except Exception as e:
-                    analyzer.log_progress(f"   Frame {frame_idx:03d}: ❌ Systemfehler: {str(e)}")
+            # 🚨 HIER KEIN TIMEOUT MEHR - DJANGO-Q2 REGELT DAS!
+            frame_results = analyzer.analyze_whole_frame(video_data, frame_idx)
+            all_results.extend(frame_results)
             
         if run_mode != 'single' and len(all_results) > 0:
             analyzer.log_progress("\n🔗 Starte smartes Tracking mit Fluss-Erkennung...")
+            df = pd.DataFrame(all_results).sort_values('frame')
             
-            df = pd.DataFrame(all_results)
-            df = df.sort_values('frame')
-            
-            MAX_DISTANCE = 120.0       
-            MAX_RADIUS_CHANGE = 10.0   
-            RADIUS_WEIGHT = 2.0       
-            MEMORY_FRAMES = 7    
+            MAX_DISTANCE, MAX_RADIUS_CHANGE, RADIUS_WEIGHT, MEMORY_FRAMES = 120.0, 10.0, 2.0, 7    
             
             tracked_data = []
             next_track_id = 1
@@ -191,7 +162,6 @@ def run_cellpose_cement_analysis(entry_id, diameter, minmass, box_size, target_f
             
             for frame_idx, group in df.groupby('frame'):
                 current_detections = group.to_dict('records')
-                
                 if not active_tracks:
                     for det in current_detections:
                         det['particle'] = next_track_id
@@ -215,7 +185,6 @@ def run_cellpose_cement_analysis(entry_id, diameter, minmass, box_size, target_f
                     drift_y = np.median(det_coords[:, 1] - track_coords[min_indices, 1])
                     
                 predicted_track_coords = track_coords + np.array([drift_x, drift_y])
-                
                 dist_matrix = cdist(predicted_track_coords, det_coords)
                 raw_rad_diff = np.abs(track_radii[:, None] - det_radii[None, :])
                 cost_matrix = dist_matrix + (raw_rad_diff * RADIUS_WEIGHT)
@@ -251,18 +220,47 @@ def run_cellpose_cement_analysis(entry_id, diameter, minmass, box_size, target_f
                             track_info['x'] += drift_x
                             track_info['y'] += drift_y
                             new_active_tracks[tid] = track_info
-                
                 active_tracks = new_active_tracks
             
             all_results = tracked_data
-            unique_tracks = len(set(d['particle'] for d in tracked_data))
-            analyzer.log_progress(f"🔗 Tracking abgeschlossen! {unique_tracks} perfekte Zell-Pfade generiert.")
+
+        # 🚨 2. DEN SICHEREN SPEICHERORT GENERIEREN
+        video_path = Load_MFP_Path(entry_id)
+        if video_path and "01_Videos" in video_path:
+            cellpose_pkl = video_path.replace("01_Videos", "02_Analysis_Results").rsplit('.', 1)[0] + '.pkl'
+            os.makedirs(os.path.dirname(cellpose_pkl), exist_ok=True)
+        else:
+            cellpose_pkl = f"/tmp/Cellpose_{entry_id}.pkl"
             
-        analyzer.save_results(all_results, scout_pkl_path)
+        with open(cellpose_pkl, 'wb') as f:
+            pickle.dump({'polymersomes': all_results, 'num_total': len(all_results)}, f)
+            
+        # 🚨 3. DATENBANK AKTUALISIEREN & PLAUSIBILITÄT PRÜFEN
+        if len(all_results) > 0 and run_mode != 'single':
+            df_tracked = pd.DataFrame(all_results)
+            first_frame = df_tracked['frame'].min()
+            particles_start = df_tracked[df_tracked['frame'] == first_frame]['particle'].nunique()
+            
+            analysis_obj.total_particles = df_tracked['particle'].nunique()
+            analysis_obj.Result_Path = cellpose_pkl
+            
+            if particles_start < 5:
+                analysis_obj.status = MFPAnalysis.Status.IMPLAUSIBLE
+                analysis_obj.is_plausible = False
+                analysis_obj.warning_message = f"Nur {particles_start} Partikel im ersten Frame."
+            else:
+                analysis_obj.status = MFPAnalysis.Status.COMPLETED
+                analysis_obj.is_plausible = True
+                analysis_obj.warning_message = ""
+                analysis_obj.error_message = ""
         
-        analyzer.log_progress(f"\n🎉 ANALYSE ERFOLGREICH BEENDET!")
+        analysis_obj.save()
         return True, "\n".join(analyzer.progress_messages)
         
     except Exception as e:
         import traceback
+        analysis_obj.status = MFPAnalysis.Status.FAILED
+        analysis_obj.error_message = f"Fehler: {str(e)}"
+        analysis_obj.is_plausible = False
+        analysis_obj.save()
         return False, f"❌ Systemfehler: {str(e)}\n{traceback.format_exc()}"

@@ -8,3 +8,4 @@ plotly
 dash
 torch
 scikit-image
+cellpose

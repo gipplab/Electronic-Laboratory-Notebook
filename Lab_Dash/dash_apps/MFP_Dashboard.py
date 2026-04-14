@@ -11,7 +11,7 @@ import os
 import json
 import traceback
 from urllib.parse import parse_qs, unquote
-
+from Lab_Misc.Load_Data import Load_MFP_Path
 from Lab_Misc.Load_Data import Load_MFP, Load_MFP_Video
 from Lab_Misc.General import get_BasePath
 from Lab_Misc import General
@@ -155,7 +155,13 @@ def get_data(entry_id):
         # 2. Lade neue AI-Daten
         cellpose_data = []
         tracks_ai = pd.DataFrame()
-        cp_path = f"/tmp/Cellpose_{entry_id}.pkl"
+        
+        # 🚨 NEU: Schaue im richtigen Ordner nach!
+        video_path = Load_MFP_Path(entry_id)
+        if video_path and "01_Videos" in video_path:
+            cp_path = video_path.replace("01_Videos", "02_Analysis_Results").rsplit('.', 1)[0] + '.pkl'
+        else:
+            cp_path = f"/tmp/Cellpose_{entry_id}.pkl" # Fallback
         
         if os.path.exists(cp_path):
             try:
