@@ -28,6 +28,7 @@ import signal
 import atexit
 from django.conf import settings
 from django.shortcuts import render, redirect
+from django.http import JsonResponse
 # Falls du dein Hybrid-Skript schon gespeichert hast, hier importieren:
 # from .scripts.MFP_Cellpose_Hybrid import run_hybrid_cellpose_test
 
@@ -80,6 +81,28 @@ def api_run_cellpose(request):
             return JsonResponse({"status": "error", "message": str(e)}, status=400)
             
     return JsonResponse({"error": "Only POST allowed"}, status=400)
+
+
+def cluster_live_log(request, entry_id):
+    """Liest die temporäre Log-Datei des Q-Clusters für ein bestimmtes Experiment aus."""
+    log_path = f"/tmp/cellpose_progress_{entry_id}.txt"
+    
+    # Falls der Prozess noch ganz am Anfang steht
+    if not os.path.exists(log_path):
+        return JsonResponse({
+            "status": "waiting", 
+            "log": f"⏳ Warte auf Cluster...\nLog-Datei für Entry {entry_id} wird erstellt, sobald der Worker startet."
+        })
+
+    try:
+        with open(log_path, 'r') as f:
+            # Die letzten 30 Zeilen reichen für den Monitor völlig aus
+            lines = f.readlines()[-30:]
+            log_content = "".join(lines)
+            
+        return JsonResponse({"status": "running", "log": log_content})
+    except Exception as e:
+        return JsonResponse({"status": "error", "log": f"❌ Fehler beim Lesen: {str(e)}"})
 
 def MFP_Analysis_View(request, pk):
     entry = MFP.objects.get(id=pk)

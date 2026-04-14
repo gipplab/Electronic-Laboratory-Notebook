@@ -31,4 +31,5 @@ urlpatterns = [
     
     # Pfad für den unsichtbaren KI-API Aufruf: 
     path('api/run_cellpose/', views.api_run_cellpose, name='api_run_cellpose'),
+    path('api/cluster-log/<int:entry_id>/', views.cluster_live_log, name='cluster_live_log'),
 ]
