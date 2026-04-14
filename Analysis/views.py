@@ -177,7 +177,7 @@ def index(request):
                     [sys.executable, 'manage.py', 'qcluster'],
                     cwd=settings.BASE_DIR
                 )
-            return redirect('index')
+            return redirect('Analysis:index')
 
         # FALL B: Jupyter Lab starten (dein bestehender Code)
         elif 'run_script' in request.POST:

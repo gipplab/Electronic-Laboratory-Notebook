@@ -32,4 +32,6 @@ urlpatterns = [
     path('MFP_Dashboard/<int:pk>', views.MFP_Dashboard_View, name='MFP_Dashboard_View'),
     # Pfad für den unsichtbaren KI-API Aufruf: 
     path('api/run_cellpose/', views.api_run_cellpose, name='api_run_cellpose'),
+    # Pfad für den Cluster Live Monitor Log:
+    path('api/cluster-log/<int:entry_id>/', views.cluster_live_log, name='cluster_live_log'),
 ]
