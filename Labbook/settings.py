@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'django_plotly_dash.apps.DjangoPlotlyDashConfig',#plot
     'channels',
     'channels_redis',
+    'django_q',
 ]
 
 MIDDLEWARE = [
@@ -185,3 +186,17 @@ STATICFILES_DIRS = [
 ]
 
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+
+# =========================================================
+# DJANGO-Q2 CLUSTER SETTINGS
+# =========================================================
+Q_CLUSTER = {
+    'name': 'MFP_KI_Manager',
+    'workers': 4,          # 2 Videos gleichzeitig
+    'recycle': 50,         # Räumt den Arbeitsspeicher nach 50 Videos auf
+    'timeout': 600,        # 10 Minuten hartes Limit pro Video
+    'retry': 700,          # Wann ein fehlgeschlagener Job neu versucht wird
+    'orm': 'default',      # Nutzt deine normale Datenbank als Warteschlange
+}
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

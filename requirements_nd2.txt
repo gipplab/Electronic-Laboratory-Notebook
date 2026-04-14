@@ -9,3 +9,5 @@ dash
 torch
 scikit-image
 cellpose
+django-q2 
+psutil

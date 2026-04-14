@@ -24,6 +24,10 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 import atexit
 import subprocess
+import signal
+import atexit
+from django.conf import settings
+from django.shortcuts import render, redirect
 # Falls du dein Hybrid-Skript schon gespeichert hast, hier importieren:
 # from .scripts.MFP_Cellpose_Hybrid import run_hybrid_cellpose_test
 
@@ -120,32 +124,60 @@ def cleanup_jupyter_on_exit():
     except Exception as e:
         print(f"Fehler beim Beenden von Jupyter: {e}")
 
+def is_qcluster_running():
+    """Prüft, ob der Q-Cluster Prozess bereits aktiv ist."""
+    try:
+        # Sucht nach dem Prozessnamen in der Prozessliste
+        output = subprocess.check_output(['pgrep', '-f', 'manage.py qcluster'])
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+def cleanup_processes_on_exit():
+    """Beendet Jupyter UND den Q-Cluster beim Herunterfahren von Django."""
+    print("🛑 Django-Server beendet. Räume Hintergrundprozesse auf...")
+    try:
+        # Beendet alle Prozesse, die 'jupyter' oder 'qcluster' im Aufruf haben
+        subprocess.run(['pkill', '-f', 'jupyter'], check=False)
+        subprocess.run(['pkill', '-f', 'manage.py qcluster'], check=False)
+    except Exception as e:
+        print(f"Fehler beim Aufräumen: {e}")
+
+# Registriert die Aufräum-Funktion beim Start von Django
+atexit.register(cleanup_processes_on_exit)
+
+# --- Die angepasste Index-View ---
+
 def index(request):
-    # Wenn der Button gedrückt wurde
-    if request.method == 'POST' and 'run_script' in request.POST:
-        
-        # 1. Läuft Jupyter schon?
-        if not is_jupyter_running():
-            print("--- Starte Jupyter Lab via start_analysis.sh ... ---")
-            
-            # Pfad zu deinem Skript zusammenbauen
-            script_path = os.path.join(settings.BASE_DIR, 'start_analysis.sh')
-            
-            # Skript im Hintergrund starten (non-blocking)
-            # Wir nutzen Popen statt os.system, damit Django nicht einfriert
-            subprocess.Popen(['/bin/bash', script_path], cwd=settings.BASE_DIR)
-            
-            # Wir geben Jupyter 3 Sekunden Zeit zum Hochfahren
-            time.sleep(3)
-        else:
-            print("--- Jupyter läuft bereits. Leite weiter ... ---")
+    cluster_status = is_qcluster_running()
+    jupyter_status = is_jupyter_running()
 
-        # Holt die IP-Adresse oder den Hostnamen, den du im Browser eingegeben hast
-        host = request.get_host().split(':')[0] 
-        return redirect(f"http://{host}:8888/lab")
+    if request.method == 'POST':
+        # FALL A: KI-Manager (Q-Cluster) starten
+        if 'start_cluster' in request.POST:
+            if not cluster_status:
+                print("🚀 Starte Django-Q2 Manager...")
+                # Startet den Prozess im Hintergrund
+                subprocess.Popen(
+                    [os.path.join(settings.BASE_DIR, 'venv/bin/python'), 'manage.py', 'qcluster'],
+                    cwd=settings.BASE_DIR
+                )
+            return redirect('index')
 
-    # Normaler Aufruf der Seite
-    return render(request, 'Analysis.html')
+        # FALL B: Jupyter Lab starten (dein bestehender Code)
+        elif 'run_script' in request.POST:
+            if not jupyter_status:
+                script_path = os.path.join(settings.BASE_DIR, 'start_analysis.sh')
+                subprocess.Popen(['/bin/bash', script_path], cwd=settings.BASE_DIR)
+            
+            host = request.get_host().split(':')[0] 
+            return redirect(f"http://{host}:8888/lab")
+
+    context = {
+        'cluster_running': cluster_status,
+        'jupyter_running': jupyter_status,
+    }
+    return render(request, 'Analysis.html', context)
 
 def OszAnalysis_view(request):
     model = OszAnalysisJoin.objects.all()

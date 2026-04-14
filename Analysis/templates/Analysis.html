@@ -1,12 +1,57 @@
 {% extends 'base.html' %}
 {% load static %}
+
 {% block content %}
-    <form method="post" target="_blank"> 
-        {% csrf_token %}
-        <button type="submit" name="run_script" class="btn btn-primary">
-            <i class="fa fa-rocket"></i> Open Jupyter
-        </button>
-    </form>
+<div class="container mt-4">
+    <div class="system-controls shadow-sm" style="padding: 25px; border: 1px solid #dee2e6; border-radius: 8px; background: #ffffff;">
+        <h3 class="mb-4">🛠️ System Management</h3>
+        
+        <div class="mb-4">
+            <p style="font-size: 1.1em;">
+                <strong>KI-Manager (Q-Cluster):</strong> 
+                {% if cluster_running %}
+                    <span class="badge bg-success" style="font-size: 0.9em; color: green;">● Aktiv (Bereit für Analysen)</span>
+                {% else %}
+                    <span class="badge bg-danger" style="font-size: 0.9em; color: red;">○ Inaktiv</span>
+                {% endif %}
+            </p>
+            
+            <form method="post">
+                {% csrf_token %}
+                {% if not cluster_running %}
+                    <button type="submit" name="start_cluster" class="btn btn-primary">
+                        <i class="fa fa-rocket"></i> KI-Manager starten
+                    </button>
+                    <small class="text-muted d-block mt-2">Startet die Hintergrund-Worker. Dies kann ein paar Sekunden dauern.</small>
+                {% else %}
+                    <button class="btn btn-outline-secondary" disabled>
+                        <i class="fa fa-check"></i> KI-Manager läuft im Hintergrund
+                    </button>
+                {% endif %}
+            </form>
+        </div>
+
+        <hr style="margin: 30px 0;">
+
+        <div class="mt-4">
+            <p style="font-size: 1.1em;">
+                <strong>Jupyter Lab:</strong> 
+                {% if jupyter_running %}
+                    <span class="badge bg-success" style="font-size: 0.9em; color: green;">● Aktiv</span>
+                {% else %}
+                    <span class="badge bg-danger" style="font-size: 0.9em; color: red;">○ Inaktiv</span>
+                {% endif %}
+            </p>
+            
+            <form method="post" target="_blank"> 
+                {% csrf_token %}
+                <button type="submit" name="run_script" class="btn btn-dark">
+                    <i class="fa fa-book"></i> Jupyter Lab öffnen
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock content %}
 
 {% block extrascripts %}
