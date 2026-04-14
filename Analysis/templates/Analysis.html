@@ -111,8 +111,8 @@
 
         // Pingt den Server jede Sekunde (1000ms) an
         logInterval = setInterval(() => {
-            // Dies ruft die API aus deiner views.py auf, die wir vorher besprochen haben
-            fetch(`/api/cluster-log/${entryId}/`)
+            // WICHTIG: Prefix /Analysis/ hinzufügen
+            fetch(`/Analysis/api/cluster-log/${entryId}/`)
                 .then(response => response.json())
                 .then(data => {
                     if(data.log) {

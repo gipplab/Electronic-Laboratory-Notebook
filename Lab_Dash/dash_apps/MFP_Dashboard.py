@@ -39,7 +39,9 @@ app.layout = html.Div([
     ], style={'textAlign': 'center', 'padding': '10px', 'backgroundColor': '#f8f9fa', 'borderBottom': '1px solid #ddd'}),
 
     html.Div(id='ai-analysis-status', style={'padding': '10px', 'textAlign': 'center'}),
-    html.Div(id='ai-log-output', style={'margin': '10px', 'padding': '10px', 'backgroundColor': '#eef2f5', 'borderRadius': '5px', 'maxHeight': '150px', 'overflowY': 'auto', 'fontFamily': 'monospace', 'fontSize': '12px', 'display': 'none'}),
+    html.Div(id='ai-log-output-wrapper', style={'margin': '10px', 'padding': '10px', 'backgroundColor': '#eef2f5', 'borderRadius': '5px', 'maxHeight': '150px', 'overflowY': 'auto', 'fontFamily': 'monospace', 'fontSize': '12px', 'display': 'none'}, children=[
+        html.Div(id='ai-log-output')
+    ]),
     
     dcc.Interval(id='log-interval', interval=2000, n_intervals=0, disabled=True),
 
@@ -235,7 +237,7 @@ def get_data(entry_id):
 # =========================================================
 
 @app.callback(
-    [Output('ai-analysis-status', 'children'), Output('log-interval', 'disabled'), Output('ai-log-output', 'style')],
+    [Output('ai-analysis-status', 'children'), Output('log-interval', 'disabled'), Output('ai-log-output-wrapper', 'style')],
     [Input('run-ai-btn', 'n_clicks')],
     [State('entry-id', 'data')]
 )
