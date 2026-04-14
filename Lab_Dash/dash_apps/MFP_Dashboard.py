@@ -289,8 +289,9 @@ def update_log(n, entry_id):
     [State('entry-id', 'data')]
 )
 def init_dashboard(search, n, clicks, current_id, **kwargs):
-    entry_id = None
-    if search:
+    entry_id = current_id
+    
+    if not entry_id and search:
         try:
             decoded = unquote(search)
             qs = parse_qs(decoded.lstrip('?'))
@@ -304,9 +305,6 @@ def init_dashboard(search, n, clicks, current_id, **kwargs):
     session_state = kwargs.get('session_state', {})
     if not entry_id and session_state and session_state.get('MFP_id'):
         entry_id = session_state.get('MFP_id')
-
-    if not entry_id: 
-        entry_id = current_id
 
     if not entry_id: return None, "❌ Keine ID gefunden.", [], None, [], 100, {0:'0'}
 
