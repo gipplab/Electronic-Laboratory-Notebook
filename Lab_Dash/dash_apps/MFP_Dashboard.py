@@ -237,48 +237,53 @@ def get_data(entry_id):
 # =========================================================
 
 @app.callback(
-    [Output('ai-analysis-status', 'children'), Output('log-interval', 'disabled'), Output('ai-log-output-wrapper', 'style')],
-    [Input('run-ai-btn', 'n_clicks')],
+    [Output('ai-analysis-status', 'children'), 
+     Output('log-interval', 'disabled'), 
+     Output('ai-log-output-wrapper', 'style'),
+     Output('ai-log-output', 'children')],
+    [Input('run-ai-btn', 'n_clicks'), Input('log-interval', 'n_intervals')],
     [State('entry-id', 'data')]
 )
-def start_ai_analysis(n_clicks, entry_id):
-    if n_clicks == 0 or not entry_id:
-        return dash.no_update, dash.no_update, dash.no_update
+def handle_ai_analysis(n_clicks, n_intervals, entry_id):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
     
-    try:
-        analysis = MFPAnalysis.objects.get(Entry_id=entry_id)
-        dia = getattr(analysis, 'Particle_Diameter', 51)
-        minmass = getattr(analysis, 'Threshold', 0.05)
-        
-        threading.Thread(target=run_cellpose_cement_analysis, args=(entry_id, dia, minmass, None, None, 'all', None)).start()
-        
-        style = {'margin': '10px', 'padding': '10px', 'backgroundColor': '#eef2f5', 'borderRadius': '5px', 'maxHeight': '150px', 'overflowY': 'auto', 'fontFamily': 'monospace', 'fontSize': '12px', 'display': 'block'}
-        
-        return html.Div("🚀 KI-Analyse läuft im Hintergrund...", style={'color': 'blue', 'fontWeight': 'bold'}), False, style
-    except Exception as e:
-        return html.Div(f"❌ Fehler: {str(e)}", style={'color': 'red', 'fontWeight': 'bold'}), dash.no_update, dash.no_update
-
-@app.callback(
-    Output('ai-log-output', 'children'),
-    [Input('log-interval', 'n_intervals')],
-    [State('entry-id', 'data')]
-)
-def update_log(n, entry_id):
-    if not entry_id: return dash.no_update
-    log_file = f"/tmp/cellpose_log_{entry_id}.txt"
-    if os.path.exists(log_file):
+    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    
+    # FALL 1: Der Start-Button wurde gedrückt
+    if trigger_id == 'run-ai-btn':
+        if n_clicks == 0 or not entry_id:
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update
         try:
-            with open(log_file, "r") as f:
-                lines = f.readlines()
-            return html.Div([
-                html.Div(line, style={
-                    'color': 'green' if '✅' in line else ('red' if '❌' in line else ('orange' if '⚠️' in line else 'black')),
-                    'marginBottom': '2px'
-                }) for line in lines if line.strip()
-            ])
-        except:
-            return html.Div("Lese Logdatei...")
-    return html.Div("Warte auf Logdatei...")
+            analysis = MFPAnalysis.objects.get(Entry_id=entry_id)
+            dia = getattr(analysis, 'Particle_Diameter', 51)
+            minmass = getattr(analysis, 'Threshold', 0.05)
+            
+            threading.Thread(target=run_cellpose_cement_analysis, args=(entry_id, dia, minmass, None, None, 'all', None)).start()
+            
+            style = {'margin': '10px', 'padding': '10px', 'backgroundColor': '#eef2f5', 'borderRadius': '5px', 'maxHeight': '150px', 'overflowY': 'auto', 'fontFamily': 'monospace', 'fontSize': '12px', 'display': 'block'}
+            return html.Div("🚀 KI-Analyse läuft im Hintergrund...", style={'color': 'blue', 'fontWeight': 'bold'}), False, style, "Warte auf Logdatei..."
+        except Exception as e:
+            return html.Div(f"❌ Fehler: {str(e)}", style={'color': 'red', 'fontWeight': 'bold'}), dash.no_update, dash.no_update, dash.no_update
+
+    # FALL 2: Das Intervall holt sich neue Log-Updates
+    elif trigger_id == 'log-interval':
+        if not entry_id: return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        log_file = f"/tmp/cellpose_log_{entry_id}.txt"
+        if os.path.exists(log_file):
+            try:
+                with open(log_file, "r") as f:
+                    lines = f.readlines()
+                log_divs = [html.Div(line, style={'color': 'green' if '✅' in line else ('red' if '❌' in line else ('orange' if '⚠️' in line else 'black')), 'marginBottom': '2px'}) for line in lines if line.strip()]
+                text_content = "".join(lines)
+                if "✅ Analyse erfolgreich abgeschlossen" in text_content or "❌ Systemfehler" in text_content:
+                    status = html.Div("✅ Analyse fertig! Lade die Seite neu (🔄 Reload).", style={'color': 'green', 'fontWeight': 'bold'})
+                    return status, True, dash.no_update, log_divs
+                else:
+                    return dash.no_update, dash.no_update, dash.no_update, log_divs
+            except: return dash.no_update, dash.no_update, dash.no_update, html.Div("Lese Logdatei...")
+        return dash.no_update, dash.no_update, dash.no_update, html.Div("Warte auf Logdatei...")
 
 @app.callback(
     [Output('entry-id', 'data'), Output('loading-status', 'children'),
@@ -509,8 +514,9 @@ def update_glob(sel, metric, tab, eid):
     if col not in tracks.columns and col == 'radius_cellpose' and 'radius' in tracks.columns:
         col = 'radius'
         
-    df = tracks[tracks['particle'].isin(sel)] if sel else tracks
-    _, t_unit = General.get_smart_time(df['time'])
+    df = tracks[tracks['particle'].isin(sel)].copy() if sel else tracks.copy()
+    scaled_time, t_unit = General.get_smart_time(df['time'])
+    df['scaled_time'] = scaled_time
     
     # --- SPAGHETTI PLOT ---
     fig_s = go.Figure()
@@ -519,7 +525,7 @@ def update_glob(sel, metric, tab, eid):
     
     for p in uids[:limit]:
         d = df[df['particle'] == p].sort_values('time')
-        t_vals, _ = General.get_smart_time(d['time'])
+        t_vals = d['scaled_time']
         
         y_vals = d[col].fillna(0) if col in d.columns else [0] * len(d)
         fig_s.add_trace(go.Scatter(
@@ -533,11 +539,11 @@ def update_glob(sel, metric, tab, eid):
     
     # Durchschnittslinie (AVG)
     if col in df.columns:
-        avg = df.groupby('frame').agg({'time': 'first', col: 'mean'})
+        avg = df.groupby('frame').agg({'scaled_time': 'first', col: 'mean'})
     else:
-        avg = df.groupby('frame').agg({'time': 'first'})
+        avg = df.groupby('frame').agg({'scaled_time': 'first'})
         avg[col] = 0
-    avg_t, _ = General.get_smart_time(avg['time'])
+    avg_t = avg['scaled_time']
     
     fig_s.add_trace(go.Scatter(
         x=avg_t, y=avg[col], 
