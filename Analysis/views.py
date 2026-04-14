@@ -247,3 +247,23 @@ def DafAnalysis_table_view(request, pk):
         # Daf_Analysis(DafAnalysis.objects.get(id = pk).Exp.id)
         pass
     return render(request, 'DafAnalysis_table.html', context)
+
+def cluster_live_log(request, entry_id):
+    """Liest die temporäre Log-Datei des Q-Clusters für ein bestimmtes Experiment aus."""
+    # WICHTIG: Pfad an Cellpose_Cement.py angepasst
+    log_path = f"/tmp/cellpose_log_{entry_id}.txt"
+    
+    # Wenn die Datei noch nicht existiert (Worker startet gerade erst)
+    if not os.path.exists(log_path):
+        return JsonResponse({
+            "status": "waiting", 
+            "log": f"⏳ Warte auf Cluster...\nDer Worker bereitet die Umgebung für Entry {entry_id} vor. Log-Datei wird gleich erstellt."
+        })
+
+    try:
+        # Die letzten 30 Zeilen auslesen, damit das Frontend nicht überlastet wird
+        with open(log_path, 'r') as f:
+            lines = f.readlines()[-30:]
+            return JsonResponse({"status": "running", "log": "".join(lines)})
+    except Exception as e:
+        return JsonResponse({"status": "error", "log": f"❌ Fehler beim Lesen des Logs: {str(e)}"})

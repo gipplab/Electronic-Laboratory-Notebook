@@ -20,15 +20,11 @@
                     
                 <br><br>
                 
-                {% if ExpBase.Dash %}
-                    <a href="/Analysis/MFP_Dashboard/{{ ExpBase.id }}" 
-                    target="_blank" 
-                    class="btn btn-success btn-sm">
-                        <i class="fa fa-bar-chart"></i> Show Results (Dashboard)
-                    </a>
-                {% else %}
-                    <span class="text-muted"><small>(Noch keine Ergebnisse)</small></span>
-                {% endif %}
+                <a href="/Analysis/MFP_Dashboard/{{ ExpBase.id }}" 
+                target="_blank" 
+                class="btn btn-success btn-sm">
+                    <i class="fa fa-bar-chart"></i> Show Results (Dashboard)
+                </a>
             </th>
         </tr>
 

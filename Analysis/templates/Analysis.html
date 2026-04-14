@@ -33,7 +33,7 @@
 
         <hr style="margin: 30px 0;">
 
-        <div class="mt-4">
+        <div class="mt-4 mb-4">
             <p style="font-size: 1.1em;">
                 <strong>Jupyter Lab:</strong> 
                 {% if jupyter_running %}
@@ -50,17 +50,88 @@
                 </button>
             </form>
         </div>
+
+        <hr style="margin: 30px 0;">
+
+        <div class="mt-4">
+            <h4 style="font-size: 1.1em; margin-bottom: 15px;">🖥️ Cluster Live Monitor</h4>
+            
+            <div class="input-group mb-3">
+                <span class="input-group-text bg-dark text-white border-dark">Entry ID:</span>
+                <input type="number" id="monitor-entry-id" class="form-control border-dark" placeholder="z.B. 75">
+                
+                <button class="btn btn-dark" onclick="startLogMonitor()">
+                    <i class="fa fa-terminal"></i> Verbinden
+                </button>
+                <button class="btn btn-outline-danger" onclick="stopLogMonitor()">
+                    Stopp
+                </button>
+            </div>
+
+            <div id="terminal-window" class="shadow-inner" 
+                 style="height: 300px; overflow-y: scroll; background-color: #1e1e1e; color: #00ff00; font-family: 'Courier New', Courier, monospace; font-size: 0.9em; padding: 15px; border-radius: 5px; display: none; white-space: pre-wrap;">
+                > Initialisiere Verbindung zum Q-Cluster...
+            </div>
+        </div>
+
     </div>
 </div>
 {% endblock content %}
 
 {% block extrascripts %}
   <script type="text/javascript">
+    // ==========================================
+    // DEIN BESTEHENDER MODAL-CODE
+    // ==========================================
     $(function () {
       $(".create-book").each(function () { $(this).modalForm({formURL: $(this).data('id')}); });
       $(".update-book").each(function () { $(this).modalForm({formURL: $(this).data('id')}); });
       $(".read-book").each(function () { $(this).modalForm({formURL: $(this).data('id')}); });
       $(".delete-book").each(function () { $(this).modalForm({formURL: $(this).data('id')}); })
     });
+
+    // ==========================================
+    // CLUSTER LIVE MONITOR LOGIK
+    // ==========================================
+    let logInterval;
+
+    function startLogMonitor() {
+        const entryId = document.getElementById('monitor-entry-id').value;
+        if (!entryId) {
+            alert("Bitte gib eine Experiment-ID ein, die du überwachen willst!");
+            return;
+        }
+
+        const terminal = document.getElementById('terminal-window');
+        terminal.style.display = 'block'; // Terminal einblenden
+        terminal.innerHTML = "> Verbinde mit Cluster-Worker für Entry " + entryId + "...\n";
+
+        // Vorherige Intervalle stoppen, falls jemand doppelt klickt
+        if (logInterval) clearInterval(logInterval);
+
+        // Pingt den Server jede Sekunde (1000ms) an
+        logInterval = setInterval(() => {
+            // Dies ruft die API aus deiner views.py auf, die wir vorher besprochen haben
+            fetch(`/api/cluster-log/${entryId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    if(data.log) {
+                        terminal.innerText = data.log;
+                        // Scrollt automatisch ans Ende des Textes
+                        terminal.scrollTop = terminal.scrollHeight;
+                    }
+                })
+                .catch(error => {
+                    console.error("Fehler beim Abrufen des Logs:", error);
+                });
+        }, 1000);
+    }
+
+    function stopLogMonitor() {
+        if (logInterval) clearInterval(logInterval);
+        const terminal = document.getElementById('terminal-window');
+        terminal.innerText += "\n> [Verbindung vom Benutzer getrennt]";
+        terminal.scrollTop = terminal.scrollHeight;
+    }
   </script>
 {% endblock extrascripts %}
