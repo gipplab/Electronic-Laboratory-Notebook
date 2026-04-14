@@ -350,21 +350,17 @@ def run_full_analysis(analysis_obj):
     final_tracks = perform_measurements(tracks, vid_bf, vid_measure, DIAMETER)
 
     # --- 4. SPEICHERN (Gespiegelte Struktur) ---
-    # Den originalen Ordner-Pfad holen
-    original_dir = os.path.dirname(file_path)
-    
-    # "01_Videos" im Pfad durch "02_Analysis_Results" austauschen
-    analysis_dir = original_dir.replace('01_Videos', '02_Analysis_Results')
-    
-    # Neuen Ordner (inklusive des Datums-Ordners) erstellen, falls er nicht existiert
-    os.makedirs(analysis_dir, exist_ok=True)
-    
-    # Originalen Dateinamen ohne Endung extrahieren (z.B. "120100_20260239_xy14_100aTc")
-    base_filename = os.path.splitext(os.path.basename(file_path))[0]
+    from Lab_Misc import General
+    rel_link = analysis_obj.Entry.Link
+    if rel_link and "01_Videos" in rel_link:
+        rel_pkl = rel_link.replace("01_Videos", "02_Analysis_Results").rsplit('.', 1)[0] + '.pkl'
+        abs_pkl = os.path.join(General.get_BasePath(), rel_pkl)
+        os.makedirs(os.path.dirname(abs_pkl), exist_ok=True)
+    else:
+        rel_pkl = f"/tmp/MFP_Trackpy_{entry_id}.pkl"
+        abs_pkl = rel_pkl
         
-    # Die neuen Pfade mit dem exakten Messdateinamen bauen
-    output_pkl = os.path.join(analysis_dir, f"{base_filename}.pkl")
-    output_csv = os.path.join(analysis_dir, f"{base_filename}.csv")
+    abs_csv = abs_pkl.replace('.pkl', '.csv')
     
     export_data = {
         'tracks': final_tracks, 
@@ -375,14 +371,14 @@ def run_full_analysis(analysis_obj):
         }
     }
     
-    with open(output_pkl, 'wb') as f:
+    with open(abs_pkl, 'wb') as f:
         pickle.dump(export_data, f)
 
-    final_tracks.to_csv(output_csv, index=False)
-    print(f"💾 Daten gespeichert in: {analysis_dir}")
+    final_tracks.to_csv(abs_csv, index=False)
+    print(f"💾 Daten gespeichert in: {os.path.dirname(abs_pkl)}")
 
     # Datenbank Update
-    analysis_obj.Result_Path = output_pkl
+    analysis_obj.Result_Path = rel_pkl
     analysis_obj.save()
     
     return True, f"Erfolg! {final_tracks['particle'].nunique()} Spuren."

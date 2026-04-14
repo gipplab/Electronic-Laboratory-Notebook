@@ -260,20 +260,23 @@ def run_cellpose_cement_analysis(entry_id, diameter, minmass=None, box_size=None
             all_results = tracked_data
 
         # 🚨 2. DEN SICHEREN SPEICHERORT GENERIEREN
-        video_path = Load_MFP_Path(entry_id)
-        if video_path and "01_Videos" in video_path:
-            cellpose_pkl = video_path.replace("01_Videos", "02_Analysis_Results").rsplit('.', 1)[0] + '.pkl'
-            os.makedirs(os.path.dirname(cellpose_pkl), exist_ok=True)
+        from Lab_Misc import General
+        rel_link = analysis_obj.Entry.Link
+        if rel_link and "01_Videos" in rel_link:
+            rel_pkl = rel_link.replace("01_Videos", "02_Analysis_Results").rsplit('.', 1)[0] + '.pkl'
+            abs_pkl = os.path.join(General.get_BasePath(), rel_pkl)
+            os.makedirs(os.path.dirname(abs_pkl), exist_ok=True)
         else:
-            cellpose_pkl = f"/tmp/Cellpose_{entry_id}.pkl"
+            rel_pkl = f"/tmp/Cellpose_{entry_id}.pkl"
+            abs_pkl = rel_pkl
             
-        with open(cellpose_pkl, 'wb') as f:
+        with open(abs_pkl, 'wb') as f:
             pickle.dump({'polymersomes': all_results, 'num_total': len(all_results)}, f)
             
         # 🚨 2b. CSV speichern, damit Load_MFP die Daten findet und die Zeitachse (time) hinzufügt
         if len(all_results) > 0 and run_mode != 'single':
-            cellpose_csv = cellpose_pkl.replace('.pkl', '.csv')
-            pd.DataFrame(all_results).to_csv(cellpose_csv, index=False)
+            abs_csv = abs_pkl.replace('.pkl', '.csv')
+            pd.DataFrame(all_results).to_csv(abs_csv, index=False)
 
         # 🚨 3. DATENBANK AKTUALISIEREN & PLAUSIBILITÄT PRÜFEN
         if len(all_results) > 0 and run_mode != 'single':
@@ -282,7 +285,7 @@ def run_cellpose_cement_analysis(entry_id, diameter, minmass=None, box_size=None
             particles_start = df_tracked[df_tracked['frame'] == first_frame]['particle'].nunique()
             
             analysis_obj.total_particles = df_tracked['particle'].nunique()
-            analysis_obj.Result_Path = cellpose_pkl
+            analysis_obj.Result_Path = rel_pkl
             
             if particles_start < 5:
                 analysis_obj.status = MFPAnalysis.Status.IMPLAUSIBLE

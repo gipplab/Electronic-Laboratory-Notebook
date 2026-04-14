@@ -164,12 +164,24 @@ def get_data(entry_id):
         cellpose_data = []
         tracks_ai = pd.DataFrame()
         
-        # 🚨 NEU: Schaue im richtigen Ordner nach!
-        video_path = Load_MFP_Path(entry_id)
-        if video_path and "01_Videos" in video_path:
-            cp_path = video_path.replace("01_Videos", "02_Analysis_Results").rsplit('.', 1)[0] + '.pkl'
-        else:
-            cp_path = f"/tmp/Cellpose_{entry_id}.pkl" # Fallback
+        # 🚨 NEU: Lese den Pfad aus der Datenbank und setze ihn (wenn nötig) zusammen
+        try:
+            analysis = MFPAnalysis.objects.get(Entry_id=entry_id)
+            result_path = analysis.Result_Path
+            if result_path and not os.path.isabs(result_path):
+                cp_path = os.path.join(General.get_BasePath(), result_path)
+            else:
+                cp_path = result_path
+        except:
+            cp_path = None
+            
+        # Fallback, falls in der DB noch nichts sauberes steht
+        if not cp_path or not os.path.exists(cp_path):
+            video_path = Load_MFP_Path(entry_id)
+            if video_path and "01_Videos" in video_path:
+                cp_path = video_path.replace("01_Videos", "02_Analysis_Results").rsplit('.', 1)[0] + '.pkl'
+            else:
+                cp_path = f"/tmp/Cellpose_{entry_id}.pkl" # Fallback
         
         if os.path.exists(cp_path):
             try:

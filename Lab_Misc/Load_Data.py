@@ -207,10 +207,34 @@ def Load_MFP(pk):
         analysis = MFPAnalysis.objects.get(Entry_id=pk)
         result_path = analysis.Result_Path
         
-        if not result_path or not os.path.exists(result_path):
+        if not result_path:
             print(f"Warning: No result path found for MFP ID {pk}")
             return pd.DataFrame()
             
+        # Test 1: Existiert der Pfad genau so, wie er in der DB steht? (Z.B. wenn es noch ein alter absoluter Pfad ist)
+        if os.path.exists(str(result_path)):
+            final_path = result_path
+        else:
+            # Test 2: Ist es ein relativer Pfad? Dann mit BasePath verbinden!
+            abs_path = os.path.join(General.get_BasePath(), result_path)
+            if os.path.exists(abs_path):
+                final_path = abs_path
+            else:
+                # Test 3: Fallback Rekonstruktion (z.B. alter absoluter Pfad von einem anderen PC/Docker)
+                base_path = Load_MFP_Path(pk)
+                if base_path and "01_Videos" in base_path:
+                    test_path = base_path.replace("01_Videos", "02_Analysis_Results").rsplit('.', 1)[0] + '.pkl'
+                    if os.path.exists(test_path):
+                        final_path = test_path
+                    else:
+                        print(f"Warning: No result path found for MFP ID {pk}")
+                        return pd.DataFrame()
+                else:
+                    print(f"Warning: No result path found for MFP ID {pk}")
+                    return pd.DataFrame()
+                    
+        result_path = final_path
+
     except Exception as e:
         print(f"Warning: Could not access analysis for MFP ID {pk}: {e}")
         return pd.DataFrame()
@@ -221,6 +245,14 @@ def Load_MFP(pk):
             data_dict = pickle.load(f)
             
         tracks = data_dict.get('tracks', pd.DataFrame())
+        
+        # --- WICHTIGER FIX ---
+        # Cellpose_Cement.py speichert die Daten unter dem Schlüssel 'polymersomes'.
+        if tracks.empty and 'polymersomes' in data_dict:
+            cp_data = data_dict['polymersomes']
+            if cp_data and isinstance(cp_data, list) and 'particle' in cp_data[0]:
+                tracks = pd.DataFrame(cp_data)
+        # ---------------------
         
         if not tracks.empty:
             source_file = None
