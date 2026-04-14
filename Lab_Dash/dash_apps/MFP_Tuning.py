@@ -271,7 +271,7 @@ def run_analysis_callback(n_clicks, dia, thres, min_dist, nsize, ch, entry_id, *
         print(f" -> Fertig in {duration}s. Success: {success}")
         
         if success:
-            link = f"/django_plotly_dash/app/MFP_Dashboard/?id={entry_id}"
+            link = f"/Analysis/MFP_Dashboard/{entry_id}" # <--- Link zur zukünftigen Django View (mit Header) statt Direktlink
             return html.Div([
                 html.Span(f"✅ Analyse fertig ({duration}s)! ", style={'color':'green'}), 
                 html.Br(), 

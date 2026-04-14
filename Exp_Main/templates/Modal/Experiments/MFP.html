@@ -1,28 +1,35 @@
-<tr>
-    <th style="vertical-align: top; padding-top: 10px;">Analysis:</th>
-    <th>
-        <a href="/django_plotly_dash/app/MFP_Tuning/?id={{ ExpBase.id }}" 
-            target="_blank" 
-            class="btn btn-primary btn-sm">
-                <i class="fa fa-sliders"></i> Open Parameter Tuner & Run
-        </a>
+{% extends "Modal/read_entry.html" %}
 
-        <a href="/django_plotly_dash/app/MFP_AI_Scout/?id={{ ExpBase.id }}" 
-            target="_blank" 
-            class="btn btn-info btn-sm">
-                <i class="fa fa-flask"></i> AI Scout / Cement Tuning
-        </a>
-            
-        <br><br>
-        
-        {% if ExpBase.Dash %}
-            <a href="/django_plotly_dash/app/MFP_Dashboard/?session_state={{ Session_Key }}" 
-               target="_blank" 
-               class="btn btn-success btn-sm">
-                <i class="fa fa-bar-chart"></i> Show Results (Dashboard)
-            </a>
-        {% else %}
-            <span class="text-muted"><small>(Noch keine Ergebnisse)</small></span>
-        {% endif %}
-    </th>
-</tr>
+  {% block Modal_detailed_content %}
+
+        <tr>
+            <th style="vertical-align: top; padding-top: 10px;">Analysis:</th>
+            <th>
+                <a href="/django_plotly_dash/app/MFP_Tuning/?id={{ ExpBase.id }}" 
+                    target="_blank" 
+                    class="btn btn-primary btn-sm">
+                        <i class="fa fa-sliders"></i> Open Parameter Tuner & Run
+                </a>
+
+                <a href="/django_plotly_dash/app/MFP_AI_Scout/?id={{ ExpBase.id }}" 
+                <a href="/Analysis/MFP_Scout/{{ ExpBase.id }}" 
+                    target="_blank" 
+                    class="btn btn-info btn-sm">
+                        <i class="fa fa-flask"></i> AI Scout / Cement Tuning
+                </a>
+                    
+                <br><br>
+                
+                {% if ExpBase.Dash %}
+                    <a href="/Analysis/MFP_Dashboard/{{ ExpBase.id }}" 
+                    target="_blank" 
+                    class="btn btn-success btn-sm">
+                        <i class="fa fa-bar-chart"></i> Show Results (Dashboard)
+                    </a>
+                {% else %}
+                    <span class="text-muted"><small>(Noch keine Ergebnisse)</small></span>
+                {% endif %}
+            </th>
+        </tr>
+
+    {% endblock Modal_detailed_content %}

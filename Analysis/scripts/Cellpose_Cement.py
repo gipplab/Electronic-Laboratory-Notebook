@@ -26,8 +26,17 @@ from Analysis.models import MFPAnalysis
 # =========================================================
 # 1. DER SERVER-TÜRSTEHER (Ressourcen-Check)
 # =========================================================
-def wait_for_free_resources(required_ram_gb=10, required_vram_gb=4, max_cpu_percent=85):
-    print("🔍 Prüfe Server-Auslastung vor dem Start...")
+def wait_for_free_resources(required_ram_gb=10, required_vram_gb=4, max_cpu_percent=85, log_file=None):
+    def _log(msg):
+        print(msg)
+        if log_file:
+            try:
+                with open(log_file, "a") as f:
+                    f.write(msg + "\n")
+            except:
+                pass
+
+    _log("🔍 Prüfe Server-Auslastung vor dem Start...")
     while True:
         cpu_usage = psutil.cpu_percent(interval=1)
         free_ram_gb = psutil.virtual_memory().available / (1024 ** 3)
@@ -38,10 +47,10 @@ def wait_for_free_resources(required_ram_gb=10, required_vram_gb=4, max_cpu_perc
             free_vram_gb = free_vram / (1024 ** 3)
             
         if cpu_usage < max_cpu_percent and free_ram_gb > required_ram_gb and free_vram_gb > required_vram_gb:
-            print(f"✅ Ressourcen frei! (CPU: {cpu_usage}%, RAM: {free_ram_gb:.1f}GB, VRAM: {free_vram_gb:.1f}GB)")
+            _log(f"✅ Ressourcen frei! (CPU: {cpu_usage}%, RAM: {free_ram_gb:.1f}GB, VRAM: {free_vram_gb:.1f}GB)")
             return True 
         else:
-            print(f"⚠️ Server ausgelastet. Warte 60 Sekunden...")
+            _log(f"⚠️ Server ausgelastet. Warte 60 Sekunden...")
             time.sleep(60)
 
 # =========================================================
@@ -70,11 +79,21 @@ class CellposeCementAnalysis:
     def log_progress(self, message):
         self.progress_messages.append(message)
         print(f"✓ {message}")
+        try:
+            with open(f"/tmp/cellpose_log_{self.entry_id}.txt", "a") as f:
+                f.write(f"✓ {message}\n")
+        except:
+            pass
         
     def analyze_whole_frame(self, video_data, frame_idx):
         img_bf = video_data['brightfield'][frame_idx].copy().astype(float)
         img_detect = video_data['detect'][frame_idx].copy().astype(float)
         
+        try:
+            img_measure = video_data['measure'][frame_idx].copy().astype(float)
+        except:
+            img_measure = img_detect
+
         img_bf_norm = (img_bf - img_bf.min()) / (img_bf.max() - img_bf.min() + 1e-8)
         img_bf_boosted = exposure.equalize_adapthist(img_bf_norm, kernel_size=(350, 350), clip_limit=0.02)
         
@@ -112,10 +131,19 @@ class CellposeCementAnalysis:
             if is_valid:
                 d_y, d_x = center_of_mass(single_mask)
                 valid_in_frame += 1
+
+                try:
+                    intensity = np.mean(img_measure[single_mask == 1])
+                except:
+                    intensity = 0.0
+
                 final_results.append({
                     'frame': frame_idx, 'x': float(d_x), 'y': float(d_y),
                     'radius': float(radius), 'circularity': float(circularity),
-                    'solidity': float(props.solidity), 'eccentricity': float(props.eccentricity), 'valid': True
+                    'solidity': float(props.solidity), 'eccentricity': float(props.eccentricity), 'valid': True,
+                    'intensity_measure': float(intensity),
+                    'radius_brightfield': float(radius),
+                    'real_size': float(radius)
                 })
         
         self.log_progress(f"   Frame {frame_idx:03d}: {total_found} Objekte gefunden, davon {valid_in_frame} valide.")
@@ -128,8 +156,15 @@ def run_cellpose_cement_analysis(entry_id, diameter, minmass=None, box_size=None
     """
     Diese Funktion wird vom Django-Q2 Cluster aufgerufen.
     """
+    log_file = f"/tmp/cellpose_log_{entry_id}.txt"
+    try:
+        with open(log_file, "w") as f:
+            f.write(f"--- Starte Cellpose Analyse für ID {entry_id} ---\n")
+    except:
+        pass
+
     # 🚨 1. TÜRSTEHER FRAGEN BEVOR ES LOSGEHT
-    wait_for_free_resources(required_ram_gb=10, required_vram_gb=4, max_cpu_percent=85)
+    wait_for_free_resources(required_ram_gb=10, required_vram_gb=4, max_cpu_percent=85, log_file=log_file)
     
     analysis_obj, _ = MFPAnalysis.objects.get_or_create(Entry_id=entry_id)
     analysis_obj.status = MFPAnalysis.Status.NOT_STARTED # In Processing setzen (falls du den Status hast, sonst lass es so)
@@ -235,6 +270,11 @@ def run_cellpose_cement_analysis(entry_id, diameter, minmass=None, box_size=None
         with open(cellpose_pkl, 'wb') as f:
             pickle.dump({'polymersomes': all_results, 'num_total': len(all_results)}, f)
             
+        # 🚨 2b. CSV speichern, damit Load_MFP die Daten findet und die Zeitachse (time) hinzufügt
+        if len(all_results) > 0 and run_mode != 'single':
+            cellpose_csv = cellpose_pkl.replace('.pkl', '.csv')
+            pd.DataFrame(all_results).to_csv(cellpose_csv, index=False)
+
         # 🚨 3. DATENBANK AKTUALISIEREN & PLAUSIBILITÄT PRÜFEN
         if len(all_results) > 0 and run_mode != 'single':
             df_tracked = pd.DataFrame(all_results)
@@ -255,6 +295,11 @@ def run_cellpose_cement_analysis(entry_id, diameter, minmass=None, box_size=None
                 analysis_obj.error_message = ""
         
         analysis_obj.save()
+        try:
+            with open(log_file, "a") as f:
+                f.write("✅ Analyse erfolgreich abgeschlossen!\n")
+        except:
+            pass
         return True, "\n".join(analyzer.progress_messages)
         
     except Exception as e:
@@ -263,4 +308,9 @@ def run_cellpose_cement_analysis(entry_id, diameter, minmass=None, box_size=None
         analysis_obj.error_message = f"Fehler: {str(e)}"
         analysis_obj.is_plausible = False
         analysis_obj.save()
+        try:
+            with open(log_file, "a") as f:
+                f.write(f"❌ Systemfehler: {str(e)}\n{traceback.format_exc()}\n")
+        except:
+            pass
         return False, f"❌ Systemfehler: {str(e)}\n{traceback.format_exc()}"

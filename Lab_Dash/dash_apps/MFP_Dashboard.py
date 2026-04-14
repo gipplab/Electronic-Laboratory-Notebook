@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 import pickle
 import os
+import threading
 import json
 import traceback
 from urllib.parse import parse_qs, unquote
@@ -17,6 +18,7 @@ from Lab_Misc.General import get_BasePath
 from Lab_Misc import General
 
 from Analysis.models import MFPAnalysis
+from Analysis.scripts.Cellpose_Cement import run_cellpose_cement_analysis
 
 app = DjangoDash('MFP_Dashboard')
 
@@ -30,12 +32,16 @@ app.layout = html.Div([
     # Kickstarter
     dcc.Interval(id='kickstarter', interval=500, max_intervals=1),
 
-    html.H2("MFP Analysis Dashboard", style={'textAlign': 'center', 'fontFamily': 'sans-serif'}),
-    
     html.Div([
         html.Button("🔄 Reload", id='reload-btn', n_clicks=0, className="btn btn-sm btn-outline-primary"),
+        html.Button("🧬 Run AI Analysis", id='run-ai-btn', n_clicks=0, className="btn btn-sm btn-warning", style={'marginLeft': '10px'}),
         html.Span(id='loading-status', style={'marginLeft': '15px', 'fontWeight': 'bold', 'color': '#333'})
     ], style={'textAlign': 'center', 'padding': '10px', 'backgroundColor': '#f8f9fa', 'borderBottom': '1px solid #ddd'}),
+
+    html.Div(id='ai-analysis-status', style={'padding': '10px', 'textAlign': 'center'}),
+    html.Div(id='ai-log-output', style={'margin': '10px', 'padding': '10px', 'backgroundColor': '#eef2f5', 'borderRadius': '5px', 'maxHeight': '150px', 'overflowY': 'auto', 'fontFamily': 'monospace', 'fontSize': '12px', 'display': 'none'}),
+    
+    dcc.Interval(id='log-interval', interval=2000, n_intervals=0, disabled=True),
 
     dcc.Tabs(id='tabs', value='tab-single', children=[
         dcc.Tab(label='🔎 Single Inspection', value='tab-single', children=[
@@ -59,7 +65,7 @@ app.layout = html.Div([
                         dcc.Checklist(id='show-cellpose-toggle', options=[{'label': ' 🧠 AI Masks', 'value': 'show'}], value=['show'], style={'display': 'inline-block', 'marginLeft': '15px', 'color': 'green', 'fontWeight': 'bold'}),
                     ], style={'marginBottom': '5px'}),
                     
-                    dcc.Graph(id='image-plot', style={'height': '65vh'}),
+                    dcc.Graph(id='image-plot', style={'height': '35vh'}),
                     
                     dcc.Slider(id='frame-slider', min=0, max=100, value=0, step=1, marks={0:'0'}, tooltip={"placement": "bottom", "always_visible": True})
                 ], style={'width': '55%', 'display': 'inline-block', 'verticalAlign': 'top', 'padding': '10px'}),
@@ -84,7 +90,7 @@ app.layout = html.Div([
                         )
                     ], style={'marginBottom': '5px'}),
 
-                    dcc.Graph(id='single-intensity-graph', style={'height': '45vh'}),
+                    dcc.Graph(id='single-intensity-graph', style={'height': '35vh'}),
                     html.Div(id='debug-info', style={'color': 'gray', 'fontSize': '0.8em', 'marginTop': '5px'})
                 ], style={'width': '40%', 'display': 'inline-block', 'verticalAlign': 'top', 'padding': '10px'})
             ])
@@ -182,7 +188,18 @@ def get_data(entry_id):
                         time_map = tracks_old.drop_duplicates('frame').set_index('frame')['time'].to_dict()
                         tracks_ai['time'] = tracks_ai['frame'].map(time_map).fillna(tracks_ai['frame'])
                     else:
-                        tracks_ai['time'] = tracks_ai['frame']
+                        try:
+                            import nd2
+                            video_path = Load_MFP_Path(entry_id)
+                            with nd2.ND2File(video_path) as f:
+                                evs = f.events()
+                                if evs and 'Time [s]' in evs[0]:
+                                    time_map = {i: ev['Time [s]'] for i, ev in enumerate(evs)}
+                                    tracks_ai['time'] = tracks_ai['frame'].map(time_map).fillna(tracks_ai['frame'])
+                                else:
+                                    tracks_ai['time'] = tracks_ai['frame']
+                        except:
+                            tracks_ai['time'] = tracks_ai['frame']
             except Exception as e:
                 print(f"Fehler beim Laden der Cellpose Daten: {e}")
         
@@ -218,13 +235,58 @@ def get_data(entry_id):
 # =========================================================
 
 @app.callback(
+    [Output('ai-analysis-status', 'children'), Output('log-interval', 'disabled'), Output('ai-log-output', 'style')],
+    [Input('run-ai-btn', 'n_clicks')],
+    [State('entry-id', 'data')]
+)
+def start_ai_analysis(n_clicks, entry_id):
+    if n_clicks == 0 or not entry_id:
+        return dash.no_update, dash.no_update, dash.no_update
+    
+    try:
+        analysis = MFPAnalysis.objects.get(Entry_id=entry_id)
+        dia = getattr(analysis, 'Particle_Diameter', 51)
+        minmass = getattr(analysis, 'Threshold', 0.05)
+        
+        threading.Thread(target=run_cellpose_cement_analysis, args=(entry_id, dia, minmass, None, None, 'all', None)).start()
+        
+        style = {'margin': '10px', 'padding': '10px', 'backgroundColor': '#eef2f5', 'borderRadius': '5px', 'maxHeight': '150px', 'overflowY': 'auto', 'fontFamily': 'monospace', 'fontSize': '12px', 'display': 'block'}
+        
+        return html.Div("🚀 KI-Analyse läuft im Hintergrund...", style={'color': 'blue', 'fontWeight': 'bold'}), False, style
+    except Exception as e:
+        return html.Div(f"❌ Fehler: {str(e)}", style={'color': 'red', 'fontWeight': 'bold'}), dash.no_update, dash.no_update
+
+@app.callback(
+    Output('ai-log-output', 'children'),
+    [Input('log-interval', 'n_intervals')],
+    [State('entry-id', 'data')]
+)
+def update_log(n, entry_id):
+    if not entry_id: return dash.no_update
+    log_file = f"/tmp/cellpose_log_{entry_id}.txt"
+    if os.path.exists(log_file):
+        try:
+            with open(log_file, "r") as f:
+                lines = f.readlines()
+            return html.Div([
+                html.Div(line, style={
+                    'color': 'green' if '✅' in line else ('red' if '❌' in line else ('orange' if '⚠️' in line else 'black')),
+                    'marginBottom': '2px'
+                }) for line in lines if line.strip()
+            ])
+        except:
+            return html.Div("Lese Logdatei...")
+    return html.Div("Warte auf Logdatei...")
+
+@app.callback(
     [Output('entry-id', 'data'), Output('loading-status', 'children'),
      Output('particle-dropdown', 'options'), Output('particle-dropdown', 'value'),
      Output('global-id-filter', 'options'),
      Output('frame-slider', 'max'), Output('frame-slider', 'marks')],
-    [Input('url', 'search'), Input('kickstarter', 'n_intervals'), Input('reload-btn', 'n_clicks')]
+    [Input('url', 'search'), Input('kickstarter', 'n_intervals'), Input('reload-btn', 'n_clicks')],
+    [State('entry-id', 'data')]
 )
-def init_dashboard(search, n, clicks):
+def init_dashboard(search, n, clicks, current_id, **kwargs):
     entry_id = None
     if search:
         try:
@@ -235,6 +297,14 @@ def init_dashboard(search, n, clicks):
                 state = json.loads(qs['session_state'][0])
                 entry_id = state.get('MFP_id') or state.get('id')
         except: pass
+        
+    # 🚀 Lösung: ID direkt aus dem Django Session State auslesen (via kwargs)
+    session_state = kwargs.get('session_state', {})
+    if not entry_id and session_state and session_state.get('MFP_id'):
+        entry_id = session_state.get('MFP_id')
+
+    if not entry_id: 
+        entry_id = current_id
 
     if not entry_id: return None, "❌ Keine ID gefunden.", [], None, [], 100, {0:'0'}
 
@@ -451,9 +521,10 @@ def update_glob(sel, metric, tab, eid):
         d = df[df['particle'] == p].sort_values('time')
         t_vals, _ = General.get_smart_time(d['time'])
         
+        y_vals = d[col].fillna(0) if col in d.columns else [0] * len(d)
         fig_s.add_trace(go.Scatter(
             x=t_vals, 
-            y=d[col].fillna(0), 
+            y=y_vals, 
             mode='lines', 
             opacity=0.3 if not sel else 1.0, 
             name=f"ID {p}",
@@ -461,7 +532,11 @@ def update_glob(sel, metric, tab, eid):
         ))
     
     # Durchschnittslinie (AVG)
-    avg = df.groupby('frame').agg({'time': 'first', col: 'mean'})
+    if col in df.columns:
+        avg = df.groupby('frame').agg({'time': 'first', col: 'mean'})
+    else:
+        avg = df.groupby('frame').agg({'time': 'first'})
+        avg[col] = 0
     avg_t, _ = General.get_smart_time(avg['time'])
     
     fig_s.add_trace(go.Scatter(
@@ -479,7 +554,10 @@ def update_glob(sel, metric, tab, eid):
     
     # --- HEATMAP ---
     # Pivot-Tabelle für die Heatmap erstellen
-    hm = df.pivot(index='particle', columns='frame', values=col).fillna(0)
+    if col in df.columns:
+        hm = df.pivot(index='particle', columns='frame', values=col).fillna(0)
+    else:
+        hm = pd.DataFrame(0, index=uids, columns=df['frame'].unique())
     
     fig_h = go.Figure(data=go.Heatmap(
         z=hm.values, 

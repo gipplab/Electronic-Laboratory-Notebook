@@ -156,7 +156,6 @@ class Prior_Exp(SingleTableMixin, FilterView):
                     Date_time__lte = ExpBase.objects.get(id = Main_id).Date_time)
         return queryset
     queryset = ExpBase.objects.filter(group__isnull = True)
-    table = ExpBase_table(queryset)
     table_class = ExpBase_table
     table_pagination = {"per_page": 50}
     template_name = 'Show_sample.html'
@@ -164,7 +163,6 @@ class Prior_Exp(SingleTableMixin, FilterView):
 
 class Samples_table_view(SingleTableMixin, FilterView):
     queryset = ExpBase.objects.filter(group__isnull = True)
-    table = ExpBase_table(queryset)
     table_class = ExpBase_table
     table_pagination = {"per_page": 50}
     template_name = 'Show_sample.html'

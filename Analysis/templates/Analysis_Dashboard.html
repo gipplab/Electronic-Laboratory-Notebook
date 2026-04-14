@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% load plotly_dash %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="mb-4">MFP Dashboard - {{ entry.Name }}</div>
+    <div class="row">
+        <div class="col-md-12">
+            {% plotly_app name="MFP_Dashboard" ratio=1 initial_arguments=dash_context %}
+        </div>
+    </div>
+</div>
+{% endblock %}
