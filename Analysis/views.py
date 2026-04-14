@@ -11,6 +11,7 @@ from Exp_Main.models import RSD, DAF, ExpBase
 import socket
 import subprocess
 import time
+import sys
 from django.shortcuts import render, redirect
 from django.conf import settings
 
@@ -173,7 +174,7 @@ def index(request):
                 print("🚀 Starte Django-Q2 Manager...")
                 # Startet den Prozess im Hintergrund
                 subprocess.Popen(
-                    [os.path.join(settings.BASE_DIR, 'venv/bin/python'), 'manage.py', 'qcluster'],
+                    [sys.executable, 'manage.py', 'qcluster'],
                     cwd=settings.BASE_DIR
                 )
             return redirect('index')
