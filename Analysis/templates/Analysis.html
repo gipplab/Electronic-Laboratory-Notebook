@@ -119,6 +119,13 @@
                         terminal.innerText = data.log;
                         // Scrollt automatisch ans Ende des Textes
                         terminal.scrollTop = terminal.scrollHeight;
+                        
+                        // Automatischer Stopp, wenn die Analyse fertig/gescheitert ist
+                        if (data.log.includes("✅ Analyse erfolgreich abgeschlossen") || data.log.includes("❌ Systemfehler")) {
+                            clearInterval(logInterval);
+                            terminal.innerText += "\n\n> [Live Monitor automatisch gestoppt]";
+                            terminal.scrollTop = terminal.scrollHeight;
+                        }
                     }
                 })
                 .catch(error => {

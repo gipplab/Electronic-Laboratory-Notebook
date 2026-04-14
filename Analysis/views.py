@@ -159,7 +159,8 @@ def cleanup_processes_on_exit():
         print(f"Fehler beim Aufräumen: {e}")
 
 # Registriert die Aufräum-Funktion beim Start von Django
-atexit.register(cleanup_processes_on_exit)
+if 'runserver' in sys.argv:
+    atexit.register(cleanup_processes_on_exit)
 
 # --- Die angepasste Index-View ---
 
