@@ -215,19 +215,62 @@ class RSD(ExpBase):
         return str(self.Name)
     
 class MFP(ExpBase):
-    """OCA Model to store all experiments done with the OCA
-
-    Parameters
-    ----------
-    models : [type]
-        [description]
-    """
+    """MFP Model to store all experiments done with the MFP"""
+    
+    # =========================================================
+    # SYSTEM-FELDER
+    # =========================================================
     Link = models.TextField(blank=True, null=True)
     Link_Data = models.TextField(blank=True, null=True)
     Link_PDF = models.TextField(blank=True, null=True)
     Link_Osz_join_LSP = models.TextField(blank=True, null=True)
-    Dash = models.ForeignKey(MFP_dash, on_delete=models.CASCADE, blank=True, null=True)
+
+    # =========================================================
+    # METADATEN & SETUP
+    # =========================================================
+    # 'Name' und 'Comment' (Notes) kommen automatisch von ExpBase!
+    Purpose = models.CharField(max_length=255, blank=True, null=True, verbose_name="Experiment short name / purpose")
+    DNA_Species_Concentration = models.CharField(max_length=255, blank=True, null=True, verbose_name="DNA species and concentration")
+    
+    # =========================================================
+    # COMPOSITION & OSMOLARITY
+    # =========================================================
+    IA_Composition = models.CharField(max_length=255, blank=True, null=True, verbose_name="IA composition")
+    IA_Osmolarity = models.IntegerField(blank=True, null=True, verbose_name="IA osmolarity")
+    
+    OA_Composition = models.CharField(max_length=255, blank=True, null=True, verbose_name="OA composition")
+    OA_Osmolarity = models.IntegerField(blank=True, null=True, verbose_name="OA osmolarity")
+    
+    # =========================================================
+    # DIALYSIS
+    # =========================================================
+    Dialysis = models.CharField(max_length=100, blank=True, null=True, verbose_name="Dialysis?")
+    Dialysis_Duration = models.CharField(max_length=100, blank=True, null=True, verbose_name="Dialysis duration")
+    Post_Dialysis_IA_Osmolarity = models.IntegerField(blank=True, null=True, verbose_name="Post-dialysis IA osmolarity")
+    Post_Dialysis_OA_Osmolarity = models.IntegerField(blank=True, null=True, verbose_name="Post-dialysis OA osmolarity")
+    
+    # =========================================================
+    # SEALS & IMAGING SETTINGS
+    # =========================================================
+    Oil_Seal = models.BooleanField(null=True, blank=True, verbose_name="Oil seal")
+    Membrane_Seal = models.BooleanField(null=True, blank=True, verbose_name="Membrane seal")
+    DIC_BF_Imaging = models.BooleanField(null=True, blank=True, verbose_name="DIC/BF imaging?")
+    Marker_Used = models.CharField(max_length=100, blank=True, null=True, verbose_name="Marker used")
+    Objective = models.CharField(max_length=50, blank=True, null=True, verbose_name="Objective")
+    
+    # EXPOSURES (Bleiben als CharField, um Werte wie "?" oder "no" abzufangen)
+    BF_DIC_Exposure_ms = models.CharField(max_length=50, blank=True, null=True, verbose_name="BF/DIC exp (ms)")
+    GFP_FITC_Exposure_ms = models.CharField(max_length=50, blank=True, null=True, verbose_name="GFP/FITC exp (ms)")
+    mCherry_Exposure_ms = models.CharField(max_length=50, blank=True, null=True, verbose_name="mCherry exp (ms)")
+    
+    # =========================================================
+    # RESULTS
+    # =========================================================
+    Positions_Volume_Increase = models.CharField(max_length=255, blank=True, null=True, verbose_name="Positions with volume increase")
+    Production_Video_Usable = models.CharField(max_length=255, blank=True, null=True, verbose_name="Production video usable?")
+
     def __str__(self):
+        # Nutzt das 'Name' Feld aus der vererbten ExpBase Klasse
         return str(self.Name)
 
 class GRV(ExpBase):
