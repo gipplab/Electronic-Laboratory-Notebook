@@ -112,7 +112,10 @@ class CellposeCementAnalysis:
         
         # NOTBREMSE 1: ZU VIELE OBJEKTE
         if total_found > 100:
-            self.log_progress(f"   Frame {frame_idx:03d}: ⚠️ Abbruch! {total_found} Objekte gefunden (Limit: 100). Frame wird ignoriert.")
+            self.log_progress(f"   Frame {frame_idx:03d}: ⚠️ {total_found} Objekte gefunden (Limit: 100).")
+            if frame_idx < 2:
+                raise ValueError(f"IMPLAUSIBLE: Zu viele Objekte ({total_found}) im Start-Frame {frame_idx}. Verdacht auf Rauschen/falsche Parameter. Analyse wird komplett abgebrochen!")
+            self.log_progress(f"   Frame {frame_idx:03d} wird ignoriert.")
             return []
         
         final_results = []
@@ -307,6 +310,19 @@ def run_cellpose_cement_analysis(entry_id, diameter, minmass=None, box_size=None
         
     except Exception as e:
         import traceback
+        
+        if str(e).startswith("IMPLAUSIBLE:"):
+            analysis_obj.status = MFPAnalysis.Status.IMPLAUSIBLE
+            analysis_obj.is_plausible = False
+            analysis_obj.warning_message = str(e).replace("IMPLAUSIBLE: ", "")
+            analysis_obj.save()
+            try:
+                with open(log_file, "a") as f:
+                    f.write(f"⚠️ {analysis_obj.warning_message}\n")
+            except:
+                pass
+            return False, f"⚠️ {analysis_obj.warning_message}"
+            
         analysis_obj.status = MFPAnalysis.Status.FAILED
         analysis_obj.error_message = f"Fehler: {str(e)}"
         analysis_obj.is_plausible = False
