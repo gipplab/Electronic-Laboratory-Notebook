@@ -513,10 +513,16 @@ def update_view(frame, channel, pid, markers, show_cellpose, y_metric, entry_id)
             tickvals_time = time_vals
             ticktext_frame = frame_vals
 
-        fig_graph.update_layout(template="plotly_white", xaxis_title=f"Time ({t_unit})", yaxis_title=y_metric,
-                                xaxis2=dict(title="Frame Number", overlaying='x', side='top',
-                                            tickvals=tickvals_time, ticktext=ticktext_frame)
-                                )
+        fig_graph.update_layout(
+            template="plotly_white", 
+            xaxis_title=f"Time ({t_unit})", 
+            yaxis_title=y_metric,
+            margin=dict(t=50), # Verhindert, dass die Achse abgeschnitten wird
+            xaxis2=dict(
+                title="Frame Number", overlaying='x', side='top', matches='x', # Zwingt die Achse zum Mitlaufen
+                tickvals=tickvals_time, ticktext=ticktext_frame
+            )
+        )
     return fig_img, fig_graph, current_txt
 
 
@@ -532,12 +538,53 @@ def update_glob(sel, metric, tab, eid):
     data = get_data(eid)
     if not data: return go.Figure(), go.Figure()
     
-    tracks = data['tracks']
+    tracks = data['tracks'].copy() # Wichtig: Kopie erstellen, um Original-Cache nicht zu ändern
+    cellpose_data = data.get('cellpose', [])
     
     # Sicherstellen, dass die Spalte existiert (AI Radius ist manchmal noch 'radius')
     col = metric
     if col not in tracks.columns and col == 'radius_cellpose' and 'radius' in tracks.columns:
         col = 'radius'
+
+    # --- NEU: On-the-fly Berechnung für AI Radius, falls nötig ---
+    if metric == 'radius_cellpose' and cellpose_data and 'radius_cellpose' not in tracks.columns:
+        cp_lookup = {}
+        for p in cellpose_data:
+            if p.get('valid', False):
+                frame = p['frame']
+                if frame not in cp_lookup: cp_lookup[frame] = []
+                cp_lookup[frame].append(p)
+
+        def map_radius_for_particle(particle_group):
+            y_values = []
+            mem_rad = None
+            particle_group = particle_group.sort_values('frame')
+
+            for _, r in particle_group.iterrows():
+                f, rx, ry = r['frame'], r['x'], r['y']
+                
+                if mem_rad is None:
+                    mem_rad = r.get('real_size', 25)
+                    if pd.isna(mem_rad) or mem_rad == 0: mem_rad = r.get('radius_brightfield', 25)
+                    if pd.isna(mem_rad) or mem_rad == 0: mem_rad = 25
+                
+                best = None
+                if f in cp_lookup:
+                    hits = cp_lookup[f]
+                    hits.sort(key=lambda p: np.sqrt((p['x'] - rx)**2 + (p['y'] - ry)**2))
+                    for h in hits:
+                        dist = np.sqrt((h['x'] - rx)**2 + (h['y'] - ry)**2)
+                        if dist <= 40: best = h['radius']; break
+                        elif dist <= 250 and abs(h['radius'] - mem_rad) <= 25: best = h['radius']; break
+                
+                if best is not None: mem_rad = best
+                y_values.append(best)
+            
+            particle_group['radius_cellpose'] = y_values
+            return particle_group
+
+        tracks = tracks.groupby('particle').apply(map_radius_for_particle).reset_index(drop=True)
+        col = 'radius_cellpose'
         
     df = tracks[tracks['particle'].isin(sel)].copy() if sel else tracks.copy()
     scaled_time, t_unit = General.get_smart_time(df['time'])
@@ -594,7 +641,11 @@ def update_glob(sel, metric, tab, eid):
         title=f"Global Traces: {title_suffix}",
         xaxis_title=f"Time ({t_unit})",
         yaxis_title=title_suffix,
-        xaxis2=dict(title="Frame Number", overlaying='x', side='top', tickvals=tickvals_time, ticktext=ticktext_frame)
+        margin=dict(t=60), # Platz für Titel + Achse
+        xaxis2=dict(
+            title="Frame Number", overlaying='x', side='top', matches='x', 
+            tickvals=tickvals_time, ticktext=ticktext_frame
+        )
     )
     
     # --- HEATMAP ---
