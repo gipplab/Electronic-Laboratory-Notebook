@@ -331,9 +331,9 @@ def init_dashboard(search, n, clicks, current_id, **kwargs):
     tracks = data['tracks']
     if tracks.empty: return entry_id, "⚠️ 0 Partikel gefunden.", [], None, [], 100, {0:'0'}
 
-    all_particles = sorted(tracks['particle'].unique())
-    options = [{'label': f"ID {p}", 'value': p} for p in all_particles]
-    first_val = all_particles[0] if all_particles else None
+    all_particles = sorted(tracks['particle'].unique().tolist())
+    options = [{'label': f"ID {p}", 'value': int(p)} for p in all_particles]
+    first_val = int(all_particles[0]) if all_particles else None
     
     mf = int(tracks['frame'].max())
     
@@ -347,9 +347,10 @@ def init_dashboard(search, n, clicks, current_id, **kwargs):
         
         # ~10 Ticks für den Slider
         for i in np.linspace(0, mf, 11, dtype=int):
-            scaled_t = time_map.get(i)
+            i_int = int(i)
+            scaled_t = time_map.get(i_int)
             if scaled_t is not None:
-                marks[i] = f'{int(scaled_t)}{unit[0]}'
+                marks[i_int] = f'{int(scaled_t)}{unit[0]}'
         
         marks[0] = 'Start'
         if mf in time_map:
