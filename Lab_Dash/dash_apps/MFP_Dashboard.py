@@ -336,7 +336,28 @@ def init_dashboard(search, n, clicks, current_id, **kwargs):
     first_val = all_particles[0] if all_particles else None
     
     mf = int(tracks['frame'].max())
-    marks = {0: 'Start', mf: 'Ende'}
+    
+    # --- NEU: Zeit-basierte Slider Marks ---
+    marks = {}
+    if 'time' in tracks.columns and not tracks['time'].empty:
+        time_df = tracks.drop_duplicates('frame').sort_values('frame')
+        all_times_sec = time_df['time']
+        scaled_times, unit = General.get_smart_time(all_times_sec)
+        time_map = pd.Series(scaled_times.values, index=time_df['frame']).to_dict()
+        
+        # ~10 Ticks für den Slider
+        for i in np.linspace(0, mf, 11, dtype=int):
+            scaled_t = time_map.get(i)
+            if scaled_t is not None:
+                marks[i] = f'{int(scaled_t)}{unit[0]}'
+        
+        marks[0] = 'Start'
+        if mf in time_map:
+            marks[mf] = f'{int(time_map[mf])}{unit[0]}'
+        else:
+            marks[mf] = 'Ende'
+    else:
+        marks = {0: 'Start', mf: 'Ende'}
     
     return entry_id, f"✅ ID {entry_id} geladen ({len(all_particles)} Partikel).", options, first_val, options, mf, marks
 
@@ -507,11 +528,11 @@ def update_view(frame, channel, pid, markers, show_cellpose, y_metric, entry_id)
         num_ticks = 10
         if len(time_vals) > 1:
             tick_indices = np.linspace(0, len(time_vals) - 1, num_ticks, dtype=int)
-            tickvals_time = time_vals.iloc[tick_indices]
-            ticktext_frame = frame_vals.iloc[tick_indices]
+            tickvals_time = time_vals.iloc[tick_indices].tolist()
+            ticktext_frame = frame_vals.iloc[tick_indices].tolist()
         else:
-            tickvals_time = time_vals
-            ticktext_frame = frame_vals
+            tickvals_time = time_vals.tolist()
+            ticktext_frame = frame_vals.tolist()
 
         fig_graph.update_layout(
             template="plotly_white", 
@@ -525,6 +546,35 @@ def update_view(frame, channel, pid, markers, show_cellpose, y_metric, entry_id)
         )
     return fig_img, fig_graph, current_txt
 
+@app.callback(
+    Output('frame-slider', 'value'),
+    [Input('single-intensity-graph', 'clickData')],
+    [State('entry-id', 'data'), State('particle-dropdown', 'value')],
+    prevent_initial_call=True
+)
+def jump_to_frame_on_click(clickData, entry_id, pid):
+    if not clickData or not entry_id or not pid:
+        return dash.no_update
+
+    try:
+        # 1. Geklickten Zeitwert holen
+        clicked_time_scaled = clickData['points'][0]['x']
+
+        # 2. Daten für das aktuelle Partikel laden
+        data = get_data(entry_id)
+        if not data: return dash.no_update
+        tracks = data['tracks']
+        t_data = tracks[tracks['particle'] == int(pid)].sort_values('frame')
+        if t_data.empty: return dash.no_update
+
+        # 3. Zeitachse neu skalieren, um die Skala des Graphen zu treffen
+        time_vals_scaled, _ = General.get_smart_time(t_data['time'])
+
+        # 4. Index des nächstgelegenen Zeitwerts finden und Frame-Nummer zurückgeben
+        closest_index = np.abs(time_vals_scaled.values - clicked_time_scaled).argmin()
+        return int(t_data.iloc[closest_index]['frame'])
+    except:
+        return dash.no_update
 
 @app.callback(
     [Output('global-spaghetti', 'figure'), Output('global-heatmap', 'figure')],
@@ -629,11 +679,11 @@ def update_glob(sel, metric, tab, eid):
     num_points = len(avg_t)
     if num_points > 1:
         tick_indices = np.linspace(0, num_points - 1, min(num_ticks, num_points), dtype=int)
-        tickvals_time = avg_t.iloc[tick_indices]
-        ticktext_frame = avg_frames[tick_indices]
+        tickvals_time = avg_t.iloc[tick_indices].tolist()
+        ticktext_frame = avg_frames[tick_indices].to_list()
     else:
-        tickvals_time = avg_t
-        ticktext_frame = avg_frames
+        tickvals_time = avg_t.tolist()
+        ticktext_frame = avg_frames.to_list()
 
     title_suffix = "Intensity (A.U.)" if col == 'intensity_measure' else "Radius (px)"
     fig_s.update_layout(
@@ -641,7 +691,7 @@ def update_glob(sel, metric, tab, eid):
         title=f"Global Traces: {title_suffix}",
         xaxis_title=f"Time ({t_unit})",
         yaxis_title=title_suffix,
-        margin=dict(t=60), # Platz für Titel + Achse
+        margin=dict(t=60),
         xaxis2=dict(
             title="Frame Number", overlaying='x', side='top', matches='x', 
             tickvals=tickvals_time, ticktext=ticktext_frame
