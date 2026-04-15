@@ -268,6 +268,7 @@ class MFP(ExpBase):
     # =========================================================
     Positions_Volume_Increase = models.CharField(max_length=255, blank=True, null=True, verbose_name="Positions with volume increase")
     Production_Video_Usable = models.CharField(max_length=255, blank=True, null=True, verbose_name="Production video usable?")
+    Frames_AI_Training = models.CharField(max_length=255, blank=True, null=True, verbose_name="Frames used for future AI training")
 
     def __str__(self):
         # Nutzt das 'Name' Feld aus der vererbten ExpBase Klasse

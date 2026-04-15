@@ -444,6 +444,7 @@ def update_view(frame, channel, pid, markers, show_cellpose, y_metric, entry_id)
     if pid is not None:
         t_data = tracks[tracks['particle'] == int(pid)].sort_values('frame')
         time_vals, t_unit = General.get_smart_time(t_data['time'])
+        frame_vals = t_data['frame']
         
         # SMART MAPPING MIT RADIUS-GEDÄCHTNIS
         if y_metric == 'radius_cellpose':
@@ -502,8 +503,20 @@ def update_view(frame, channel, pid, markers, show_cellpose, y_metric, entry_id)
                                               name="Current"))
                 current_txt = f"ID {pid} | {t_scaled:.2f}{t_unit} | Val: {val:.1f}"
 
-        fig_graph.update_layout(template="plotly_white", xaxis_title=f"Time ({t_unit})", yaxis_title=y_metric)
+        # Zweite X-Achse für Frame-Nummern hinzufügen
+        num_ticks = 10
+        if len(time_vals) > 1:
+            tick_indices = np.linspace(0, len(time_vals) - 1, num_ticks, dtype=int)
+            tickvals_time = time_vals.iloc[tick_indices]
+            ticktext_frame = frame_vals.iloc[tick_indices]
+        else:
+            tickvals_time = time_vals
+            ticktext_frame = frame_vals
 
+        fig_graph.update_layout(template="plotly_white", xaxis_title=f"Time ({t_unit})", yaxis_title=y_metric,
+                                xaxis2=dict(title="Frame Number", overlaying='x', side='top',
+                                            tickvals=tickvals_time, ticktext=ticktext_frame)
+                                )
     return fig_img, fig_graph, current_txt
 
 
@@ -555,22 +568,37 @@ def update_glob(sel, metric, tab, eid):
     else:
         avg = df.groupby('frame').agg({'scaled_time': 'first'})
         avg[col] = 0
+
     avg_t = avg['scaled_time']
+    avg_frames = avg.index
     
     fig_s.add_trace(go.Scatter(
         x=avg_t, y=avg[col], 
         mode='lines', line=dict(color='black', width=3, dash='dash'), name="AVG"
     ))
     
+    # Zweite X-Achse für Frame-Nummern
+    num_ticks = 10
+    num_points = len(avg_t)
+    if num_points > 1:
+        tick_indices = np.linspace(0, num_points - 1, min(num_ticks, num_points), dtype=int)
+        tickvals_time = avg_t.iloc[tick_indices]
+        ticktext_frame = avg_frames[tick_indices]
+    else:
+        tickvals_time = avg_t
+        ticktext_frame = avg_frames
+
     title_suffix = "Intensity (A.U.)" if col == 'intensity_measure' else "Radius (px)"
     fig_s.update_layout(
         template="plotly_white", 
         title=f"Global Traces: {title_suffix}",
         xaxis_title=f"Time ({t_unit})",
-        yaxis_title=title_suffix
+        yaxis_title=title_suffix,
+        xaxis2=dict(title="Frame Number", overlaying='x', side='top', tickvals=tickvals_time, ticktext=ticktext_frame)
     )
     
     # --- HEATMAP ---
+
     # Pivot-Tabelle für die Heatmap erstellen
     if col in df.columns:
         hm = df.pivot(index='particle', columns='frame', values=col).fillna(0)
