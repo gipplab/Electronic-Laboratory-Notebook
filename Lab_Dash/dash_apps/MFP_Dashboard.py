@@ -125,28 +125,22 @@ app.layout = html.Div([
 ])
 
 # =========================================================
-# DATA LOADING
+# DATA LOADING (In-Memory Cache)
 # =========================================================
-DATA_CACHE = {} 
-
-# =========================================================
-# DATA LOADING
-# =========================================================
-DATA_CACHE = {} 
-
-# =========================================================
-# DATA LOADING
-# =========================================================
-# Wir deaktivieren den Cache für die Entwicklungsphase!
-# DATA_CACHE = {} 
+DATA_CACHE = {}
 
 def get_data(entry_id):
     if not entry_id: return None
     try: entry_id = int(entry_id)
     except: pass
     
-    # 🚨 DIESE ZEILE LÖSCHEN ODER AUSKOMMENTIEREN:
-    # if entry_id in DATA_CACHE: return DATA_CACHE[entry_id]
+    # Wenn die Daten bereits im RAM sind, extrem schnell von dort zurückgeben
+    if entry_id in DATA_CACHE: 
+        return DATA_CACHE[entry_id]
+        
+    # Um den Arbeitsspeicher zu schonen, leeren wir den Cache, bevor wir ein neues 
+    # Video laden. So liegt immer nur maximal 1 Video (das aktuelle) im RAM.
+    DATA_CACHE.clear()
 
     try:
         # 1. Versuche alte Tracks zu laden (nur um die echten Zeitstempel zu klauen)
