@@ -135,16 +135,23 @@ class CellposeCementAnalysis:
                 d_y, d_x = center_of_mass(single_mask)
                 valid_in_frame += 1
 
+                # === NEU: BEIDE INTENSITÄTEN BERECHNEN ===
                 try:
-                    intensity = np.mean(img_measure[single_mask == 1])
+                    intensity_measure = np.mean(img_measure[single_mask == 1])
                 except:
-                    intensity = 0.0
+                    intensity_measure = 0.0
+                    
+                try:
+                    intensity_detect = np.mean(img_detect[single_mask == 1])
+                except:
+                    intensity_detect = 0.0
 
                 final_results.append({
                     'frame': frame_idx, 'x': float(d_x), 'y': float(d_y),
                     'radius': float(radius), 'circularity': float(circularity),
                     'solidity': float(props.solidity), 'eccentricity': float(props.eccentricity), 'valid': True,
-                    'intensity_measure': float(intensity),
+                    'intensity_measure': float(intensity_measure), # mScarlet
+                    'intensity_detect': float(intensity_detect),   # GFP
                     'radius_brightfield': float(radius),
                     'real_size': float(radius)
                 })

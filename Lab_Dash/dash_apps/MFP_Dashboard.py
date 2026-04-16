@@ -82,7 +82,8 @@ app.layout = html.Div([
                         dcc.RadioItems(
                             id='y-axis-selector', 
                             options=[
-                                {'label': ' Intensity', 'value': 'intensity_measure'}, 
+                                {'label': ' Int. Measure (🔴)', 'value': 'intensity_measure'}, 
+                                {'label': ' Int. Detect (🟢)', 'value': 'intensity_detect'}, 
                                 {'label': ' BF Radius', 'value': 'radius_brightfield'},
                                 {'label': ' Fluo Radius', 'value': 'real_size'},
                                 {'label': ' 🧠 AI Radius', 'value': 'radius_cellpose'} 
@@ -105,10 +106,11 @@ app.layout = html.Div([
                     dcc.RadioItems(
                         id='global-metric-selector', 
                         options=[
-                            {'label': ' Intensity', 'value': 'intensity_measure'}, 
+                            {'label': ' Int. Measure (🔴)', 'value': 'intensity_measure'}, 
+                            {'label': ' Int. Detect (🟢)', 'value': 'intensity_detect'}, 
                             {'label': ' AI Radius', 'value': 'radius_cellpose'}
                         ], 
-                        value='intensity_measure', 
+                        value='intensity_detect', 
                         labelStyle={'display': 'inline-block', 'marginRight': '20px'}
                     ),
                 ], style={'padding': '10px', 'backgroundColor': '#f1f3f5', 'borderRadius': '5px', 'marginBottom': '10px'}),
