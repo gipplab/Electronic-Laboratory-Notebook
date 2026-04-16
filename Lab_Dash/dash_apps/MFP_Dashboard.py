@@ -129,19 +129,16 @@ app.layout = html.Div([
 # =========================================================
 DATA_CACHE = {}
 
-def get_data(entry_id):
+def get_data(entry_id, force_reload=False):   # <-- NEU: force_reload Parameter
     if not entry_id: return None
     try: entry_id = int(entry_id)
     except: pass
     
-    # Wenn die Daten bereits im RAM sind, extrem schnell von dort zurückgeben
-    if entry_id in DATA_CACHE: 
+    # NEU: Wenn force_reload True ist, ignorieren wir den Cache
+    if entry_id in DATA_CACHE and not force_reload: 
         return DATA_CACHE[entry_id]
         
-    # Um den Arbeitsspeicher zu schonen, leeren wir den Cache, bevor wir ein neues 
-    # Video laden. So liegt immer nur maximal 1 Video (das aktuelle) im RAM.
     DATA_CACHE.clear()
-
     try:
         # 1. Versuche alte Tracks zu laden (nur um die echten Zeitstempel zu klauen)
         try:
@@ -319,7 +316,13 @@ def init_dashboard(search, n, clicks, current_id, **kwargs):
 
     if not entry_id: return None, "❌ Keine ID gefunden.", [], None, [], 100, {0:'0'}
 
-    data = get_data(entry_id)
+    ctx = dash.callback_context
+    force = False
+    if ctx.triggered and 'reload-btn' in ctx.triggered[0]['prop_id']:
+        force = True
+
+    # Wir geben force_reload weiter
+    data = get_data(entry_id, force_reload=force)
     if not data: return entry_id, f"❌ Keine Daten für ID {entry_id}", [], None, [], 100, {0:'0'}
     
     tracks = data['tracks']
