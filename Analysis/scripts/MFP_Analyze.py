@@ -20,7 +20,7 @@ import trackpy as tp
 import pickle
 
 # --- 2. DEINE NORMALEN IMPORTE ---
-from Lab_Misc.Load_Data import Load_MFP_Video
+from Lab_Misc.Load_Data import Load_MFP_Video, Load_MFP_Path
 from Analysis.scripts.MFP_Tracking_Logic import process_single_frame
 
 from skimage.segmentation import active_contour
@@ -351,7 +351,13 @@ def run_full_analysis(analysis_obj):
 
     # --- 4. SPEICHERN (Gespiegelte Struktur) ---
     from Lab_Misc import General
-    rel_link = analysis_obj.Entry.Link
+
+    # rel_link = analysis_obj.Entry.Link # OLD, BROKEN: 'MFP' object has no attribute 'Link'
+    # NEW: Get absolute path from helper and make it relative for saving.
+    abs_video_path = Load_MFP_Path(entry_id)
+    base_path = General.get_BasePath()
+    rel_link = os.path.relpath(abs_video_path, base_path) if abs_video_path and abs_video_path.startswith(base_path) else None
+
     if rel_link and "01_Videos" in rel_link:
         rel_pkl = rel_link.replace("01_Videos", "02_Analysis_Results").rsplit('.', 1)[0] + '.pkl'
         abs_pkl = os.path.join(General.get_BasePath(), rel_pkl)

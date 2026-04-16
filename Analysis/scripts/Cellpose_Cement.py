@@ -264,7 +264,13 @@ def run_cellpose_cement_analysis(entry_id, diameter, minmass=None, box_size=None
 
         # 🚨 2. DEN SICHEREN SPEICHERORT GENERIEREN
         from Lab_Misc import General
-        rel_link = analysis_obj.Entry.Link
+
+        # rel_link = analysis_obj.Entry.Link # OLD, BROKEN: 'MFP' object has no attribute 'Link'
+        # NEW: Get absolute path from helper and make it relative for saving.
+        abs_video_path = Load_MFP_Path(analysis_obj.Entry.id)
+        base_path = General.get_BasePath()
+        rel_link = os.path.relpath(abs_video_path, base_path) if abs_video_path and abs_video_path.startswith(base_path) else None
+
         if rel_link and "01_Videos" in rel_link:
             rel_pkl = rel_link.replace("01_Videos", "02_Analysis_Results").rsplit('.', 1)[0] + '.pkl'
             abs_pkl = os.path.join(General.get_BasePath(), rel_pkl)
