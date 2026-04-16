@@ -501,7 +501,7 @@ def update_view(frame, channel, pid, markers, show_cellpose, y_metric, entry_id)
                     
                 y_values.append(best)
         else:
-            y_values = t_data[y_metric].fillna(0)
+            y_values = t_data[y_metric].fillna(0).tolist() if y_metric in t_data.columns else [0] * len(t_data)
 
         # connectgaps=True sorgt für durchgehende Linien, auch wenn die KI kurz geblinzelt hat
         fig_graph.add_trace(go.Scatter(x=time_vals, y=y_values, mode='lines+markers', 
