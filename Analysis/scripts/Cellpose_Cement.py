@@ -111,7 +111,7 @@ class CellposeCementAnalysis:
         total_found = len(unique_masks)
         
         # NOTBREMSE 1: ZU VIELE OBJEKTE
-        if total_found > 100:
+        if total_found > 300:
             self.log_progress(f"   Frame {frame_idx:03d}: ⚠️ {total_found} Objekte gefunden (Limit: 100).")
             if frame_idx < 2:
                 raise ValueError(f"IMPLAUSIBLE: Zu viele Objekte ({total_found}) im Start-Frame {frame_idx}. Verdacht auf Rauschen/falsche Parameter. Analyse wird komplett abgebrochen!")
