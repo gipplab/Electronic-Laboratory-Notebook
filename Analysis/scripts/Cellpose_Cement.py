@@ -15,10 +15,6 @@ import pandas as pd
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial.distance import cdist
 
-# --- DJANGO SETUP ---
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Private.settings')
-if not django.apps.apps.ready:
-    django.setup()
 
 from Lab_Misc.Load_Data import Load_MFP_Video, Load_MFP_Path
 from Analysis.models import MFPAnalysis
