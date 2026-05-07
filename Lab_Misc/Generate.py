@@ -104,22 +104,44 @@ class CreateAndUpdate():
 
     def get_FullPath(self, file):
         """
-        get_FullPath retruns path of the file
-
-        retruns path of the file until '01_Experimental' by connecting file name and the current directory
-
-        Parameters
-        ----------
-        file : string
-            name of the current file
-
-        Returns
-        -------
-        string
-            path of the file
+        get_FullPath returns path of the file
         """        
         path_to_file = os.getcwd()
-        path_to_file = path_to_file[path_to_file.index(BaseFolderName):]
+        
+        # Fall 1: Der BaseFolderName ist noch im Pfad (kein Symlink oder Symlink wurde nicht aufgelöst)
+        if BaseFolderName in path_to_file:
+            path_to_file = path_to_file[path_to_file.index(BaseFolderName):]
+        else:
+            # Fall 2: os.getcwd() hat einen Symlink zum physischen Ziel aufgelöst.
+            # Wir rekonstruieren den logischen Pfad (01_Experimental/...), damit die Datenbank 
+            # und das Frontend wie gewohnt damit arbeiten können.
+            try:
+                base_path = get_BasePath()
+                # Wir durchsuchen alle Experimentenpfade in der Datenbank...
+                for ep in self.ExpPath_curr.objects.all():
+                    logical_exp_path = os.path.join(base_path, ep.Path)
+                    physical_exp_path = os.path.realpath(logical_exp_path)
+                    
+                    # ... und prüfen, ob unser aktueller physischer Pfad zu diesem Experiment gehört
+                    if path_to_file == physical_exp_path or path_to_file.startswith(physical_exp_path + os.sep):
+                        
+                        # Welcher Unterordner (z.B. Datum/Probe) ist das?
+                        rel_part = os.path.relpath(path_to_file, physical_exp_path)
+                        
+                        # Den logischen Startpfad ab "01_Experimental" isolieren
+                        idx = logical_exp_path.find(BaseFolderName)
+                        if idx != -1:
+                            logical_base = logical_exp_path[idx:]
+                            
+                            # Den Unterordner an den logischen Startpfad hängen
+                            if rel_part == '.':
+                                path_to_file = logical_base
+                            else:
+                                path_to_file = os.path.join(logical_base, rel_part)
+                            break
+            except Exception as e:
+                pass
+
         path_to_file = os.path.join(path_to_file, file)
         path_to_file = path_to_file.replace('\\', '/')
 
