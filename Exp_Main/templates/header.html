@@ -3,7 +3,7 @@
 
 <head>
     {% load static %}
-        <title>Labbook</title>
+        <title>{% if page_title %}{{ page_title }}{% elif Experiment_Name %}{{ model_name }} {{ Experiment_Name }}{% else %}Labbook{% endif %}</title>
         <link rel="shortcut icon" type="image/png" href="{% static 'favicon.ico' %}"/>
     <!-- Compiled and minified CSS -->
     <link rel="stylesheet" href="{% static 'assets/css/Nested_dropdown.css' %}">

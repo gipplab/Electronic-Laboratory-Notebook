@@ -45,8 +45,14 @@ def MFP_Scout_View(request, pk):
     request.session['django_plotly_dash'] = {'MFP_id': pk}
     dash_context = {'entry-id': {'data': pk}}
 
+    context = {
+        'entry': entry, 
+        'analysis': analysis, 
+        'dash_context': dash_context,
+        'page_title': f"Scout {pk}"
+    }
     # Wir rendern ein neues Template speziell für den Scout
-    return render(request, 'Analysis_Scout.html', {'entry': entry, 'analysis': analysis, 'dash_context': dash_context})
+    return render(request, 'Analysis_Scout.html', context)
 
 
 # =========================================================
@@ -60,7 +66,13 @@ def MFP_Dashboard_View(request, pk):
     request.session['django_plotly_dash'] = {'MFP_id': pk}
     dash_context = {'entry-id': {'data': pk}}
 
-    return render(request, 'Analysis_Dashboard.html', {'entry': entry, 'analysis': analysis, 'dash_context': dash_context})
+    context = {
+        'entry': entry, 
+        'analysis': analysis, 
+        'dash_context': dash_context,
+        'page_title': f"Dash {pk}"
+    }
+    return render(request, 'Analysis_Dashboard.html', context)
 
 # =========================================================
 # 2. API ENDPOINT FÜR DEN KI-BUTTON (Cellpose Background-Task)
