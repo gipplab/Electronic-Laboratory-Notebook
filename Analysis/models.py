@@ -148,7 +148,7 @@ class MFPAnalysis(models.Model):
         NEEDS_REVIEW = 'needs_review', 'Needs Review'
         COMPLETED = 'completed', 'Completed'
 
-    Entry = models.OneToOneField('Lab_Dash.MFP', on_delete=models.CASCADE, related_name='Analysis')
+    Entry = models.OneToOneField('Exp_Main.MFP', on_delete=models.CASCADE, related_name='Analysis')
     
     # =========================================================
     # PIPELINE & METADATEN

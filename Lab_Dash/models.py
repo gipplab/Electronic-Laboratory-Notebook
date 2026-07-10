@@ -80,26 +80,41 @@ class RSD(models.Model):
         super(RSD, self).save(*args, **kwargs)
 
 class MFP(models.Model):
-    """MFP Saves all dash properties of the MFP measurements
-
-    Parameters
-    ----------
-    models : [type]
-        [description]
+    """
+    MFP saves all dash properties of the MFP measurements.
+    Contains parameters for data cleaning and filtering.
     """    
     Name = models.TextField(unique=True, blank=True, null=True)
-    CA_high_degree = models.FloatField(blank=True, null=True)
-    CA_low_degree = models.FloatField(blank=True, null=True)
-    BD_high_mm = models.FloatField(blank=True, null=True)
-    BD_low_mm = models.FloatField(blank=True, null=True)
-    Time_high_sec = models.FloatField(blank=True, null=True)
-    Time_low_sec = models.FloatField(blank=True, null=True)
-    Time_diff_pump = models.FloatField(blank=True, null=True)
-    Time_diff_vid = models.FloatField(blank=True, null=True)
-    Residual = models.FloatField(blank=True, null=True)
+    
+    # =========================================================
+    # DATA CLEANING (FILTERING & MERGING)
+    # =========================================================
+    Radius_Cutoff = models.FloatField(
+        default=40.0, 
+        verbose_name="Radius Cut-off (px)",
+        help_text="Particles with a radius larger than this value will be ignored."
+    )
+    
+    Excluded_IDs = models.CharField(
+        max_length=500, 
+        blank=True, 
+        null=True, 
+        verbose_name="IDs to Exclude",
+        help_text="Comma-separated list of particle IDs to ignore (e.g., '4, 12, 15')."
+    )
+    
+    Connected_IDs = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Connected IDs",
+        help_text="Defines tracked particles that are actually the same. Suggested format: '1:2, 4:5' (Particle 1 is merged into 2)."
+    )
+
     def __str__(self):
         return str(self.Name)
-    def save(self, *args, **kwargs):#saves '' as none
+        
+    def save(self, *args, **kwargs):
+        # Saves empty strings as None
         if not self.Name:
             self.Name = None
         super(MFP, self).save(*args, **kwargs)

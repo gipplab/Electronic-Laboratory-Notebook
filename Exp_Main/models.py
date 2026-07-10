@@ -224,6 +224,13 @@ class MFP(ExpBase):
     Link_Data = models.TextField(blank=True, null=True)
     Link_PDF = models.TextField(blank=True, null=True)
     Link_Osz_join_LSP = models.TextField(blank=True, null=True)
+    Dash = models.ForeignKey(
+        'Lab_Dash.MFP',
+        on_delete=models.CASCADE, 
+        blank=True, 
+        null=True,
+        related_name='main_experiment' # Hilft später bei Rückwärtsabfragen
+    )
 
     # =========================================================
     # METADATEN & SETUP

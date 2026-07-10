@@ -19,7 +19,8 @@ from .models import MFPAnalysis
 from .scripts.MFP_Analyze import run_analysis
 from Lab_Dash.models import MFP # Dein Experiment Model
 from .scripts.MFP_Analyze import run_full_analysis
-
+from django.shortcuts import get_object_or_404
+from Exp_Main.models import MFP as Main_MFP
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
@@ -58,12 +59,16 @@ def MFP_Scout_View(request, pk):
 # =========================================================
 # VIEW FÜR DAS MFP DASHBOARD
 # =========================================================
+# 🚨 HIER: Wir nehmen 'pk' entgegen, weil urls.py das so schickt!
 def MFP_Dashboard_View(request, pk):
-    entry = MFP.objects.get(id=pk)
+    # Wir suchen das Main-Experiment anhand der übergebenen ID (pk)
+    entry = get_object_or_404(Main_MFP, id=pk)
     analysis, created = MFPAnalysis.objects.get_or_create(Entry=entry)
     
     # ID in Session speichern für Dash, damit die Dash App weiß, welches Video sie laden muss
     request.session['django_plotly_dash'] = {'MFP_id': pk}
+    
+    # Dash Context füttern
     dash_context = {'entry-id': {'data': pk}}
 
     context = {
