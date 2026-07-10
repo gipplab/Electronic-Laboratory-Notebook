@@ -82,11 +82,14 @@ app.layout = html.Div([
                         dcc.RadioItems(
                             id='y-axis-selector', 
                             options=[
-                                {'label': ' Int. Measure (🔴)', 'value': 'intensity_measure'}, 
-                                {'label': ' Int. Detect (🟢)', 'value': 'intensity_detect'}, 
+                                {'label': ' Total Int. Measure (🔴)', 'value': 'intensity_measure'}, 
+                                {'label': ' Mean Int. Measure (🔴)', 'value': 'mean_intensity_measure'}, 
+                                {'label': ' Total Int. Detect (🟢)', 'value': 'intensity_detect'}, 
+                                {'label': ' Mean Int. Detect (🟢)', 'value': 'mean_intensity_detect'}, 
                                 {'label': ' BF Radius', 'value': 'radius_brightfield'},
                                 {'label': ' Fluo Radius', 'value': 'real_size'},
-                                {'label': ' 🧠 AI Radius', 'value': 'radius_cellpose'} 
+                                {'label': ' 🧠 AI Radius', 'value': 'radius_cellpose'},
+                                {'label': ' 📈 Cum. Norm. Growth (µm)', 'value': 'cum_norm_growth_um'} # 🚨 NEU HINZUGEFÜGT
                             ], 
                             value='radius_cellpose', 
                             labelStyle={'display': 'inline-block', 'marginRight': '15px'}
@@ -106,18 +109,27 @@ app.layout = html.Div([
                     dcc.RadioItems(
                         id='global-metric-selector', 
                         options=[
-                            {'label': ' Int. Measure (🔴)', 'value': 'intensity_measure'}, 
-                            {'label': ' Int. Detect (🟢)', 'value': 'intensity_detect'}, 
-                            {'label': ' AI Radius', 'value': 'radius_cellpose'}
+                            {'label': ' Total Int. Measure (🔴)', 'value': 'intensity_measure'}, 
+                            {'label': ' Mean Int. Measure (🔴)', 'value': 'mean_intensity_measure'}, 
+                            {'label': ' Total Int. Detect (🟢)', 'value': 'intensity_detect'}, 
+                            {'label': ' Mean Int. Detect (🟢)', 'value': 'mean_intensity_detect'}, 
+                            {'label': ' AI Radius', 'value': 'radius_cellpose'},
+                            {'label': ' 📈 Cum. Norm. Growth (µm)', 'value': 'cum_norm_growth_um'} # 🚨 NEU HINZUGEFÜGT
                         ], 
-                        value='intensity_detect', 
+                        value='cum_norm_growth_um', 
                         labelStyle={'display': 'inline-block', 'marginRight': '20px'}
                     ),
+                    # 🚨 NEU: Filter-Checkbox für das 0.3 µm Kriterium
+                    dcc.Checklist(
+                        id='threshold-filter', 
+                        options=[{'label': ' 🚀 Show only particles > 0.3 µm (Growth)', 'value': 'filter'}], 
+                        value=[], 
+                        style={'display': 'inline-block', 'marginLeft': '20px', 'fontWeight': 'bold', 'color': 'red'}
+                    )
                 ], style={'padding': '10px', 'backgroundColor': '#f1f3f5', 'borderRadius': '5px', 'marginBottom': '10px'}),
                 
                 dcc.Dropdown(id='global-id-filter', options=[], multi=True, placeholder="Filter specific IDs..."),
                 
-                # 🚨 HIER WURDE DIE HÖHE VON 40vh AUF 70vh GEÄNDERT!
                 dcc.Graph(id='global-spaghetti', style={'height': '70vh'}),
                 
                 dcc.Graph(id='global-heatmap', style={'height': '50vh'}),
@@ -131,18 +143,17 @@ app.layout = html.Div([
 # =========================================================
 DATA_CACHE = {}
 
-def get_data(entry_id, force_reload=False):   # <-- NEU: force_reload Parameter
+def get_data(entry_id, force_reload=False):
     if not entry_id: return None
     try: entry_id = int(entry_id)
     except: pass
     
-    # NEU: Wenn force_reload True ist, ignorieren wir den Cache
     if entry_id in DATA_CACHE and not force_reload: 
         return DATA_CACHE[entry_id]
         
     DATA_CACHE.clear()
     try:
-        # 1. Versuche alte Tracks zu laden (nur um die echten Zeitstempel zu klauen)
+        # 1. Versuche alte Tracks zu laden
         try:
             tracks_old = Load_MFP(entry_id)
             if tracks_old is None: tracks_old = pd.DataFrame()
@@ -157,7 +168,6 @@ def get_data(entry_id, force_reload=False):   # <-- NEU: force_reload Parameter
         cellpose_data = []
         tracks_ai = pd.DataFrame()
         
-        # 🚨 NEU: Lese den Pfad aus der Datenbank und setze ihn (wenn nötig) zusammen
         try:
             analysis = MFPAnalysis.objects.get(Entry_id=entry_id)
             result_path = analysis.Result_Path
@@ -168,13 +178,13 @@ def get_data(entry_id, force_reload=False):   # <-- NEU: force_reload Parameter
         except:
             cp_path = None
             
-        # Fallback, falls in der DB noch nichts sauberes steht
+        # Fallback
         if not cp_path or not os.path.exists(cp_path):
             video_path = Load_MFP_Path(entry_id)
             if video_path and "01_Videos" in video_path:
                 cp_path = video_path.replace("01_Videos", "02_Analysis_Results").rsplit('.', 1)[0] + '.pkl'
             else:
-                cp_path = f"/tmp/Cellpose_{entry_id}.pkl" # Fallback
+                cp_path = f"/tmp/Cellpose_{entry_id}.pkl" 
         
         if os.path.exists(cp_path):
             try:
@@ -182,15 +192,12 @@ def get_data(entry_id, force_reload=False):   # <-- NEU: force_reload Parameter
                     cp_dict = pickle.load(f)
                     cellpose_data = cp_dict.get('polymersomes', [])
                     
-                # WENN DIE AI-DATEN GETRACKT WURDEN (sie haben eine 'particle' ID)
                 if cellpose_data and 'particle' in cellpose_data[0]:
                     tracks_ai = pd.DataFrame(cellpose_data)
                     
-                    # Umbenennen, damit der Dashboard-Graph den Radius sofort findet
                     if 'radius' in tracks_ai.columns:
                         tracks_ai = tracks_ai.rename(columns={'radius': 'radius_cellpose'})
                     
-                    # Zeitstempel aus den alten Daten klauen (falls vorhanden), sonst Frame-Nummer nutzen
                     if not tracks_old.empty and 'time' in tracks_old.columns:
                         time_map = tracks_old.drop_duplicates('frame').set_index('frame')['time'].to_dict()
                         tracks_ai['time'] = tracks_ai['frame'].map(time_map).fillna(tracks_ai['frame'])
@@ -212,15 +219,70 @@ def get_data(entry_id, force_reload=False):   # <-- NEU: force_reload Parameter
         
         # 3. ENTSCHEIDUNG: Wer ist der Boss?
         if not tracks_ai.empty:
-            tracks = tracks_ai  # 🚀 AI übernimmt die rote Track-Führung!
-            print("🚀 Nutze perfekten AI-Mittelpunkte als Hauptdatenquelle!")
+            tracks = tracks_ai
+            print("🚀 Nutze perfekte AI-Mittelpunkte als Hauptdatenquelle!")
         else:
-            tracks = tracks_old # 🐢 Fallback auf alte Methode
+            tracks = tracks_old
             print("🐢 Nutze alte Trackpy-Tracks (Keine KI-Daten gefunden).")
             
         if tracks.empty: 
             return None
         
+        # 🚨 NEUE LOGIK: FINDE DEN BESTEN RADIUS
+        best_rad_col = None
+        for r_cand in ['radius_cellpose', 'real_size', 'radius_brightfield', 'radius']:
+            if r_cand in tracks.columns:
+                best_rad_col = r_cand
+                break
+                
+        if best_rad_col:
+            # --- 1. EDGE FILTER ---
+            IMAGE_WIDTH, IMAGE_HEIGHT, EDGE_BUFFER = 2048, 2448, 2
+            if 'x' in tracks.columns and 'y' in tracks.columns:
+                touches_edge = (
+                    (tracks['x'] - tracks[best_rad_col] <= EDGE_BUFFER) | 
+                    (tracks['x'] + tracks[best_rad_col] >= IMAGE_WIDTH - EDGE_BUFFER) | 
+                    (tracks['y'] - tracks[best_rad_col] <= EDGE_BUFFER) | 
+                    (tracks['y'] + tracks[best_rad_col] >= IMAGE_HEIGHT - EDGE_BUFFER)
+                )
+                edge_particles = tracks[touches_edge]['particle'].unique()
+                tracks = tracks[~tracks['particle'].isin(edge_particles)].reset_index(drop=True)
+
+            if not tracks.empty:
+                # --- 2. KINEMATIK & WACHSTUM ---
+                PIXEL_TO_UM = 0.064
+                tracks['radius_um'] = tracks[best_rad_col] * PIXEL_TO_UM
+                tracks['radius_smooth_um'] = tracks.groupby('particle')['radius_um'].transform(
+                    lambda x: x.rolling(window=3, center=True, min_periods=1).mean()
+                )
+                tracks['delta_r_um'] = tracks.groupby('particle')['radius_smooth_um'].diff().fillna(0)
+                
+                mean_delta = tracks.groupby('frame')['delta_r_um'].mean().reset_index().rename(columns={'delta_r_um': 'mean_delta_r_um'})
+                tracks = tracks.merge(mean_delta, on='frame', how='left')
+                tracks['norm_delta_r_um'] = tracks['delta_r_um'] - tracks['mean_delta_r_um']
+                
+                def custom_cumsum_with_reset(series):
+                    cum_vals = []
+                    current_sum = 0
+                    for delta in series:
+                        if current_sum < 0 and delta > 0:
+                            current_sum = delta
+                        else:
+                            current_sum += delta
+                        cum_vals.append(current_sum)
+                    return cum_vals
+                    
+                tracks['cum_norm_growth_um'] = tracks.groupby('particle')['norm_delta_r_um'].transform(custom_cumsum_with_reset)
+
+                # --- 3. MITTLERE INTENSITÄT (Mean) ---
+                area = np.pi * (tracks[best_rad_col] ** 2)
+                area = area.replace(0, np.nan) 
+                
+                if 'intensity_measure' in tracks.columns and 'mean_intensity_measure' not in tracks.columns:
+                    tracks['mean_intensity_measure'] = tracks['intensity_measure'] / area
+                if 'intensity_detect' in tracks.columns and 'mean_intensity_detect' not in tracks.columns:
+                    tracks['mean_intensity_detect'] = tracks['intensity_detect'] / area
+
         data = {
             'tracks': tracks,
             'vid_detect': video_data['detect'],
@@ -256,7 +318,6 @@ def handle_ai_analysis(n_clicks, n_intervals, entry_id):
     
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
     
-    # FALL 1: Der Start-Button wurde gedrückt
     if trigger_id == 'run-ai-btn':
         if n_clicks == 0 or not entry_id:
             return dash.no_update, dash.no_update, dash.no_update, dash.no_update
@@ -272,7 +333,6 @@ def handle_ai_analysis(n_clicks, n_intervals, entry_id):
         except Exception as e:
             return html.Div(f"❌ Fehler: {str(e)}", style={'color': 'red', 'fontWeight': 'bold'}), dash.no_update, dash.no_update, dash.no_update
 
-    # FALL 2: Das Intervall holt sich neue Log-Updates
     elif trigger_id == 'log-interval':
         if not entry_id: return dash.no_update, dash.no_update, dash.no_update, dash.no_update
         log_file = f"/tmp/cellpose_log_{entry_id}.txt"
@@ -311,7 +371,6 @@ def init_dashboard(search, n, clicks, current_id, **kwargs):
                 entry_id = state.get('MFP_id') or state.get('id')
         except: pass
         
-    # 🚀 Lösung: ID direkt aus dem Django Session State auslesen (via kwargs)
     session_state = kwargs.get('session_state', {})
     if not entry_id and session_state and session_state.get('MFP_id'):
         entry_id = session_state.get('MFP_id')
@@ -323,7 +382,6 @@ def init_dashboard(search, n, clicks, current_id, **kwargs):
     if ctx.triggered and 'reload-btn' in ctx.triggered[0]['prop_id']:
         force = True
 
-    # Wir geben force_reload weiter
     data = get_data(entry_id, force_reload=force)
     if not data: return entry_id, f"❌ Keine Daten für ID {entry_id}", [], None, [], 100, {0:'0'}
     
@@ -336,7 +394,6 @@ def init_dashboard(search, n, clicks, current_id, **kwargs):
     
     mf = int(tracks['frame'].max())
     
-    # --- NEU: Zeit-basierte Slider Marks ---
     marks = {}
     if 'time' in tracks.columns and not tracks['time'].empty:
         time_df = tracks.drop_duplicates('frame').sort_values('frame')
@@ -344,7 +401,6 @@ def init_dashboard(search, n, clicks, current_id, **kwargs):
         scaled_times, unit = General.get_smart_time(all_times_sec)
         time_map = pd.Series(scaled_times.values, index=time_df['frame']).to_dict()
         
-        # ~10 Ticks für den Slider
         for i in np.linspace(0, mf, 11, dtype=int):
             i_int = int(i)
             scaled_t = time_map.get(i_int)
@@ -390,7 +446,6 @@ def update_view(frame, channel, pid, markers, show_cellpose, y_metric, entry_id)
     
     if frame >= len(vid): frame = len(vid)-1
     
-    # --- BILD (HEATMAP) ---
     fig_img = go.Figure()
     fig_img.add_trace(go.Heatmap(z=vid[frame], colorscale=cmap, showscale=False, hoverinfo='skip'))
     
@@ -412,14 +467,12 @@ def update_view(frame, channel, pid, markers, show_cellpose, y_metric, entry_id)
                         line=dict(color=col, width=2, dash='solid' if is_valid else 'dot')
                     ))
 
-        # --- TRACKPY MARKER & IDs ---
         if 'show' in markers and not tracks.empty:
             curr_tracks = tracks[tracks['frame'] == frame]
             for _, row in curr_tracks.iterrows():
                 p_id = int(row['particle'])
                 cx, cy = row['x'], row['y']
                 
-                # Radius-Suche für Hover (großzügig 250px)
                 found_rad = "N/A"
                 if cp_this_frame:
                     dists = [(np.sqrt((p['x']-cx)**2 + (p['y']-cy)**2), p['radius']) for p in cp_this_frame if p['valid']]
@@ -458,7 +511,6 @@ def update_view(frame, channel, pid, markers, show_cellpose, y_metric, entry_id)
                           xaxis=dict(range=[0, w], visible=False), 
                           yaxis=dict(autorange='reversed', scaleanchor="x", scaleratio=1, visible=False))
 
-    # --- GRAPH LOGIK ---
     fig_graph = go.Figure()
     current_txt = "Select particle..."
     
@@ -467,15 +519,13 @@ def update_view(frame, channel, pid, markers, show_cellpose, y_metric, entry_id)
         time_vals, t_unit = General.get_smart_time(t_data['time'])
         frame_vals = t_data['frame']
         
-        # SMART MAPPING MIT RADIUS-GEDÄCHTNIS
         if y_metric == 'radius_cellpose':
             y_values = []
-            mem_rad = None # Das Gedächtnis
+            mem_rad = None 
             
             for _, r in t_data.iterrows():
                 f, rx, ry = r['frame'], r['x'], r['y']
                 
-                # Startwert für das Gedächtnis festlegen, falls noch leer
                 if mem_rad is None:
                     mem_rad = r.get('real_size', 25)
                     if pd.isna(mem_rad) or mem_rad == 0:
@@ -491,28 +541,23 @@ def update_view(frame, channel, pid, markers, show_cellpose, y_metric, entry_id)
                         for h in hits:
                             dist = np.sqrt((h['x']-rx)**2 + (h['y']-ry)**2)
                             
-                            # DIE ZWEI-STUFEN REGEL:
                             if dist <= 40: 
-                                # Nah -> Sofort nehmen, es ist sicher unsere Zelle
                                 best = h['radius']
                                 break
                             elif dist <= 250 and abs(h['radius'] - mem_rad) <= 25: 
-                                # Weit gesprungen -> Prüfe zwingend, ob der Radius ähnlich geblieben ist!
                                 best = h['radius']
                                 break
                                 
                 if best is not None: 
-                    mem_rad = best # Aktualisiere das Gedächtnis mit dem neu gefundenen Radius
+                    mem_rad = best
                     
                 y_values.append(best)
         else:
             y_values = t_data[y_metric].fillna(0).tolist() if y_metric in t_data.columns else [0] * len(t_data)
 
-        # connectgaps=True sorgt für durchgehende Linien, auch wenn die KI kurz geblinzelt hat
         fig_graph.add_trace(go.Scatter(x=time_vals, y=y_values, mode='lines+markers', 
                                       name=f"ID {pid}", connectgaps=True))
 
-        # Roter, halbtransparenter Punkt für den aktuellen Frame
         curr = t_data[t_data['frame'] == frame]
         if not curr.empty:
             idx = t_data.index.get_loc(curr.index[0])
@@ -524,7 +569,6 @@ def update_view(frame, channel, pid, markers, show_cellpose, y_metric, entry_id)
                                               name="Current"))
                 current_txt = f"ID {pid} | {t_scaled:.2f}{t_unit} | Val: {val:.1f}"
 
-        # Zweite X-Achse für Frame-Nummern hinzufügen
         num_ticks = 10
         if len(time_vals) > 1:
             tick_indices = np.linspace(0, len(time_vals) - 1, num_ticks, dtype=int)
@@ -534,13 +578,16 @@ def update_view(frame, channel, pid, markers, show_cellpose, y_metric, entry_id)
             tickvals_time = time_vals.tolist()
             ticktext_frame = frame_vals.tolist()
 
+        # 🚨 NEU: Richtige Y-Achsen-Benennung für den Single Plot
+        y_title = "Cumulative Norm. Growth (µm)" if y_metric == 'cum_norm_growth_um' else y_metric
+
         fig_graph.update_layout(
             template="plotly_white", 
             xaxis_title=f"Time ({t_unit})", 
-            yaxis_title=y_metric,
-            margin=dict(t=50), # Verhindert, dass die Achse abgeschnitten wird
+            yaxis_title=y_title,
+            margin=dict(t=50), 
             xaxis2=dict(
-                title="Frame Number", overlaying='x', side='top', matches='x', # Zwingt die Achse zum Mitlaufen
+                title="Frame Number", overlaying='x', side='top', matches='x',
                 tickvals=tickvals_time, ticktext=ticktext_frame
             )
         )
@@ -557,20 +604,16 @@ def jump_to_frame_on_click(clickData, entry_id, pid):
         return dash.no_update
 
     try:
-        # 1. Geklickten Zeitwert holen
         clicked_time_scaled = clickData['points'][0]['x']
 
-        # 2. Daten für das aktuelle Partikel laden
         data = get_data(entry_id)
         if not data: return dash.no_update
         tracks = data['tracks']
         t_data = tracks[tracks['particle'] == int(pid)].sort_values('frame')
         if t_data.empty: return dash.no_update
 
-        # 3. Zeitachse neu skalieren, um die Skala des Graphen zu treffen
         time_vals_scaled, _ = General.get_smart_time(t_data['time'])
 
-        # 4. Index des nächstgelegenen Zeitwerts finden und Frame-Nummer zurückgeben
         closest_index = np.abs(time_vals_scaled.values - clicked_time_scaled).argmin()
         return int(t_data.iloc[closest_index]['frame'])
     except:
@@ -579,24 +622,23 @@ def jump_to_frame_on_click(clickData, entry_id, pid):
 @app.callback(
     [Output('global-spaghetti', 'figure'), Output('global-heatmap', 'figure')],
     [Input('global-id-filter', 'value'), 
-     Input('global-metric-selector', 'value'), # 🚨 NEU: Der Metrik-Umschalter
+     Input('global-metric-selector', 'value'), 
+     Input('threshold-filter', 'value'), # 🚨 NEU: Der 0.3 µm Filter Knopf
      Input('tabs', 'value')],
     [State('entry-id', 'data')]
 )
-def update_glob(sel, metric, tab, eid):
+def update_glob(sel, metric, threshold_filter, tab, eid):
     if tab != 'tab-global' or not eid: return dash.no_update, dash.no_update
     data = get_data(eid)
     if not data: return go.Figure(), go.Figure()
     
-    tracks = data['tracks'].copy() # Wichtig: Kopie erstellen, um Original-Cache nicht zu ändern
+    tracks = data['tracks'].copy() 
     cellpose_data = data.get('cellpose', [])
     
-    # Sicherstellen, dass die Spalte existiert (AI Radius ist manchmal noch 'radius')
     col = metric
     if col not in tracks.columns and col == 'radius_cellpose' and 'radius' in tracks.columns:
         col = 'radius'
 
-    # --- NEU: On-the-fly Berechnung für AI Radius, falls nötig ---
     if metric == 'radius_cellpose' and cellpose_data and 'radius_cellpose' not in tracks.columns:
         cp_lookup = {}
         for p in cellpose_data:
@@ -637,10 +679,20 @@ def update_glob(sel, metric, tab, eid):
         col = 'radius_cellpose'
         
     df = tracks[tracks['particle'].isin(sel)].copy() if sel else tracks.copy()
+
+    # 🚨 NEU: 0.3 µm FILTER ANWENDEN
+    if 'filter' in threshold_filter and 'cum_norm_growth_um' in df.columns:
+        valid_particles = df.groupby('particle')['cum_norm_growth_um'].max()
+        valid_particles = valid_particles[valid_particles > 0.3].index
+        df = df[df['particle'].isin(valid_particles)]
+        
+        # Falls durch den Filter keine Daten mehr übrig sind
+        if df.empty:
+            return go.Figure(layout={'title': "All particles filtered out (Growth < 0.3 µm)"}), go.Figure()
+
     scaled_time, t_unit = General.get_smart_time(df['time'])
     df['scaled_time'] = scaled_time
     
-    # --- SPAGHETTI PLOT ---
     fig_s = go.Figure()
     uids = df['particle'].unique()
     limit = 100 if not sel else 9999
@@ -656,10 +708,9 @@ def update_glob(sel, metric, tab, eid):
             mode='lines', 
             opacity=0.3 if not sel else 1.0, 
             name=f"ID {p}",
-            hovertemplate=f"ID {p}<br>Time: %{{x:.2f}}{t_unit}<br>Val: %{{y:.1f}}"
+            hovertemplate=f"ID {p}<br>Time: %{{x:.2f}}{t_unit}<br>Val: %{{y:.2f}}"
         ))
     
-    # Durchschnittslinie (AVG)
     if col in df.columns:
         avg = df.groupby('frame').agg({'scaled_time': 'first', col: 'mean'})
     else:
@@ -674,7 +725,6 @@ def update_glob(sel, metric, tab, eid):
         mode='lines', line=dict(color='black', width=3, dash='dash'), name="AVG"
     ))
     
-    # Zweite X-Achse für Frame-Nummern
     num_ticks = 10
     num_points = len(avg_t)
     if num_points > 1:
@@ -685,7 +735,14 @@ def update_glob(sel, metric, tab, eid):
         tickvals_time = avg_t.tolist()
         ticktext_frame = avg_frames.to_list()
 
-    title_suffix = "Intensity (A.U.)" if col == 'intensity_measure' else "Radius (px)"
+    # 🚨 NEU: Dynamische Achsenbeschriftung inkl. Wachstum
+    if col == 'cum_norm_growth_um':
+        title_suffix = "Cumulative Norm. Growth (µm)"
+    elif 'intensity' in col:
+        title_suffix = "Intensity (A.U.)" 
+    else:
+        title_suffix = "Radius (px)"
+        
     fig_s.update_layout(
         template="plotly_white", 
         title=f"Global Traces: {title_suffix}",
@@ -698,9 +755,6 @@ def update_glob(sel, metric, tab, eid):
         )
     )
     
-    # --- HEATMAP ---
-
-    # Pivot-Tabelle für die Heatmap erstellen
     if col in df.columns:
         hm = df.pivot(index='particle', columns='frame', values=col).fillna(0)
     else:
@@ -710,7 +764,7 @@ def update_glob(sel, metric, tab, eid):
         z=hm.values, 
         x=hm.columns, 
         y=hm.index, 
-        colorscale='Viridis' if col == 'intensity_measure' else 'Cividis',
+        colorscale='Viridis' if 'intensity' in col else 'Cividis',
         colorbar=dict(title=title_suffix)
     ))
     
