@@ -123,3 +123,68 @@ def get_FloatAfterTrigger(string, trigger):
                 else:
                     break
     return Float
+
+import pandas as pd
+import numpy as np
+
+def process_mfp_tracks(tracks, dash_exp, best_rad_col, img_w, img_h, default_cutoff=40.0):
+    """
+    Bereinigt, taggt und berechnet die Kinematik der MFP-Tracks für das Dashboard.
+    """
+    tracks['particle'] = tracks['particle'].astype(str)
+    tracks['status'] = 'Valid'
+
+    # 1. Connect IDs & Exclude IDs
+    if dash_exp:
+        if dash_exp.Connected_IDs:
+            for pair in dash_exp.Connected_IDs.replace(',', ' ').split():
+                if ':' in pair:
+                    p1, p2 = [p.strip() for p in pair.split(':')]
+                    tracks.loc[tracks['particle'].isin([p1, p2]), 'particle'] = f"{p1} C {p2}"
+        if dash_exp.Excluded_IDs:
+            exc_list = [str(x.strip()) for x in dash_exp.Excluded_IDs.replace(',', ' ').split() if x.strip()]
+            tracks.loc[tracks['particle'].isin(exc_list), 'status'] = 'Ausgeschlossen (Manuell)'
+
+    # 2. Radius Cut-off Tagging (Aussortieren falscher Größe/Energie)
+    cutoff = float(dash_exp.Radius_Cutoff) if (dash_exp and dash_exp.Radius_Cutoff and float(dash_exp.Radius_Cutoff) > 0) else default_cutoff
+    if cutoff > 0:
+        tracks.loc[tracks[best_rad_col] < cutoff, 'status'] = f'Radius < Cut-off ({cutoff:.0f}px)'
+
+    # 3. Randberührung (🚨 KOMPLETT OHNE PUFFER - berührt exakt Rand 0 oder max Breite/Höhe)
+    if 'x' in tracks.columns and 'y' in tracks.columns:
+        touches_edge = (
+            (tracks['x'] - tracks[best_rad_col] <= 0) | 
+            (tracks['x'] + tracks[best_rad_col] >= img_w) | 
+            (tracks['y'] - tracks[best_rad_col] <= 0) | 
+            (tracks['y'] + tracks[best_rad_col] >= img_h)
+        )
+        edge_ids = tracks[touches_edge]['particle'].unique()
+        tracks.loc[tracks['particle'].isin(edge_ids), 'status'] = 'Randberührung'
+
+    # 4. Kinematik & Wachstum berechnen
+    PIXEL_TO_UM = 0.064
+    tracks['radius_um'] = tracks[best_rad_col] * PIXEL_TO_UM
+    tracks['radius_smooth_um'] = tracks.groupby('particle')['radius_um'].transform(lambda x: x.rolling(window=3, center=True, min_periods=1).mean())
+    tracks['delta_r_um'] = tracks.groupby('particle')['radius_smooth_um'].diff().fillna(0)
+    
+    mean_delta = tracks.groupby('frame')['delta_r_um'].mean().reset_index().rename(columns={'delta_r_um': 'mean_delta_r_um'})
+    tracks = tracks.merge(mean_delta, on='frame', how='left')
+    tracks['norm_delta_r_um'] = tracks['delta_r_um'] - tracks['mean_delta_r_um']
+    
+    def custom_cumsum(series):
+        cum_vals, current_sum = [], 0
+        for delta in series:
+            current_sum = delta if (current_sum < 0 and delta > 0) else current_sum + delta
+            cum_vals.append(current_sum)
+        return cum_vals
+        
+    tracks['cum_norm_growth_um'] = tracks.groupby('particle')['norm_delta_r_um'].transform(custom_cumsum)
+
+    # 5. Mittlere Intensitäten berechnen
+    area = (np.pi * (tracks[best_rad_col] ** 2)).replace(0, np.nan) 
+    if 'intensity_measure' in tracks.columns and 'mean_intensity_measure' not in tracks.columns:
+        tracks['mean_intensity_measure'] = tracks['intensity_measure'] / area
+    if 'intensity_detect' in tracks.columns and 'mean_intensity_detect' not in tracks.columns:
+        tracks['mean_intensity_detect'] = tracks['intensity_detect'] / area
+
+    return tracks
