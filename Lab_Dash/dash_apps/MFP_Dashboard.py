@@ -10,7 +10,9 @@ import os
 import threading
 import json
 import traceback
+from scipy.stats import spearmanr
 from urllib.parse import parse_qs, unquote
+
 from Lab_Misc.Load_Data import Load_MFP_Path, Load_MFP, Load_MFP_Video
 from Lab_Misc import General
 from Exp_Main.models import MFP as Main_MFP
@@ -20,8 +22,67 @@ from Analysis.scripts.Cellpose_Cement import run_cellpose_cement_analysis
 app = DjangoDash('MFP_Dashboard')
 
 # =========================================================
-# LAYOUT
+# LAYOUT-BLÖCKE
 # =========================================================
+tab_single_ui = html.Div([
+    html.Div([
+        html.Div([
+            html.Label("Channel:", style={'fontWeight': 'bold'}),
+            dcc.RadioItems(id='channel-selector', options=[{'label': ' Detect', 'value': 'detect'}, {'label': ' Measure', 'value': 'measure'}, {'label': ' BF', 'value': 'bf'}], value='detect', labelStyle={'display': 'inline-block', 'marginRight': '10px'}),
+            dcc.Checklist(id='show-markers-toggle', options=[{'label': ' Markers', 'value': 'show'}], value=['show'], style={'display': 'inline-block', 'marginLeft': '10px'}),
+            dcc.Checklist(id='show-cellpose-toggle', options=[{'label': ' 🧠 AI Masks', 'value': 'show'}], value=['show'], style={'display': 'inline-block', 'marginLeft': '15px', 'color': 'green', 'fontWeight': 'bold'}),
+        ], style={'marginBottom': '5px'}),
+        dcc.Graph(id='image-plot', style={'height': '35vh'}),
+        dcc.Slider(id='frame-slider', min=0, max=100, value=0, step=1, marks={0:'0'}, tooltip={"placement": "bottom", "always_visible": True})
+    ], style={'width': '55%', 'display': 'inline-block', 'verticalAlign': 'top', 'padding': '10px'}),
+    
+    html.Div([
+        html.Label("Particle ID:", style={'fontWeight': 'bold'}),
+        dcc.Dropdown(id='particle-dropdown', options=[], value=None, clearable=False),
+        html.Div([
+            html.Label("Plot Y-Axis:", style={'fontWeight': 'bold', 'marginTop': '10px', 'marginRight': '10px'}),
+            dcc.RadioItems(id='y-axis-selector', options=[
+                {'label': ' Total Int. Measure (🔴)', 'value': 'intensity_measure'}, 
+                {'label': ' Mean Int. Measure (🔴)', 'value': 'mean_intensity_measure'}, 
+                {'label': ' Total Int. Detect (🟢)', 'value': 'intensity_detect'}, 
+                {'label': ' Mean Int. Detect (🟢)', 'value': 'mean_intensity_detect'}, 
+                {'label': ' BF Radius', 'value': 'radius_brightfield'},
+                {'label': ' Fluo Radius', 'value': 'real_size'},
+                {'label': ' 🧠 AI Radius', 'value': 'radius_cellpose'},
+                {'label': ' 📈 Growth (µm)', 'value': 'cum_norm_growth_um'}
+            ], value='radius_cellpose', labelStyle={'display': 'inline-block', 'marginRight': '15px'})
+        ], style={'marginBottom': '5px'}),
+        dcc.Graph(id='single-intensity-graph', style={'height': '35vh'}),
+        html.Div(id='debug-info', style={'color': 'gray', 'fontSize': '0.8em', 'marginTop': '5px'})
+    ], style={'width': '40%', 'display': 'inline-block', 'verticalAlign': 'top', 'padding': '10px'})
+])
+
+tab_global_ui = html.Div([
+    html.Div([
+        html.Label("Global Metric:", style={'fontWeight': 'bold', 'marginRight': '15px'}),
+        dcc.RadioItems(id='global-metric-selector', options=[
+            {'label': ' Total Int. Measure (🔴)', 'value': 'intensity_measure'}, 
+            {'label': ' Mean Int. Measure (🔴)', 'value': 'mean_intensity_measure'}, 
+            {'label': ' Total Int. Detect (🟢)', 'value': 'intensity_detect'}, 
+            {'label': ' Mean Int. Detect (🟢)', 'value': 'mean_intensity_detect'}, 
+            {'label': ' AI Radius', 'value': 'radius_cellpose'},
+            {'label': ' 📈 Growth (µm)', 'value': 'cum_norm_growth_um'}
+        ], value='cum_norm_growth_um', labelStyle={'display': 'inline-block', 'marginRight': '20px'}),
+        dcc.Checklist(id='threshold-filter', options=[{'label': ' 🚀 Nur Partikel > 0.3 µm Wachstum', 'value': 'filter'}], value=[], style={'display': 'inline-block', 'marginLeft': '20px', 'fontWeight': 'bold', 'color': 'red'})
+    ], style={'padding': '10px', 'backgroundColor': '#f1f3f5', 'borderRadius': '5px', 'marginBottom': '10px'}),
+    dcc.Dropdown(id='global-id-filter', options=[], multi=True, placeholder="Filter specific IDs..."),
+    dcc.Graph(id='global-spaghetti', style={'height': '65vh'}),
+    html.Div(id='excluded-audit-log', style={'marginTop': '20px', 'padding': '15px', 'backgroundColor': '#f8f9fa', 'borderTop': '2px solid #dee2e6', 'borderRadius': '5px'}),
+    dcc.Graph(id='global-heatmap', style={'height': '50vh', 'marginTop': '20px'}),
+], style={'padding': '20px'})
+
+tab_scatter_ui = html.Div([
+    html.Div([
+        html.H4("Volume Change vs. Norm. Total mScarlet Expression", style={'textAlign': 'center', 'fontWeight': 'bold', 'marginBottom': '15px'}),
+        dcc.Graph(id='scatter-growth-expression', style={'height': '75vh'})
+    ], style={'padding': '20px'})
+])
+
 app.layout = html.Div([
     html.Div([
         html.Button("🔄 Reload", id='reload-btn', n_clicks=0, className="btn btn-sm btn-outline-primary"),
@@ -38,69 +99,19 @@ app.layout = html.Div([
         html.Div(id='settings-msg', style={'color': 'green', 'fontWeight': 'bold', 'marginTop': '5px'})
     ]),
 
-    dcc.Location(id='url', refresh=False), dcc.Store(id='entry-id'),
+    dcc.Location(id='url', refresh=False), 
+    dcc.Store(id='entry-id'),
+    dcc.Store(id='refresh-trigger', data=0), 
+    
     dcc.Interval(id='kickstarter', interval=500, max_intervals=1),
     html.Div(id='ai-analysis-status', style={'padding': '10px', 'textAlign': 'center'}),
     html.Div(id='ai-log-output-wrapper', style={'margin': '10px', 'padding': '10px', 'backgroundColor': '#eef2f5', 'borderRadius': '5px', 'maxHeight': '150px', 'overflowY': 'auto', 'fontFamily': 'monospace', 'fontSize': '12px', 'display': 'none'}, children=[html.Div(id='ai-log-output')]),
     dcc.Interval(id='log-interval', interval=2000, n_intervals=0, disabled=True),
 
     dcc.Tabs(id='tabs', value='tab-single', children=[
-        dcc.Tab(label='🔎 Single Inspection', value='tab-single', children=[
-            html.Div([
-                html.Div([
-                    html.Div([
-                        html.Label("Channel:", style={'fontWeight': 'bold'}),
-                        dcc.RadioItems(id='channel-selector', options=[{'label': ' Detect', 'value': 'detect'}, {'label': ' Measure', 'value': 'measure'}, {'label': ' BF', 'value': 'bf'}], value='detect', labelStyle={'display': 'inline-block', 'marginRight': '10px'}),
-                        dcc.Checklist(id='show-markers-toggle', options=[{'label': ' Markers', 'value': 'show'}], value=['show'], style={'display': 'inline-block', 'marginLeft': '10px'}),
-                        dcc.Checklist(id='show-cellpose-toggle', options=[{'label': ' 🧠 AI Masks', 'value': 'show'}], value=['show'], style={'display': 'inline-block', 'marginLeft': '15px', 'color': 'green', 'fontWeight': 'bold'}),
-                    ], style={'marginBottom': '5px'}),
-                    dcc.Graph(id='image-plot', style={'height': '35vh'}),
-                    dcc.Slider(id='frame-slider', min=0, max=100, value=0, step=1, marks={0:'0'}, tooltip={"placement": "bottom", "always_visible": True})
-                ], style={'width': '55%', 'display': 'inline-block', 'verticalAlign': 'top', 'padding': '10px'}),
-                
-                html.Div([
-                    html.Label("Particle ID:", style={'fontWeight': 'bold'}),
-                    dcc.Dropdown(id='particle-dropdown', options=[], value=None, clearable=False),
-                    html.Div([
-                        html.Label("Plot Y-Axis:", style={'fontWeight': 'bold', 'marginTop': '10px', 'marginRight': '10px'}),
-                        dcc.RadioItems(id='y-axis-selector', options=[
-                            {'label': ' Total Int. Measure (🔴)', 'value': 'intensity_measure'}, 
-                            {'label': ' Mean Int. Measure (🔴)', 'value': 'mean_intensity_measure'}, 
-                            {'label': ' Total Int. Detect (🟢)', 'value': 'intensity_detect'}, 
-                            {'label': ' Mean Int. Detect (🟢)', 'value': 'mean_intensity_detect'}, 
-                            {'label': ' BF Radius', 'value': 'radius_brightfield'},
-                            {'label': ' Fluo Radius', 'value': 'real_size'},
-                            {'label': ' 🧠 AI Radius', 'value': 'radius_cellpose'},
-                            {'label': ' 📈 Growth (µm)', 'value': 'cum_norm_growth_um'}
-                        ], value='radius_cellpose', labelStyle={'display': 'inline-block', 'marginRight': '15px'})
-                    ], style={'marginBottom': '5px'}),
-                    dcc.Graph(id='single-intensity-graph', style={'height': '35vh'}),
-                    html.Div(id='debug-info', style={'color': 'gray', 'fontSize': '0.8em', 'marginTop': '5px'})
-                ], style={'width': '40%', 'display': 'inline-block', 'verticalAlign': 'top', 'padding': '10px'})
-            ])
-        ]),
-
-        dcc.Tab(label='📊 Global Statistics', value='tab-global', children=[
-            html.Div([
-                html.Div([
-                    html.Label("Global Metric:", style={'fontWeight': 'bold', 'marginRight': '15px'}),
-                    dcc.RadioItems(id='global-metric-selector', options=[
-                        {'label': ' Total Int. Measure (🔴)', 'value': 'intensity_measure'}, 
-                        {'label': ' Mean Int. Measure (🔴)', 'value': 'mean_intensity_measure'}, 
-                        {'label': ' Total Int. Detect (🟢)', 'value': 'intensity_detect'}, 
-                        {'label': ' Mean Int. Detect (🟢)', 'value': 'mean_intensity_detect'}, 
-                        {'label': ' AI Radius', 'value': 'radius_cellpose'},
-                        {'label': ' 📈 Growth (µm)', 'value': 'cum_norm_growth_um'}
-                    ], value='cum_norm_growth_um', labelStyle={'display': 'inline-block', 'marginRight': '20px'}),
-                    dcc.Checklist(id='threshold-filter', options=[{'label': ' 🚀 Nur Partikel > 0.3 µm Wachstum', 'value': 'filter'}], value=[], style={'display': 'inline-block', 'marginLeft': '20px', 'fontWeight': 'bold', 'color': 'red'})
-                ], style={'padding': '10px', 'backgroundColor': '#f1f3f5', 'borderRadius': '5px', 'marginBottom': '10px'}),
-                
-                dcc.Dropdown(id='global-id-filter', options=[], multi=True, placeholder="Filter specific IDs..."),
-                dcc.Graph(id='global-spaghetti', style={'height': '65vh'}),
-                html.Div(id='excluded-audit-log', style={'marginTop': '20px', 'padding': '15px', 'backgroundColor': '#f8f9fa', 'borderTop': '2px solid #dee2e6', 'borderRadius': '5px'}),
-                dcc.Graph(id='global-heatmap', style={'height': '50vh', 'marginTop': '20px'}),
-            ], style={'padding': '20px'})
-        ])
+        dcc.Tab(label='🔎 Single Inspection', value='tab-single', children=[tab_single_ui]),
+        dcc.Tab(label='📊 Global Statistics', value='tab-global', children=[tab_global_ui]),
+        dcc.Tab(label='📈 Growth vs. Expression', value='tab-scatter', children=[tab_scatter_ui])
     ])
 ])
 
@@ -152,7 +163,6 @@ def get_data(entry_id, force_reload=False):
             dash_exp = Main_MFP.objects.get(id=int(entry_id)).Dash if Main_MFP.objects.filter(id=int(entry_id)).exists() else None
             try: default_cutoff = float(MFPAnalysis.objects.get(Entry_id=int(entry_id)).Threshold)
             except: default_cutoff = 40.0
-            
             tracks = General.process_mfp_tracks(tracks, dash_exp, best_rad_col, img_w, img_h, default_cutoff)
 
         DATA_CACHE[int(entry_id)] = {'tracks': tracks, 'vid_detect': video_data['detect'], 'vid_measure': video_data['measure'], 'vid_bf': video_data['brightfield'], 'cellpose': cellpose_data}
@@ -162,40 +172,74 @@ def get_data(entry_id, force_reload=False):
         return None
 
 # =========================================================
-# CALLBACKS 
+# CALLBACKS (Race-Condition Fix)
 # =========================================================
-
 @app.callback(Output('settings-panel', 'style'), [Input('toggle-settings-btn', 'n_clicks')], [State('settings-panel', 'style')])
 def toggle_settings(n_clicks, current_style):
     if n_clicks == 0: return current_style
     current_style['display'] = 'block' if current_style.get('display') == 'none' else 'none'
     return current_style
 
+# 🚨 MASTER SYNC CALLBACK: Regelt Laden, Speichern UND GUI Update strikt in einer Linie!
 @app.callback(
-    [Output('settings-msg', 'children'), Output('input-radius', 'value'), Output('input-exclude', 'value'), Output('input-connect', 'value')],
-    [Input('save-settings-btn', 'n_clicks'), Input('entry-id', 'data')],
-    [State('input-radius', 'value'), State('input-exclude', 'value'), State('input-connect', 'value')]
+    [Output('entry-id', 'data'), Output('loading-status', 'children'), Output('particle-dropdown', 'options'), Output('particle-dropdown', 'value'), 
+     Output('global-id-filter', 'options'), Output('frame-slider', 'max'), Output('frame-slider', 'marks'), 
+     Output('refresh-trigger', 'data'), Output('settings-msg', 'children'), Output('input-radius', 'value'), Output('input-exclude', 'value'), Output('input-connect', 'value')],
+    [Input('url', 'search'), Input('kickstarter', 'n_intervals'), Input('reload-btn', 'n_clicks'), Input('save-settings-btn', 'n_clicks')], 
+    [State('entry-id', 'data'), State('refresh-trigger', 'data'), State('input-radius', 'value'), State('input-exclude', 'value'), State('input-connect', 'value')]
 )
-def handle_settings(n_clicks, entry_id, r_val, exc_val, conn_val):
+def master_sync(search, kick_n, reload_clicks, save_clicks, entry_id, refresh_val, r_val, exc_val, conn_val, **kwargs):
     ctx = dash.callback_context
-    if not ctx.triggered or not entry_id: return dash.no_update, dash.no_update, dash.no_update, dash.no_update
-    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    trigger = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else ''
+
+    # 1. ID identifizieren
+    if not entry_id and search:
+        try: entry_id = parse_qs(unquote(search).lstrip('?')).get('id', [None])[0] or json.loads(parse_qs(unquote(search).lstrip('?')).get('session_state', ['{}'])[0]).get('MFP_id')
+        except: pass
+    if not entry_id: entry_id = kwargs.get('session_state', {}).get('MFP_id')
+    if not entry_id: return dash.no_update, "❌ Keine ID", [], None, [], 100, {0:'0'}, dash.no_update, "", 40, "", ""
+
+    # 2. Speichern in DB & Cache erzwingen
+    force_reload = False
+    msg = ""
+    dash_exp = Main_MFP.objects.get(id=int(entry_id)).Dash if Main_MFP.objects.filter(id=int(entry_id)).exists() else None
+
+    if trigger == 'save-settings-btn' and dash_exp:
+        dash_exp.Radius_Cutoff, dash_exp.Excluded_IDs, dash_exp.Connected_IDs = float(r_val or 40.0), str(exc_val or ""), str(conn_val or "")
+        dash_exp.save()
+        force_reload, msg = True, "✅ Saved & Applied!"
+    elif trigger == 'reload-btn':
+        force_reload, msg = True, "✅ Reloaded!"
+
+    # 3. Sauberes Laden der geforderten / aktualisierten Daten
+    data = get_data(entry_id, force_reload=force_reload)
+
+    # 4. Settings Panel Werte aktualisieren
+    db_r = dash_exp.Radius_Cutoff if dash_exp and dash_exp.Radius_Cutoff and float(dash_exp.Radius_Cutoff) > 0 else getattr(MFPAnalysis.objects.filter(Entry_id=int(entry_id)).first(), 'Threshold', 40.0)
+    db_exc, db_conn = (dash_exp.Excluded_IDs or "", dash_exp.Connected_IDs or "") if dash_exp else ("", "")
+
+    if not data or data['tracks'].empty: return entry_id, "⚠️ Keine Partikel.", [], None, [], 100, {0:'0'}, (refresh_val or 0) + 1, msg, db_r, db_exc, db_conn
+
+    # 5. Dropdown Optionen generieren
+    tracks = data['tracks']
+    all_p = sorted(tracks['particle'].unique().tolist(), key=lambda x: int(x.split()[0]) if x.split()[0].isdigit() else x)
+    options = [{'label': f"ID {p}" if tracks[tracks['particle']==p]['status'].iloc[0]=='Valid' else f"ID {p} (⚠️ {tracks[tracks['particle']==p]['status'].iloc[0]})", 'value': p} for p in all_p]
     
-    try:
-        dash_exp = Main_MFP.objects.get(id=int(entry_id)).Dash
-        if not dash_exp: return "❌ Kein Dash-Eintrag", dash.no_update, dash.no_update, dash.no_update
+    mf = int(tracks['frame'].max())
+    marks = {0: 'Start', mf: 'Ende'}
+    if 'time' in tracks.columns and not tracks['time'].empty:
+        time_df = tracks.drop_duplicates('frame').sort_values('frame')
+        scaled_times, unit = General.get_smart_time(time_df['time'])
+        time_map = pd.Series(scaled_times.values, index=time_df['frame']).to_dict()
+        marks = {int(i): f'{int(time_map[int(i)])}{unit[0]}' for i in np.linspace(0, mf, 11, dtype=int) if int(i) in time_map}
+        marks.update({0: 'Start', mf: f'{int(time_map[mf])}{unit[0]}' if mf in time_map else 'Ende'})
         
-        if trigger_id == 'entry-id':
-            r_show = dash_exp.Radius_Cutoff if dash_exp.Radius_Cutoff and float(dash_exp.Radius_Cutoff) > 0 else getattr(MFPAnalysis.objects.filter(Entry_id=int(entry_id)).first(), 'Threshold', 40.0)
-            return "", r_show, dash_exp.Excluded_IDs or "", dash_exp.Connected_IDs or ""
-            
-        if trigger_id == 'save-settings-btn':
-            dash_exp.Radius_Cutoff, dash_exp.Excluded_IDs, dash_exp.Connected_IDs = float(r_val or 40.0), str(exc_val or ""), str(conn_val or "")
-            dash_exp.save()
-            DATA_CACHE.clear()
-            get_data(entry_id, force_reload=True)
-            return "✅ Saved & Applied!", dash.no_update, dash.no_update, dash.no_update
-    except Exception as e: return f"❌ Fehler: {str(e)}", dash.no_update, dash.no_update, dash.no_update
+    val_count = len(tracks[tracks['status'] == 'Valid']['particle'].unique())
+    load_stat = f"✅ Geladen ({val_count} Valid | {len(all_p)-val_count} Ignoriert)."
+
+    # 6. TRIGGER FEUERN (Damit sich die Graphen nach dem Update zeichnen!)
+    return entry_id, load_stat, options, all_p[0] if all_p else None, options, mf, marks, (refresh_val or 0) + 1, msg, db_r, db_exc, db_conn
+
 
 @app.callback(
     [Output('ai-analysis-status', 'children'), Output('log-interval', 'disabled'), Output('ai-log-output-wrapper', 'style'), Output('ai-log-output', 'children')],
@@ -227,45 +271,17 @@ def handle_ai_analysis(n_clicks, n_intervals, entry_id):
             except: return dash.no_update, dash.no_update, dash.no_update, html.Div("Lese Log...")
         return dash.no_update, dash.no_update, dash.no_update, html.Div("Warte auf Logdatei...")
 
-@app.callback(
-    [Output('entry-id', 'data'), Output('loading-status', 'children'), Output('particle-dropdown', 'options'), Output('particle-dropdown', 'value'), Output('global-id-filter', 'options'), Output('frame-slider', 'max'), Output('frame-slider', 'marks')],
-    [Input('url', 'search'), Input('kickstarter', 'n_intervals'), Input('reload-btn', 'n_clicks'), Input('save-settings-btn', 'n_clicks')], [State('entry-id', 'data')]
-)
-def init_dashboard(search, n, reload_clicks, save_clicks, current_id, **kwargs):
-    entry_id = current_id
-    if not entry_id and search:
-        try: entry_id = parse_qs(unquote(search).lstrip('?')).get('id', [None])[0] or json.loads(parse_qs(unquote(search).lstrip('?')).get('session_state', ['{}'])[0]).get('MFP_id')
-        except: pass
-    if not entry_id: entry_id = kwargs.get('session_state', {}).get('MFP_id')
-    if not entry_id: return None, "❌ Keine ID gefunden.", [], None, [], 100, {0:'0'}
 
-    force = ('reload-btn' in dash.callback_context.triggered[0]['prop_id'] or 'save-settings-btn' in dash.callback_context.triggered[0]['prop_id']) if dash.callback_context.triggered else False
-    data = get_data(entry_id, force_reload=force)
-    if not data or data['tracks'].empty: return entry_id, "⚠️ Keine Partikel.", [], None, [], 100, {0:'0'}
-
-    tracks = data['tracks']
-    all_p = sorted(tracks['particle'].unique().tolist(), key=lambda x: int(x.split()[0]) if x.split()[0].isdigit() else x)
-    options = [{'label': f"ID {p}" if tracks[tracks['particle']==p]['status'].iloc[0]=='Valid' else f"ID {p} (⚠️ {tracks[tracks['particle']==p]['status'].iloc[0]})", 'value': p} for p in all_p]
-    
-    mf = int(tracks['frame'].max())
-    marks = {0: 'Start', mf: 'Ende'}
-    if 'time' in tracks.columns and not tracks['time'].empty:
-        time_df = tracks.drop_duplicates('frame').sort_values('frame')
-        scaled_times, unit = General.get_smart_time(time_df['time'])
-        time_map = pd.Series(scaled_times.values, index=time_df['frame']).to_dict()
-        marks = {int(i): f'{int(time_map[int(i)])}{unit[0]}' for i in np.linspace(0, mf, 11, dtype=int) if int(i) in time_map}
-        marks.update({0: 'Start', mf: f'{int(time_map[mf])}{unit[0]}' if mf in time_map else 'Ende'})
-        
-    val_count = len(tracks[tracks['status'] == 'Valid']['particle'].unique())
-    return entry_id, f"✅ Geladen ({val_count} Valid | {len(all_p)-val_count} Ignoriert).", options, all_p[0] if all_p else None, options, mf, marks
-
+# 🚨 Die folgenden 3 Plot-Funktionen reagieren jetzt NUR NOCH auf den refresh-trigger (und Tabs)
 @app.callback(
     [Output('image-plot', 'figure'), Output('single-intensity-graph', 'figure'), Output('debug-info', 'children')],
-    [Input('frame-slider', 'value'), Input('channel-selector', 'value'), Input('particle-dropdown', 'value'), Input('show-markers-toggle', 'value'), Input('show-cellpose-toggle', 'value'), Input('y-axis-selector', 'value'), Input('reload-btn', 'n_clicks'), Input('save-settings-btn', 'n_clicks')],
+    [Input('frame-slider', 'value'), Input('channel-selector', 'value'), Input('particle-dropdown', 'value'), Input('show-markers-toggle', 'value'), Input('show-cellpose-toggle', 'value'), Input('y-axis-selector', 'value'), Input('tabs', 'value'), Input('refresh-trigger', 'data')],
     [State('entry-id', 'data')]
 )
-def update_view(frame, channel, pid, markers, show_cellpose, y_metric, reload_clicks, save_clicks, entry_id):
+def update_view(frame, channel, pid, markers, show_cellpose, y_metric, tab, refresh_trigger, entry_id):
+    if tab != 'tab-single': return dash.no_update, dash.no_update, dash.no_update
     if not entry_id or not get_data(entry_id): return go.Figure(), go.Figure(), "No Data"
+    
     data = get_data(entry_id)
     tracks, vid = data['tracks'], data.get('vid_bf', data['vid_detect']) if channel == 'bf' else (data['vid_measure'] if channel == 'measure' else data['vid_detect'])
     if frame >= len(vid): frame = len(vid)-1
@@ -321,10 +337,12 @@ def jump(clickData, entry_id, pid):
 
 @app.callback(
     [Output('global-spaghetti', 'figure'), Output('global-heatmap', 'figure'), Output('excluded-audit-log', 'children')],
-    [Input('global-id-filter', 'value'), Input('global-metric-selector', 'value'), Input('threshold-filter', 'value'), Input('tabs', 'value'), Input('reload-btn', 'n_clicks'), Input('save-settings-btn', 'n_clicks')], [State('entry-id', 'data')]
+    [Input('global-id-filter', 'value'), Input('global-metric-selector', 'value'), Input('threshold-filter', 'value'), Input('tabs', 'value'), Input('refresh-trigger', 'data')], [State('entry-id', 'data')]
 )
-def update_glob(sel, metric, threshold_filter, tab, reload_clicks, save_clicks, eid):
-    if tab != 'tab-global' or not eid or not get_data(eid): return dash.no_update, dash.no_update, dash.no_update
+def update_glob(sel, metric, threshold_filter, tab, refresh_trigger, eid):
+    if tab != 'tab-global': return dash.no_update, dash.no_update, dash.no_update
+    if not eid or not get_data(eid): return go.Figure(), go.Figure(), html.Div("Keine Daten geladen.")
+    
     tracks = get_data(eid)['tracks'].copy() 
     col = metric if metric in tracks.columns else ('radius' if metric == 'radius_cellpose' and 'radius' in tracks.columns else metric)
 
@@ -356,3 +374,60 @@ def update_glob(sel, metric, threshold_filter, tab, reload_clicks, save_clicks, 
     audit_ui = html.Div([html.H5("✨ Audit-Log: Keine Partikel ignoriert", style={'color': 'green', 'margin': 0})]) if df_ex.empty else html.Div([html.H5(f"⚠️ Audit-Log: {len(df_ex)} Partikel im Graphen ignoriert (grau gestrichelt)", style={'marginBottom': '10px', 'color': '#333'}), html.Table([html.Tr([html.Th("Partikel ID", style={'width': '20%'}), html.Th("Grund für Ausschluss", style={'width': '80%'})])] + [html.Tr([html.Td(f"ID {row['particle']}", style={'fontWeight': 'bold'}), html.Td(row['status'], style={'color': '#d9534f'})]) for _, row in df_ex.iterrows()], className="table table-sm table-striped table-bordered", style={'backgroundColor': 'white', 'marginBottom': 0})])
     
     return fig_s, fig_h, audit_ui
+
+@app.callback(
+    Output('scatter-growth-expression', 'figure'),
+    [Input('global-id-filter', 'value'), Input('tabs', 'value'), Input('refresh-trigger', 'data')], [State('entry-id', 'data')]
+)
+def update_scatter(sel, tab, refresh_trigger, eid):
+    if tab != 'tab-scatter': return dash.no_update
+    if not eid or not get_data(eid): return go.Figure(layout={'title': "Keine Daten geladen."})
+    
+    tracks = get_data(eid)['tracks'].copy()
+    df = tracks[tracks['particle'].isin(sel)].copy() if sel else tracks.copy()
+    df = df[df['status'] == 'Valid'] 
+    
+    if df.empty or 'norm_total_intensity' not in df.columns:
+        return go.Figure(layout={'title': "Keine ausreichenden / validen Intensitäts-Daten gefunden."})
+        
+    stats = []
+    for p_id, group in df.groupby('particle'):
+        min_g = group['cum_norm_growth_um'].min()
+        max_g = group['cum_norm_growth_um'].max()
+        extreme_g = min_g if abs(min_g) > abs(max_g) else max_g
+        max_int = group['norm_total_intensity'].max()
+        
+        if pd.notna(extreme_g) and pd.notna(max_int):
+            stats.append({'Particle_ID': p_id, 'Extreme_Growth_um': extreme_g, 'Max_Norm_Total_Intensity': max_int})
+            
+    res_df = pd.DataFrame(stats).dropna()
+    if res_df.empty: return go.Figure(layout={'title': "Keine berechenbaren Werte."})
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=res_df['Extreme_Growth_um'], y=res_df['Max_Norm_Total_Intensity'],
+        mode='markers+text', text=res_df['Particle_ID'], textposition="top right",
+        marker=dict(size=12, color='#1f77b4', line=dict(width=1, color='black')),
+        name=f"PK {eid}"
+    ))
+
+    if len(res_df) > 1:
+        m, b = np.polyfit(res_df['Extreme_Growth_um'], res_df['Max_Norm_Total_Intensity'], 1)
+        x_range = np.array([res_df['Extreme_Growth_um'].min(), res_df['Extreme_Growth_um'].max()])
+        fig.add_trace(go.Scatter(x=x_range, y=m * x_range + b, mode='lines', line=dict(color='black', width=2), name="Global Trend"))
+
+    sp_r, sp_p = spearmanr(res_df['Extreme_Growth_um'], res_df['Max_Norm_Total_Intensity'])
+
+    fig.add_vline(x=0.3, line_dash="dash", line_color="blue", annotation_text="Growth > +0.3")
+    fig.add_vline(x=-0.3, line_dash="dash", line_color="red", annotation_text="Shrink < -0.3")
+    fig.add_vline(x=0, line_color="gray", line_width=1)
+
+    fig.update_layout(
+        template="plotly_white",
+        title=f"Spearman r: {sp_r:.3f} (p-value: {sp_p:.2e})",
+        xaxis_title="Extreme Cumulative Normalized Change (µm)<br><-- Shrinking | Growing -->",
+        yaxis_title="Max Norm. Total Intensity (A.U.)",
+        height=700
+    )
+    
+    return fig

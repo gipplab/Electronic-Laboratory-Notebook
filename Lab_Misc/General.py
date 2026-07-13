@@ -145,12 +145,12 @@ def process_mfp_tracks(tracks, dash_exp, best_rad_col, img_w, img_h, default_cut
             exc_list = [str(x.strip()) for x in dash_exp.Excluded_IDs.replace(',', ' ').split() if x.strip()]
             tracks.loc[tracks['particle'].isin(exc_list), 'status'] = 'Ausgeschlossen (Manuell)'
 
-    # 2. Radius Cut-off Tagging (Aussortieren falscher Größe/Energie)
+    # 2. Radius Cut-off Tagging (Aussortieren falscher Größe)
     cutoff = float(dash_exp.Radius_Cutoff) if (dash_exp and dash_exp.Radius_Cutoff and float(dash_exp.Radius_Cutoff) > 0) else default_cutoff
     if cutoff > 0:
         tracks.loc[tracks[best_rad_col] < cutoff, 'status'] = f'Radius < Cut-off ({cutoff:.0f}px)'
 
-    # 3. Randberührung (🚨 KOMPLETT OHNE PUFFER - berührt exakt Rand 0 oder max Breite/Höhe)
+    # 3. Randberührung (Exakt am Rand ohne Puffer)
     if 'x' in tracks.columns and 'y' in tracks.columns:
         touches_edge = (
             (tracks['x'] - tracks[best_rad_col] <= 0) | 
@@ -167,24 +167,28 @@ def process_mfp_tracks(tracks, dash_exp, best_rad_col, img_w, img_h, default_cut
     tracks['radius_smooth_um'] = tracks.groupby('particle')['radius_um'].transform(lambda x: x.rolling(window=3, center=True, min_periods=1).mean())
     tracks['delta_r_um'] = tracks.groupby('particle')['radius_smooth_um'].diff().fillna(0)
     
-    mean_delta = tracks.groupby('frame')['delta_r_um'].mean().reset_index().rename(columns={'delta_r_um': 'mean_delta_r_um'})
-    tracks = tracks.merge(mean_delta, on='frame', how='left')
-    tracks['norm_delta_r_um'] = tracks['delta_r_um'] - tracks['mean_delta_r_um']
-    
-    def custom_cumsum(series):
-        cum_vals, current_sum = [], 0
-        for delta in series:
-            current_sum = delta if (current_sum < 0 and delta > 0) else current_sum + delta
-            cum_vals.append(current_sum)
-        return cum_vals
-        
-    tracks['cum_norm_growth_um'] = tracks.groupby('particle')['norm_delta_r_um'].transform(custom_cumsum)
+    median_delta = tracks.groupby('frame')['delta_r_um'].median().reset_index().rename(columns={'delta_r_um': 'median_delta_r_um'})
+    tracks = tracks.merge(median_delta, on='frame', how='left')
+    tracks['norm_delta_r_um'] = (tracks['delta_r_um'] - tracks['median_delta_r_um']).fillna(0)
+    tracks['cum_norm_growth_um'] = tracks.groupby('particle')['norm_delta_r_um'].cumsum()
 
-    # 5. Mittlere Intensitäten berechnen
-    area = (np.pi * (tracks[best_rad_col] ** 2)).replace(0, np.nan) 
-    if 'intensity_measure' in tracks.columns and 'mean_intensity_measure' not in tracks.columns:
-        tracks['mean_intensity_measure'] = tracks['intensity_measure'] / area
-    if 'intensity_detect' in tracks.columns and 'mean_intensity_detect' not in tracks.columns:
-        tracks['mean_intensity_detect'] = tracks['intensity_detect'] / area
+    # 5. Intensitäten & Total Normalized Intensity berechnen
+    tracks['area_px'] = (np.pi * (tracks[best_rad_col] ** 2)).replace(0, np.nan) 
+    
+    # Primär: Measure-Kanal (🔴)
+    if 'intensity_measure' in tracks.columns:
+        tracks['mean_intensity_measure'] = tracks['intensity_measure'] / tracks['area_px']
+        tracks['total_intensity'] = tracks['intensity_measure'] * tracks['area_px']
+        first_area = tracks.groupby('particle')['area_px'].transform(lambda x: x.dropna().iloc[0] if not x.dropna().empty else 1)
+        tracks['norm_total_intensity'] = tracks['total_intensity'] / first_area
+
+    # Sekundär/Fallback: Detect-Kanal (🟢)
+    if 'intensity_detect' in tracks.columns:
+        tracks['mean_intensity_detect'] = tracks['intensity_detect'] / tracks['area_px']
+        # 🚨 FALLBACK: Wenn kein roter Kanal existiert, nutze den grünen für den Scatter Plot!
+        if 'norm_total_intensity' not in tracks.columns:
+            tracks['total_intensity'] = tracks['intensity_detect'] * tracks['area_px']
+            first_area = tracks.groupby('particle')['area_px'].transform(lambda x: x.dropna().iloc[0] if not x.dropna().empty else 1)
+            tracks['norm_total_intensity'] = tracks['total_intensity'] / first_area
 
     return tracks
