@@ -191,7 +191,7 @@ def Load_MFP_Video(pk):
         'analysis_obj': analysis
     }
 
-def Load_MFP(pk):
+'''def Load_MFP(pk):
     """
     Lädt die Analyse-Ergebnisse (Tracks) eines MFP-Experiments.
     """
@@ -288,6 +288,111 @@ def Load_MFP(pk):
                 fps = getattr(entry, 'Frame_rate', 1.0) 
                 if fps and fps > 0:
                     tracks['time'] = tracks['frame'] / fps
+
+        return tracks
+
+    except Exception as e:
+        print(f"Error loading pickle file for MFP ID {pk}: {e}")
+        return pd.DataFrame()'''
+
+def Load_MFP(pk):
+    """
+    Lädt die Analyse-Ergebnisse (Tracks) eines MFP-Experiments.
+    Maximal auf SSD-Speed optimiert: Überspringt das Netzwerk komplett, wenn lokal vorhanden.
+    """
+    entry = General.get_in_full_model(pk) 
+    
+    try:
+        from Analysis.models import MFPAnalysis
+        analysis = MFPAnalysis.objects.get(Entry_id=pk)
+        result_path = analysis.Result_Path
+        
+        # 1. Netzwerk-Pfad theoretisch ermitteln
+        network_path = None
+        if result_path:
+            if os.path.isabs(str(result_path)):
+                network_path = str(result_path)
+            else:
+                network_path = os.path.join(General.get_BasePath(), str(result_path))
+        else:
+            base_path = Load_MFP_Path(pk)
+            # UPDATED: Account for paths that might already point to 03_Local_Analysis or still 01_Videos
+            if base_path:
+                if "01_Videos" in base_path:
+                     network_path = base_path.replace("01_Videos", "02_Analysis_Results").rsplit('.', 1)[0] + '.pkl'
+                elif "03_Local_Analysis" in base_path:
+                     network_path = base_path.rsplit('.', 1)[0] + '.pkl'
+
+        # 2. SPEED-FIX: Erst lokal prüfen! 
+        final_path = None
+        if network_path:
+            # Check the new local path first
+            local_path = network_path.replace("02_Analysis_Results", "03_Local_Analysis")
+            
+            if os.path.exists(local_path):
+                final_path = local_path
+            elif os.path.exists(network_path):
+                final_path = network_path
+                
+        if not final_path:
+            # print(f"Warning: No result path found for MFP ID {pk}") # Consider uncommenting for debugging if needed
+            return pd.DataFrame()
+            
+        result_path = final_path
+
+    except Exception as e:
+        return pd.DataFrame()
+
+    # 3. Pickle Datei laden
+    try:
+        with open(result_path, 'rb') as f:
+            data_dict = pickle.load(f)
+            
+        tracks = data_dict.get('tracks', pd.DataFrame())
+        
+        if tracks.empty and 'polymersomes' in data_dict:
+            cp_data = data_dict['polymersomes']
+            if cp_data and isinstance(cp_data, list) and 'particle' in cp_data[0]:
+                tracks = pd.DataFrame(cp_data)
+        
+        if not tracks.empty:
+            source_file = None
+            if getattr(entry, 'Link', None):
+                source_file = os.path.join(General.get_BasePath(), entry.Link)
+                tracks['Source_File'] = entry.Link
+
+            # 🚨 ZEIT-FIX: Exakte Hardware-Zeitstempel aus dem ND2-Header lesen (dauert nur Millisekunden!)
+            times_mapped = False
+            if source_file and os.path.exists(source_file):
+                import nd2
+                try:
+                    with nd2.ND2File(source_file) as f:
+                        frames = tracks['frame'].unique()
+                        time_map = {}
+                        for idx in frames:
+                            try:
+                                # Nikon speichert die relative Zeit exakt in Millisekunden
+                                t_ms = f.frame_metadata(int(idx)).channels[0].time.relativeTimeMs
+                                time_map[int(idx)] = t_ms / 1000.0  # Umrechnung in Sekunden
+                            except:
+                                pass 
+                        
+                        if time_map:
+                            tracks['time'] = tracks['frame'].map(time_map)
+                            times_mapped = True
+                except Exception as e:
+                    print(f"⚠️ Konnte ND2-Zeiten nicht lesen, nutze Fallback: {e}")
+
+            # Fallback: Nur wenn die ND2-Datei fehlt oder kaputt ist, nutzen wir Frame_rate
+            if not times_mapped:
+                fps = getattr(entry, 'Frame_rate', 1.0) 
+                if fps and fps > 0:
+                    tracks['time'] = tracks['frame'] / fps
+                else:
+                    tracks['time'] = tracks['frame']
+                    
+            # Die Auflösung für den Randfilter anhängen
+            tracks.attrs['resolution'] = data_dict.get('resolution', (2304, 2304))
 
         return tracks
 

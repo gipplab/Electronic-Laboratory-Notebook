@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% load plotly_dash %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="mb-4"><h2>MFP Daily Analysis</h2></div>
+    <div class="row">
+        <div class="col-md-12">
+           <!-- 🚨 HIER: Wir laden explizit das neue Daily Dashboard -->
+           {% plotly_app name="MFP_Daily_Dashboard" ratio=1 %}
+        </div>
+    </div>
+</div>
+{% endblock %}

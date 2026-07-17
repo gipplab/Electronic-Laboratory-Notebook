@@ -145,6 +145,14 @@ def process_mfp_tracks(tracks, dash_exp, best_rad_col, img_w, img_h, default_cut
             exc_list = [str(x.strip()) for x in dash_exp.Excluded_IDs.replace(',', ' ').split() if x.strip()]
             tracks.loc[tracks['particle'].isin(exc_list), 'status'] = 'Ausgeschlossen (Manuell)'
 
+    # 🚨 Filter für Partikel, die nur in einem Frame auftauchen
+    # Wir gruppieren nach 'particle' und zählen, wie viele Frames jeder Partikel hat
+    frame_counts = tracks.groupby('particle')['frame'].nunique()
+    valid_particles = frame_counts[frame_counts > 5].index
+    
+    # Wir markieren Partikel mit nur einem Frame als 'Transient'
+    tracks.loc[~tracks['particle'].isin(valid_particles), 'status'] = 'Transient'
+    
     # 2. Radius Cut-off Tagging (Aussortieren falscher Größe)
     cutoff = float(dash_exp.Radius_Cutoff) if (dash_exp and dash_exp.Radius_Cutoff and float(dash_exp.Radius_Cutoff) > 0) else default_cutoff
     if cutoff > 0:
@@ -170,7 +178,22 @@ def process_mfp_tracks(tracks, dash_exp, best_rad_col, img_w, img_h, default_cut
     median_delta = tracks.groupby('frame')['delta_r_um'].median().reset_index().rename(columns={'delta_r_um': 'median_delta_r_um'})
     tracks = tracks.merge(median_delta, on='frame', how='left')
     tracks['norm_delta_r_um'] = (tracks['delta_r_um'] - tracks['median_delta_r_um']).fillna(0)
-    tracks['cum_norm_growth_um'] = tracks.groupby('particle')['norm_delta_r_um'].cumsum()
+    
+    # 1. Rohes, unbereinigtes Aufsummmieren (Netto-Änderung)
+    raw_cum_growth = tracks.groupby('particle')['norm_delta_r_um'].cumsum()
+    tracks['raw_cum_growth_um'] = raw_cum_growth  # Backup der Rohdaten
+    
+    # 2. 🚨 DER WACHSTUMS-RESET: Wir überschreiben cum_norm_growth_um DIREKT!
+    # HIER IST DER FIX: In den eckigen Klammern steht jetzt der Spaltenname als String ('raw_cum_growth_um')
+    resetted_growth = tracks.groupby('particle')['raw_cum_growth_um'].transform(lambda x: x - x.cummin())
+    tracks['cum_norm_growth_um'] = resetted_growth
+    tracks['growth_reset_um'] = resetted_growth  # Doppel-Zuweisung, damit kein Dashboard meckert
+    
+    # 3. Das Gegenstück für die Schrumpf-Analyse (reines Schrumpfen ab dem Gipfel):
+    # AUCH HIER DER FIX:
+    resetted_shrink = tracks.groupby('particle')['raw_cum_growth_um'].transform(lambda x: x - x.cummax())
+    tracks['cum_norm_shrink_um'] = resetted_shrink
+    tracks['shrink_reset_um'] = resetted_shrink
 
     # 5. Intensitäten & Total Normalized Intensity berechnen
     tracks['area_px'] = (np.pi * (tracks[best_rad_col] ** 2)).replace(0, np.nan) 
@@ -185,7 +208,7 @@ def process_mfp_tracks(tracks, dash_exp, best_rad_col, img_w, img_h, default_cut
     # Sekundär/Fallback: Detect-Kanal (🟢)
     if 'intensity_detect' in tracks.columns:
         tracks['mean_intensity_detect'] = tracks['intensity_detect'] / tracks['area_px']
-        # 🚨 FALLBACK: Wenn kein roter Kanal existiert, nutze den grünen für den Scatter Plot!
+        # FALLBACK: Wenn kein roter Kanal existiert, nutze den grünen für den Scatter Plot!
         if 'norm_total_intensity' not in tracks.columns:
             tracks['total_intensity'] = tracks['intensity_detect'] * tracks['area_px']
             first_area = tracks.groupby('particle')['area_px'].transform(lambda x: x.dropna().iloc[0] if not x.dropna().empty else 1)

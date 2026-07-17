@@ -14,9 +14,10 @@ import time
 import sys
 from django.shortcuts import render, redirect
 from django.conf import settings
-
+import json # Sicherstellen, dass json importiert ist
 from .models import MFPAnalysis
 from .scripts.MFP_Analyze import run_analysis
+import Lab_Dash.dash_apps.MFP_Daily_Dashboard
 from Lab_Dash.models import MFP # Dein Experiment Model
 from .scripts.MFP_Analyze import run_full_analysis
 from django.shortcuts import get_object_or_404
@@ -211,6 +212,13 @@ def index(request):
         'jupyter_running': jupyter_status,
     }
     return render(request, 'Analysis.html', context)
+
+def MFP_Daily_View(request):
+    # Einfach nur das neue Template laden!
+    context = {
+        'page_title': "MFP Daily Analysis",
+    }
+    return render(request, 'MFP_Daily_Dashboard.html', context)
 
 def OszAnalysis_view(request):
     model = OszAnalysisJoin.objects.all()
