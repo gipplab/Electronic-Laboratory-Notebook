@@ -127,7 +127,7 @@ def get_FloatAfterTrigger(string, trigger):
 import pandas as pd
 import numpy as np
 
-def process_mfp_tracks(tracks, dash_exp, best_rad_col, img_w, img_h, default_cutoff=40.0):
+def process_mfp_tracks(tracks, dash_exp, best_rad_col, img_w, img_h, default_cutoff=70.0):
     """
     Bereinigt, taggt und berechnet die Kinematik der MFP-Tracks für das Dashboard.
     """

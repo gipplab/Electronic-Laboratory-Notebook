@@ -90,7 +90,7 @@ class MFP(models.Model):
     # DATA CLEANING (FILTERING & MERGING)
     # =========================================================
     Radius_Cutoff = models.FloatField(
-        default=40.0, 
+        default=70.0, 
         verbose_name="Radius Cut-off (px)",
         help_text="Particles with a radius larger than this value will be ignored."
     )

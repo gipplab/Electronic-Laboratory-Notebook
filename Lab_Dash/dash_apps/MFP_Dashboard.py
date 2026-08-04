@@ -25,6 +25,7 @@ app = DjangoDash('MFP_Dashboard')
 # LAYOUT-BLÖCKE
 # =========================================================
 tab_single_ui = html.Div([
+    # LINKE SPALTE
     html.Div([
         html.Div([
             html.Label("Channel:", style={'fontWeight': 'bold'}),
@@ -32,10 +33,15 @@ tab_single_ui = html.Div([
             dcc.Checklist(id='show-markers-toggle', options=[{'label': ' Markers', 'value': 'show'}], value=['show'], style={'display': 'inline-block', 'marginLeft': '10px'}),
             dcc.Checklist(id='show-cellpose-toggle', options=[{'label': ' 🧠 AI Masks', 'value': 'show'}], value=['show'], style={'display': 'inline-block', 'marginLeft': '15px', 'color': 'green', 'fontWeight': 'bold'}),
         ], style={'marginBottom': '5px'}),
-        dcc.Graph(id='image-plot', style={'height': '35vh'}),
+        dcc.Graph(
+            id='image-plot', 
+            style={'height': '50vh', 'width': '100%'}, 
+            config={'responsive': True}
+        ),
         dcc.Slider(id='frame-slider', min=0, max=100, value=0, step=1, marks={0:'0'}, tooltip={"placement": "bottom", "always_visible": True})
-    ], style={'width': '55%', 'display': 'inline-block', 'verticalAlign': 'top', 'padding': '10px'}),
+    ], style={'width': '55%', 'minWidth': '400px', 'padding': '10px'}), # inline-block entfernt, minWidth hinzugefügt
     
+    # RECHTE SPALTE
     html.Div([
         html.Label("Particle ID:", style={'fontWeight': 'bold'}),
         dcc.Dropdown(id='particle-dropdown', options=[], value=None, clearable=False),
@@ -54,8 +60,9 @@ tab_single_ui = html.Div([
         ], style={'marginBottom': '5px'}),
         dcc.Graph(id='single-intensity-graph', style={'height': '35vh'}),
         html.Div(id='debug-info', style={'color': 'gray', 'fontSize': '0.8em', 'marginTop': '5px'})
-    ], style={'width': '40%', 'display': 'inline-block', 'verticalAlign': 'top', 'padding': '10px'})
-])
+    ], style={'width': '40%', 'minWidth': '350px', 'padding': '10px'}) # inline-block entfernt, minWidth hinzugefügt
+
+], style={'display': 'flex', 'flexWrap': 'wrap', 'justifyContent': 'space-between'}) # Flexbox Container hinzugefügt
 
 tab_global_ui = html.Div([
     html.Div([
@@ -302,7 +309,15 @@ def update_view(frame, channel, pid, markers, show_cellpose, y_metric, tab, refr
             scol.append('#00FFFF' if str(pid)==p_id else ('#FFFF00' if stat == 'Valid' else '#808080'))
             shov.append(f"<b>ID {p_id}</b><br>Status: {stat}<br>X: {cx:.1f} | Y: {cy:.1f}<br>AI-Rad: {f_rad}")
 
-    fig_img.update_layout(shapes=shapes, margin=dict(l=0,r=0,t=30,b=0), height=650, title=f"Frame {frame}", xaxis=dict(range=[0, vid[frame].shape[1]], visible=False), yaxis=dict(autorange='reversed', scaleanchor="x", scaleratio=1, visible=False))
+    # NACHHER:
+    h, w = vid[frame].shape
+    fig_img.update_layout(
+        margin=dict(l=0, r=0, t=30, b=0), 
+        autosize=True, # Passt die Größe automatisch an den CSS-Container an
+        title=f"Frame {frame}",
+        xaxis=dict(range=[0, w], visible=False), 
+        yaxis=dict(autorange='reversed', scaleanchor="x", scaleratio=1, visible=False)
+    )
     if sx: fig_img.add_trace(go.Scatter(x=sx, y=sy, mode='text', text=stxt, textposition='top right', textfont=dict(color=scol, size=12, family="Arial Black"), hoverinfo='text', hovertext=shov, showlegend=False))
 
     fig_graph = go.Figure()
