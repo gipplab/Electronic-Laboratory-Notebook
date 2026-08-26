@@ -18,6 +18,7 @@ from scipy.spatial.distance import cdist
 
 from Lab_Misc.Load_Data import Load_MFP_Video, Load_MFP_Path
 from Analysis.models import MFPAnalysis
+import trackpy as tp
 
 # =========================================================
 # 1. DER SERVER-TÜRSTEHER (Ressourcen-Check)
@@ -201,69 +202,15 @@ def run_cellpose_cement_analysis(entry_id, diameter, minmass=None, box_size=None
             next_track_id = 1
             active_tracks = {} 
             
-            for frame_idx, group in df.groupby('frame'):
-                current_detections = group.to_dict('records')
-                if not active_tracks:
-                    for det in current_detections:
-                        det['particle'] = next_track_id
-                        tracked_data.append(det)
-                        active_tracks[next_track_id] = {**det, 'lost_count': 0}
-                        next_track_id += 1
-                    continue
+            if run_mode != 'single' and len(all_results) > 0:
+                analyzer.log_progress("\n🔗 Starte Tracking mit trackpy...")
+                df = pd.DataFrame(all_results).sort_values('frame')
                 
-                track_ids = list(active_tracks.keys())
-                track_coords = np.array([[active_tracks[tid]['x'], active_tracks[tid]['y']] for tid in track_ids])
-                track_radii = np.array([active_tracks[tid]['radius'] for tid in track_ids])
+                # Trackpy übernimmt das Linking. 
+                # search_range=120 und memory=7 entsprechen den bisherigen Parametern.
+                df_tracked = tp.link_df(df, search_range=120, memory=7, pos_columns=['x', 'y'])
                 
-                det_coords = np.array([[d['x'], d['y']] for d in current_detections])
-                det_radii = np.array([d['radius'] for d in current_detections])
-                
-                drift_x, drift_y = 0.0, 0.0
-                if len(track_coords) > 0 and len(det_coords) > 0:
-                    dists = cdist(track_coords, det_coords)
-                    min_indices = np.argmin(dists, axis=0)
-                    drift_x = np.median(det_coords[:, 0] - track_coords[min_indices, 0])
-                    drift_y = np.median(det_coords[:, 1] - track_coords[min_indices, 1])
-                    
-                predicted_track_coords = track_coords + np.array([drift_x, drift_y])
-                dist_matrix = cdist(predicted_track_coords, det_coords)
-                raw_rad_diff = np.abs(track_radii[:, None] - det_radii[None, :])
-                cost_matrix = dist_matrix + (raw_rad_diff * RADIUS_WEIGHT)
-                
-                invalid_links = (dist_matrix > MAX_DISTANCE) | (raw_rad_diff > MAX_RADIUS_CHANGE)
-                cost_matrix[invalid_links] = 1e9
-                
-                row_ind, col_ind = linear_sum_assignment(cost_matrix)
-                
-                assigned_detections = set()
-                new_active_tracks = {}
-                
-                for r, c in zip(row_ind, col_ind):
-                    if cost_matrix[r, c] < 1e9: 
-                        tid = track_ids[r]
-                        det = current_detections[c]
-                        det['particle'] = tid
-                        tracked_data.append(det)
-                        new_active_tracks[tid] = {**det, 'lost_count': 0}
-                        assigned_detections.add(c)
-                
-                for c, det in enumerate(current_detections):
-                    if c not in assigned_detections:
-                        det['particle'] = next_track_id
-                        tracked_data.append(det)
-                        new_active_tracks[next_track_id] = {**det, 'lost_count': 0}
-                        next_track_id += 1
-                
-                for tid, track_info in active_tracks.items():
-                    if tid not in new_active_tracks:
-                        track_info['lost_count'] += 1
-                        if track_info['lost_count'] <= MEMORY_FRAMES:
-                            track_info['x'] += drift_x
-                            track_info['y'] += drift_y
-                            new_active_tracks[tid] = track_info
-                active_tracks = new_active_tracks
-            
-            all_results = tracked_data
+                all_results = df_tracked.to_dict('records')
 
         # 🚨 2. DEN SICHEREN SPEICHERORT GENERIEREN
         from Lab_Misc import General
