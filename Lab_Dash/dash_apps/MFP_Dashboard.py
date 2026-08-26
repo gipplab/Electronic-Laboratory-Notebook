@@ -39,7 +39,7 @@ tab_single_ui = html.Div([
             config={'responsive': True}
         ),
         dcc.Slider(id='frame-slider', min=0, max=100, value=0, step=1, marks={0:'0'}, tooltip={"placement": "bottom", "always_visible": True})
-    ], style={'width': '55%', 'minWidth': '400px', 'padding': '10px'}), # inline-block entfernt, minWidth hinzugefügt
+    ], style={'width': '55%', 'minWidth': '400px', 'padding': '10px'}),
     
     # RECHTE SPALTE
     html.Div([
@@ -48,9 +48,10 @@ tab_single_ui = html.Div([
         html.Div([
             html.Label("Plot Y-Axis:", style={'fontWeight': 'bold', 'marginTop': '10px', 'marginRight': '10px'}),
             dcc.RadioItems(id='y-axis-selector', options=[
-                {'label': ' Total Int. Measure (🔴)', 'value': 'intensity_measure'}, 
+                # 🛠️ FIX: values angepasst, damit sie die neuen korrekten Spalten abrufen
+                {'label': ' Total Int. Measure (🔴)', 'value': 'total_intensity_measure'}, 
                 {'label': ' Mean Int. Measure (🔴)', 'value': 'mean_intensity_measure'}, 
-                {'label': ' Total Int. Detect (🟢)', 'value': 'intensity_detect'}, 
+                {'label': ' Total Int. Detect (🟢)', 'value': 'total_intensity_detect'}, 
                 {'label': ' Mean Int. Detect (🟢)', 'value': 'mean_intensity_detect'}, 
                 {'label': ' BF Radius', 'value': 'radius_brightfield'},
                 {'label': ' Fluo Radius', 'value': 'real_size'},
@@ -60,17 +61,18 @@ tab_single_ui = html.Div([
         ], style={'marginBottom': '5px'}),
         dcc.Graph(id='single-intensity-graph', style={'height': '35vh'}),
         html.Div(id='debug-info', style={'color': 'gray', 'fontSize': '0.8em', 'marginTop': '5px'})
-    ], style={'width': '40%', 'minWidth': '350px', 'padding': '10px'}) # inline-block entfernt, minWidth hinzugefügt
+    ], style={'width': '40%', 'minWidth': '350px', 'padding': '10px'})
 
-], style={'display': 'flex', 'flexWrap': 'wrap', 'justifyContent': 'space-between'}) # Flexbox Container hinzugefügt
+], style={'display': 'flex', 'flexWrap': 'wrap', 'justifyContent': 'space-between'})
 
 tab_global_ui = html.Div([
     html.Div([
         html.Label("Global Metric:", style={'fontWeight': 'bold', 'marginRight': '15px'}),
         dcc.RadioItems(id='global-metric-selector', options=[
-            {'label': ' Total Int. Measure (🔴)', 'value': 'intensity_measure'}, 
+            # 🛠️ FIX: values auch hier angepasst
+            {'label': ' Total Int. Measure (🔴)', 'value': 'total_intensity_measure'}, 
             {'label': ' Mean Int. Measure (🔴)', 'value': 'mean_intensity_measure'}, 
-            {'label': ' Total Int. Detect (🟢)', 'value': 'intensity_detect'}, 
+            {'label': ' Total Int. Detect (🟢)', 'value': 'total_intensity_detect'}, 
             {'label': ' Mean Int. Detect (🟢)', 'value': 'mean_intensity_detect'}, 
             {'label': ' AI Radius', 'value': 'radius_cellpose'},
             {'label': ' 📈 Growth (µm)', 'value': 'cum_norm_growth_um'}
@@ -172,6 +174,55 @@ def get_data(entry_id, force_reload=False):
             except: default_cutoff = 40.0
             tracks = General.process_mfp_tracks(tracks, dash_exp, best_rad_col, img_w, img_h, default_cutoff)
 
+            # ==========================================================
+            # 🛠️ FIX: KORREKTE BERECHNUNG VON MEAN UND TOTAL INTENSITY
+            # INKL. LIVE HINTERGRUND-SUBTRAKTION (10. Perzentil)
+            # ==========================================================
+            if not tracks.empty:
+                # 1. Partikelfläche berechnen: A = pi * r^2
+                area = np.pi * (tracks[best_rad_col] ** 2)
+                
+                # 2. Schnelle Hintergrund-Berechnung (10. Perzentil) für jedes Frame
+                unique_frames = tracks['frame'].unique()
+                bg_m_map, bg_d_map = {}, {}
+                
+                for f in unique_frames:
+                    f_idx = int(f)
+                    
+                    # Roter Kanal (Measure)
+                    if video_data.get('measure') is not None and f_idx < len(video_data['measure']):
+                        # [::4, ::4] liest nur jeden 4. Pixel ein -> extrem schnell!
+                        bg_m_map[f] = np.percentile(video_data['measure'][f_idx][::4, ::4], 10)
+                    else:
+                        bg_m_map[f] = 0.0
+                        
+                    # Grüner Kanal (Detect)
+                    if video_data.get('detect') is not None and f_idx < len(video_data['detect']):
+                        bg_d_map[f] = np.percentile(video_data['detect'][f_idx][::4, ::4], 10)
+                    else:
+                        bg_d_map[f] = 0.0
+
+                # --- Roter Kanal (Measure / mScarlet) ---
+                if 'intensity_measure' in tracks.columns:
+                    # Hintergrund zuweisen und vom Mean abziehen (.clip(lower=0) verhindert negative Werte)
+                    tracks['bg_measure'] = tracks['frame'].map(bg_m_map)
+                    tracks['mean_intensity_measure'] = (tracks['intensity_measure'] - tracks['bg_measure']).clip(lower=0)
+                    
+                    # Totale Intensität = Korrigierter Mean * Fläche
+                    tracks['total_intensity_measure'] = tracks['mean_intensity_measure'] * area
+                    
+                    # Normalisierte Totale Intensität (für Scatter Plot Tab)
+                    tracks['norm_total_intensity'] = tracks.groupby('particle')['total_intensity_measure'].transform(
+                        lambda x: x / (x.iloc[:3].median() if len(x) >= 3 and x.iloc[:3].median() > 0 else (x.iloc[0] if len(x) > 0 and x.iloc[0] > 0 else 1.0))
+                    )
+
+                # --- Grüner Kanal (Detect / GFP) ---
+                if 'intensity_detect' in tracks.columns:
+                    tracks['bg_detect'] = tracks['frame'].map(bg_d_map)
+                    tracks['mean_intensity_detect'] = (tracks['intensity_detect'] - tracks['bg_detect']).clip(lower=0)
+                    tracks['total_intensity_detect'] = tracks['mean_intensity_detect'] * area
+
+
         DATA_CACHE[int(entry_id)] = {'tracks': tracks, 'vid_detect': video_data['detect'], 'vid_measure': video_data['measure'], 'vid_bf': video_data['brightfield'], 'cellpose': cellpose_data}
         return DATA_CACHE[int(entry_id)]
     except Exception as e:
@@ -179,7 +230,7 @@ def get_data(entry_id, force_reload=False):
         return None
 
 # =========================================================
-# CALLBACKS (Race-Condition Fix)
+# CALLBACKS 
 # =========================================================
 @app.callback(Output('settings-panel', 'style'), [Input('toggle-settings-btn', 'n_clicks')], [State('settings-panel', 'style')])
 def toggle_settings(n_clicks, current_style):
@@ -187,7 +238,6 @@ def toggle_settings(n_clicks, current_style):
     current_style['display'] = 'block' if current_style.get('display') == 'none' else 'none'
     return current_style
 
-# 🚨 MASTER SYNC CALLBACK: Regelt Laden, Speichern UND GUI Update strikt in einer Linie!
 @app.callback(
     [Output('entry-id', 'data'), Output('loading-status', 'children'), Output('particle-dropdown', 'options'), Output('particle-dropdown', 'value'), 
      Output('global-id-filter', 'options'), Output('frame-slider', 'max'), Output('frame-slider', 'marks'), 
@@ -199,14 +249,12 @@ def master_sync(search, kick_n, reload_clicks, save_clicks, entry_id, refresh_va
     ctx = dash.callback_context
     trigger = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else ''
 
-    # 1. ID identifizieren
     if not entry_id and search:
         try: entry_id = parse_qs(unquote(search).lstrip('?')).get('id', [None])[0] or json.loads(parse_qs(unquote(search).lstrip('?')).get('session_state', ['{}'])[0]).get('MFP_id')
         except: pass
     if not entry_id: entry_id = kwargs.get('session_state', {}).get('MFP_id')
     if not entry_id: return dash.no_update, "❌ Keine ID", [], None, [], 100, {0:'0'}, dash.no_update, "", 40, "", ""
 
-    # 2. Speichern in DB & Cache erzwingen
     force_reload = False
     msg = ""
     dash_exp = Main_MFP.objects.get(id=int(entry_id)).Dash if Main_MFP.objects.filter(id=int(entry_id)).exists() else None
@@ -218,16 +266,13 @@ def master_sync(search, kick_n, reload_clicks, save_clicks, entry_id, refresh_va
     elif trigger == 'reload-btn':
         force_reload, msg = True, "✅ Reloaded!"
 
-    # 3. Sauberes Laden der geforderten / aktualisierten Daten
     data = get_data(entry_id, force_reload=force_reload)
 
-    # 4. Settings Panel Werte aktualisieren
     db_r = dash_exp.Radius_Cutoff if dash_exp and dash_exp.Radius_Cutoff and float(dash_exp.Radius_Cutoff) > 0 else getattr(MFPAnalysis.objects.filter(Entry_id=int(entry_id)).first(), 'Threshold', 40.0)
     db_exc, db_conn = (dash_exp.Excluded_IDs or "", dash_exp.Connected_IDs or "") if dash_exp else ("", "")
 
     if not data or data['tracks'].empty: return entry_id, "⚠️ Keine Partikel.", [], None, [], 100, {0:'0'}, (refresh_val or 0) + 1, msg, db_r, db_exc, db_conn
 
-    # 5. Dropdown Optionen generieren
     tracks = data['tracks']
     all_p = sorted(tracks['particle'].unique().tolist(), key=lambda x: int(x.split()[0]) if x.split()[0].isdigit() else x)
     options = [{'label': f"ID {p}" if tracks[tracks['particle']==p]['status'].iloc[0]=='Valid' else f"ID {p} (⚠️ {tracks[tracks['particle']==p]['status'].iloc[0]})", 'value': p} for p in all_p]
@@ -244,7 +289,6 @@ def master_sync(search, kick_n, reload_clicks, save_clicks, entry_id, refresh_va
     val_count = len(tracks[tracks['status'] == 'Valid']['particle'].unique())
     load_stat = f"✅ Geladen ({val_count} Valid | {len(all_p)-val_count} Ignoriert)."
 
-    # 6. TRIGGER FEUERN (Damit sich die Graphen nach dem Update zeichnen!)
     return entry_id, load_stat, options, all_p[0] if all_p else None, options, mf, marks, (refresh_val or 0) + 1, msg, db_r, db_exc, db_conn
 
 
@@ -279,7 +323,6 @@ def handle_ai_analysis(n_clicks, n_intervals, entry_id):
         return dash.no_update, dash.no_update, dash.no_update, html.Div("Warte auf Logdatei...")
 
 
-# 🚨 Die folgenden 3 Plot-Funktionen reagieren jetzt NUR NOCH auf den refresh-trigger (und Tabs)
 @app.callback(
     [Output('image-plot', 'figure'), Output('single-intensity-graph', 'figure'), Output('debug-info', 'children')],
     [Input('frame-slider', 'value'), Input('channel-selector', 'value'), Input('particle-dropdown', 'value'), Input('show-markers-toggle', 'value'), Input('show-cellpose-toggle', 'value'), Input('y-axis-selector', 'value'), Input('tabs', 'value'), Input('refresh-trigger', 'data')],
@@ -309,16 +352,16 @@ def update_view(frame, channel, pid, markers, show_cellpose, y_metric, tab, refr
             scol.append('#00FFFF' if str(pid)==p_id else ('#FFFF00' if stat == 'Valid' else '#808080'))
             shov.append(f"<b>ID {p_id}</b><br>Status: {stat}<br>X: {cx:.1f} | Y: {cy:.1f}<br>AI-Rad: {f_rad}")
 
-    # NACHHER:
     h, w = vid[frame].shape
     fig_img.update_layout(
         margin=dict(l=0, r=0, t=30, b=0), 
-        autosize=True, # Passt die Größe automatisch an den CSS-Container an
+        autosize=True, 
         title=f"Frame {frame}",
         xaxis=dict(range=[0, w], visible=False), 
-        yaxis=dict(autorange='reversed', scaleanchor="x", scaleratio=1, visible=False)
+        yaxis=dict(autorange='reversed', scaleanchor="x", scaleratio=1, visible=False),
+        shapes=shapes
     )
-    if sx: fig_img.add_trace(go.Scatter(x=sx, y=sy, mode='text', text=stxt, textposition='top right', textfont=dict(color=scol, size=12, family="Arial Black"), hoverinfo='text', hovertext=shov, showlegend=False))
+    if sx: fig_img.add_trace(go.Scatter(x=sx, y=sy, mode='text', text=stxt, textposition='top right', textfont=dict(color=scol, size=20, family="Arial Black"), hoverinfo='text', hovertext=shov, showlegend=False))
 
     fig_graph = go.Figure()
     if pid is not None:
