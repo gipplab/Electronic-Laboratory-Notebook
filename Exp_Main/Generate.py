@@ -66,6 +66,18 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
         file : string
             Name of the file with time in the front with the format %H%M%S
         """
+        if str(Exp.Abbrev) == 'YFL':
+            # Leica LIF filenames are not required to start with HHMMSS.
+            # The date comes from the dated folder and the file mtime supplies
+            # a time-of-day for ordering multiple acquisitions on that date.
+            model = apps.get_model(self.Exp_Category, str(Exp.Abbrev))
+            path_to_file = self.get_FullPath(file)
+            if model.objects.filter(Link=path_to_file).exists():
+                return
+            if self.is_ValidFile(file, Exp, Group):
+                self.Add_EntryToDB(date, file, Exp, sample, Group)
+            return
+
         if is_AppendableTime(sample):
             if (str(Exp.Abbrev) == 'RLD') | (str(Exp.Abbrev) == 'CON') | (str(Exp.Abbrev) == 'SLD') | (str(Exp.Abbrev) == 'LPT') | (str(Exp.Abbrev) == 'GRV'):
                 model = apps.get_model(self.Exp_Category, str(Exp.Abbrev))
@@ -146,7 +158,9 @@ class CreateAndUpdate(CreateAndUpdate_Misc):
             return new_file
 
     def is_ValidFile(self, file, Exp, Group=None):
-        if str(Exp.Abbrev) == 'SFG':
+        if str(Exp.Abbrev) == 'YFL':
+            return file.lower().endswith('.lif') and not file.startswith('.')
+        elif str(Exp.Abbrev) == 'SFG':
             if file[-11:] == '_3500.0.txt':
                 return super(CreateAndUpdate, self).is_ValidFile(file, Exp)
             elif file[-9:] == '_data.txt':

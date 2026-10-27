@@ -1,0 +1,22 @@
+{% extends "Modal/read_entry.html" %}
+{% block Modal_detailed_content %}
+  <tr>
+    <th>Leica LIF:</th>
+    <td>{{ ExpBase.Link|default:"not linked" }}</td>
+  </tr>
+  <tr>
+    <th>FLIM analysis:</th>
+    <td><a href="/Analysis/Yeast_FLIM/{{ ExpBase.id }}/" class="btn btn-primary btn-sm">Open yeast FLIM Cellpose analysis</a>
+      <a href="/Analysis/Yeast_FLIM/{{ ExpBase.id }}/results/" class="btn btn-outline-primary btn-sm">Results</a></td>
+  </tr>
+  <tr>
+    <th>Status:</th>
+    <td>{{ ExpBase.get_Analysis_Status_display }}</td>
+  </tr>
+  {% if ExpBase.Analysis_Result %}
+  <tr>
+    <th>Result CSV:</th>
+    <td>{{ ExpBase.Analysis_Result }}</td>
+  </tr>
+  {% endif %}
+{% endblock Modal_detailed_content %}

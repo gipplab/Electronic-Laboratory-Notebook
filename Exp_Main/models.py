@@ -314,6 +314,43 @@ class GRV(ExpBase):
     def __str__(self):
         return str(self.Name)
 
+
+class YFL(ExpBase):
+    """Yeast FLIM experiment with separate raw acquisition and analysis inputs."""
+
+    class AnalysisStatus(models.TextChoices):
+        NOT_STARTED = "not_started", "Not started"
+        QUEUED = "queued", "Queued"
+        RUNNING = "running", "Running"
+        COMPLETED = "completed", "Completed"
+        FAILED = "failed", "Failed"
+
+    # The original Leica acquisition is retained as the experiment's primary file.
+    Link = models.TextField(blank=True, null=True)
+    LIF_Signal_Index = models.PositiveIntegerField(blank=True, null=True)
+    Segmentation_Image = models.TextField(blank=True, null=True)
+    Signal_Image = models.TextField(blank=True, null=True)
+    Cellpose_Model = models.CharField(max_length=255, default="cpsam_v2")
+    Cellpose_Diameter = models.FloatField(blank=True, null=True)
+    Segmentation_Channel = models.PositiveIntegerField(default=0)
+    Segmentation_Time = models.PositiveIntegerField(default=0)
+    Segmentation_Z = models.PositiveIntegerField(default=0)
+    Signal_Channel = models.PositiveIntegerField(default=0)
+    Signal_Z = models.PositiveIntegerField(default=0)
+    Min_Cell_Area = models.PositiveIntegerField(default=1)
+    Max_Cell_Area = models.PositiveIntegerField(blank=True, null=True)
+    Background_Ring = models.PositiveIntegerField(default=3)
+    Analysis_Status = models.CharField(
+        max_length=20,
+        choices=AnalysisStatus.choices,
+        default=AnalysisStatus.NOT_STARTED,
+    )
+    Analysis_Result = models.TextField(blank=True, null=True)
+    Analysis_Error = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return str(self.Name)
+
 class LPT(ExpBase):
     """OCA Model to store all experiments done with the OCA
 

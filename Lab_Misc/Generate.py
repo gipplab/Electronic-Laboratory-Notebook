@@ -165,7 +165,12 @@ class CreateAndUpdate():
         datetime
             datetime of file
         """        
-        date_of_file = datetime.datetime.strptime(date[0:-1] + '_' + file[0:6], '%Y%m%d_%H%M%S')
+        if file.lower().endswith('.lif'):
+            date_part = datetime.datetime.strptime(date.strip('/\\'), '%Y%m%d').date()
+            time_part = datetime.datetime.fromtimestamp(os.path.getmtime(file)).time()
+            date_of_file = datetime.datetime.combine(date_part, time_part)
+        else:
+            date_of_file = datetime.datetime.strptime(date[0:-1] + '_' + file[0:6], '%Y%m%d_%H%M%S')
         date_of_file = date_of_file.astimezone(timezone.get_current_timezone())
         return date_of_file
 
@@ -324,7 +329,7 @@ class CreateAndUpdate():
         Add_EntryToDB adds an entry to the database
         """
         entries_added = False
-        date_time = datetime.datetime.strptime(date[0:-1] + '_' + file[0:6], '%Y%m%d_%H%M%S')
+        date_time = self.get_DateOfFile(date, file)
         path_to_file = self.get_FullPath(file)
         model = apps.get_model(self.Exp_Category, str(Exp.Abbrev))
         

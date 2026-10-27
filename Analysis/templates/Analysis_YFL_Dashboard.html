@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% load plotly_dash %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="mb-3 d-flex justify-content-between align-items-center">
+        <h3>Yeast FLIM – Ergebnisse: {{ entry.Name }}</h3>
+        <a class="btn btn-outline-secondary btn-sm" href="/Analysis/Yeast_FLIM/{{ entry.pk }}/">Analyse-Einstellungen</a>
+    </div>
+    {% include "_yfl_status.html" %}
+    {% if results_state == "none" %}
+    <div class="alert alert-warning">Für dieses Experiment liegen noch keine Analyseergebnisse vor.</div>
+    {% endif %}
+    <div class="row">
+        <div class="col-md-12">
+            {% plotly_app name="YFL_Dashboard" ratio=1 initial_arguments=dash_context %}
+        </div>
+    </div>
+</div>
+{% endblock %}

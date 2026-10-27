@@ -33,6 +33,10 @@ urlpatterns = [
     path('MFP_Dashboard/<int:pk>', views.MFP_Dashboard_View, name='MFP_Dashboard_View'),
     # Pfad für den unsichtbaren KI-API Aufruf: 
     path('api/run_cellpose/', views.api_run_cellpose, name='api_run_cellpose'),
+    path('Yeast_FLIM/<int:pk>/', views.YFL_Analysis_View, name='YFL_Analysis_View'),
+    path('Yeast_FLIM/<int:pk>/status/', views.YFL_Status_View, name='YFL_Status_View'),
+    path('Yeast_FLIM/<int:pk>/results/', views.YFL_Dashboard_View, name='YFL_Dashboard_View'),
+    path('Yeast_FLIM/<int:pk>/download/<str:filename>/', views.YFL_Download_View, name='YFL_Download_View'),
     # Pfad für den Cluster Live Monitor Log:
     path('api/cluster-log/<int:entry_id>/', views.cluster_live_log, name='cluster_live_log'),
 ]

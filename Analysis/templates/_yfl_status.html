@@ -1,0 +1,88 @@
+{{ live|json_script:"yfl-live-initial" }}
+<div id="yfl-live" class="card mb-3" data-status-url="/Analysis/Yeast_FLIM/{{ entry.pk }}/status/">
+  <div class="card-body py-2">
+    <div class="d-flex align-items-center flex-wrap" style="gap:10px">
+      <strong>Analyse-Status:</strong>
+      <span id="yfl-live-badge" class="badge badge-secondary bg-secondary"></span>
+      <span id="yfl-live-step"></span>
+      <span id="yfl-live-count" class="font-weight-bold fw-bold"></span>
+      <span id="yfl-live-meta" class="text-muted small ml-auto ms-auto"></span>
+    </div>
+    <div id="yfl-live-bar-wrap" class="progress mt-2" style="height:14px;display:none">
+      <div id="yfl-live-bar" class="progress-bar" role="progressbar" style="width:0%"></div>
+    </div>
+    <ol id="yfl-live-steps" class="small text-muted mt-2 mb-0 pl-3 ps-3" style="display:none"></ol>
+    <div id="yfl-live-message" class="mt-2 small"></div>
+  </div>
+</div>
+<script>
+(function () {
+  var root = document.getElementById('yfl-live');
+  var url = root.dataset.statusUrl;
+  var current = JSON.parse(document.getElementById('yfl-live-initial').textContent);
+  var wasActive = current.active;
+  var COLORS = {secondary: '#6c757d', info: '#0dcaf0', primary: '#0d6efd', success: '#198754', danger: '#dc3545', warning: '#ffc107'};
+  function el(id) { return document.getElementById(id); }
+  function fmt(s) {
+    s = Math.round(s);
+    return s >= 60 ? Math.floor(s / 60) + ' min ' + (s % 60) + ' s' : s + ' s';
+  }
+  function render(st, offline) {
+    var badge = el('yfl-live-badge');
+    badge.textContent = st.label;
+    badge.style.background = COLORS[st.level] || COLORS.secondary;
+    badge.style.color = st.level === 'warning' || st.level === 'info' ? '#000' : '#fff';
+    el('yfl-live-step').textContent = st.active && st.step_label ? 'Schritt: ' + st.step_label : '';
+    // n of N is shown only when the task itself reported processed time points.
+    el('yfl-live-count').textContent = st.total ? st.done + ' von ' + st.total + ' Zeitpunkten verarbeitet' : '';
+    var meta = [];
+    if (st.active && st.elapsed_s !== null) meta.push((st.state === 'queued' ? 'wartet seit ' : 'Laufzeit ') + fmt(st.elapsed_s));
+    if (st.active && st.heartbeat_age_s !== null) meta.push('letztes Lebenszeichen vor ' + fmt(st.heartbeat_age_s));
+    el('yfl-live-meta').textContent = meta.join(' · ');
+    var wrap = el('yfl-live-bar-wrap'), bar = el('yfl-live-bar');
+    if (st.active) {
+      wrap.style.display = '';
+      if (st.fraction !== null) {
+        bar.className = 'progress-bar';
+        bar.style.width = (st.fraction * 100) + '%';
+        bar.textContent = st.done + ' / ' + st.total;
+      } else {
+        // No reliable partial progress: animated bar without a percentage.
+        bar.className = 'progress-bar progress-bar-striped progress-bar-animated';
+        bar.style.width = '100%';
+        bar.textContent = '';
+      }
+    } else { wrap.style.display = 'none'; }
+    var steps = el('yfl-live-steps');
+    if (st.active && st.state === 'running' && st.phase) {
+      steps.style.display = '';
+      steps.innerHTML = '';
+      var reached = false;
+      st.steps.forEach(function (s) {
+        var li = document.createElement('li');
+        var cur = s.key === st.phase;
+        if (cur) reached = true;
+        li.textContent = s.label + (cur ? ' ← aktuell' : (reached ? '' : ' ✓'));
+        if (cur) li.style.fontWeight = 'bold';
+        steps.appendChild(li);
+      });
+    } else { steps.style.display = 'none'; }
+    var msg = el('yfl-live-message');
+    msg.textContent = offline ? 'Verbindung zum Server unterbrochen – Status wird weiter automatisch abgefragt.' : (st.message || '');
+    msg.className = 'mt-2 small ' + (offline ? 'text-warning' : (st.level === 'danger' ? 'text-danger' : ''));
+  }
+  render(current, false);
+  function poll() {
+    fetch(url, {cache: 'no-store', credentials: 'same-origin'})
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (st) {
+        if (wasActive && !st.active) { window.location.reload(); return; }
+        if (!wasActive && st.active) { window.location.reload(); return; }
+        current = st; render(st, false);
+      })
+      .catch(function () { render(current, true); })
+      .then(function () { setTimeout(poll, current.active ? 2000 : 10000); });
+  }
+  setTimeout(poll, current.active ? 2000 : 10000);
+})();
+</script>

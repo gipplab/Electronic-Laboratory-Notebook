@@ -9,5 +9,7 @@ dash
 torch
 scikit-image
 cellpose
+tifffile
+readlif
 django-q2 
 psutil

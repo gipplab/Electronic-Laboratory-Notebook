@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+  <h2>Yeast FLIM analysis — {{ entry.Name }}</h2>
+  <p>Original Leica acquisition: {{ entry.Link|default:"not linked" }}</p>
+  {% include "_yfl_status.html" %}
+  <p><a class="btn btn-primary btn-sm" href="/Analysis/Yeast_FLIM/{{ entry.pk }}/results/">Ergebnisse ansehen (Bild, Zeitverläufe, Downloads)</a></p>
+  {% if q_timeout %}<p class="text-muted small">Hinweis: Der Django-Q-Worker bricht Analysen nach {{ q_timeout }} s hart ab. Die Ergebnisse werden erst bei vollständigem Lauf als „complete“ markiert; bei Abbruch zeigt die Ergebnisseite „unvollständig“.</p>{% endif %}
+  {% if entry.Analysis_Result %}<p>Result CSV: {{ entry.Analysis_Result }}</p>{% endif %}
+  {% if message %}<div class="alert alert-warning">{{ message }}</div>{% endif %}
+
+  <p>Die verknüpfte Leica-LIF-Datei wird direkt gelesen. Verwendet wird ausschließlich die 32-bit-Float-Serie „FLIM Compressed/Intensity“ samt gleichnamiger Referenzserie. Fast-FLIM-, Lifetime- und Phasor-Karten werden nicht als Roh-Intensity ausgewertet.</p>
+  {% if lif_error %}<div class="alert alert-warning">{{ lif_error }}</div>{% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="mb-3">
+      <label class="form-label" for="LIF_Signal_Index">FLIM-Zeitserie in der LIF-Datei</label>
+      <select class="form-select" id="LIF_Signal_Index" name="LIF_Signal_Index" required {% if not lif_candidates %}disabled{% endif %}>
+        {% if lif_candidates|length > 1 %}
+          <option value="" {% if series_selection_required %}selected{% endif %} disabled>Bitte die gewünschte Serie anhand des Namens auswählen</option>
+        {% endif %}
+        {% for series in lif_candidates %}
+          <option value="{{ series.signal_index }}" {% if series.signal_index == selected_lif_index %}selected{% endif %}>
+            {{ series.label }} (32-bit float)
+          </option>
+        {% endfor %}
+      </select>
+      {% if lif_candidates|length > 1 %}
+        <small class="form-text">Es gibt mehrere passende Serien. Beim ersten Öffnen wird keine automatisch ausgewählt; nach deiner expliziten Auswahl bleibt die letzte Serie angezeigt.</small>
+      {% endif %}
+    </div>
+    <div class="row">
+      <div class="col-md-4 mb-3">
+        <label class="form-label" for="Cellpose_Model">General Cellpose model</label>
+        <select class="form-select" id="Cellpose_Model" name="Cellpose_Model">
+          <option value="cpsam_v2" {% if entry.Cellpose_Model == "cpsam_v2" or not entry.Cellpose_Model %}selected{% endif %}>cpsam_v2 (recommended)</option>
+          <option value="cpsam" {% if entry.Cellpose_Model == "cpsam" %}selected{% endif %}>cpsam</option>
+          <option value="cpdino" {% if entry.Cellpose_Model == "cpdino" %}selected{% endif %}>cpdino</option>
+        </select>
+      </div>
+      <div class="col-md-4 mb-3"><label class="form-label" for="Cellpose_Diameter">Diameter in pixels (optional)</label><input class="form-control" type="number" step="any" min="1" id="Cellpose_Diameter" name="Cellpose_Diameter" value="{{ entry.Cellpose_Diameter|default_if_none:'' }}"><small class="form-text">Set from apparent yeast-cell width in the reference image, if needed.</small></div>
+      <div class="col-md-4 mb-3"><label class="form-label" for="Segmentation_Time">Referenzbild-Zeitpunkt</label><input class="form-control" type="number" min="0" id="Segmentation_Time" name="Segmentation_Time" value="{{ reference_time_value|default_if_none:'' }}" required><small class="form-text">Index der passenden Referenzserie (0 bis Anzahl Referenzzeitpunkte − 1); Cellpose segmentiert genau diesen Zeitpunkt. Bei mehreren Referenzzeitpunkten muss der Index explizit gewählt werden.</small></div>
+    </div>
+    <div class="row">
+      <div class="col-md-3 mb-3"><label class="form-label" for="Min_Cell_Area">Mindestfläche pro Zelle (px)</label><input class="form-control" type="number" min="1" id="Min_Cell_Area" name="Min_Cell_Area" value="{{ entry.Min_Cell_Area }}"></div>
+    </div>
+    <div class="row">
+      <div class="col-md-6 mb-3"><label class="form-label" for="Max_Cell_Area">Maximalfläche pro Zelle (px, optional)</label><input class="form-control" type="number" min="1" id="Max_Cell_Area" name="Max_Cell_Area" value="{{ entry.Max_Cell_Area|default_if_none:'' }}"></div>
+      <div class="col-md-4 mb-3"><label class="form-label" for="Background_Ring">Background ring width (px)</label><input class="form-control" type="number" min="1" id="Background_Ring" name="Background_Ring" value="{{ entry.Background_Ring }}"></div>
+    </div>
+    <button class="btn btn-primary" type="submit" {% if not lif_candidates %}disabled{% endif %}>LIF importieren und Hefezellen auswerten</button>
+  </form>
+</div>
+{% endblock content %}
